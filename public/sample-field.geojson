@@ -1,0 +1,25 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Sample Field",
+        "crop": "Maize",
+        "description": "Sample field boundary for testing"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [30.06, -1.94],
+            [30.07, -1.94],
+            [30.07, -1.95],
+            [30.06, -1.95],
+            [30.06, -1.94]
+          ]
+        ]
+      }
+    }
+  ]
+}
