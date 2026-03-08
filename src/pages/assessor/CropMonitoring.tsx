@@ -33,6 +33,12 @@ const CropMonitoring = () => {
   const navigate = useNavigate();
   const { farmerId, fieldId } = useParams();
 
+  // Format field ID as FLD-{three capitalized characters}
+  const formatFieldId = (id: string) => {
+    if (!id || id.length < 3) return id;
+    return `FLD-${id.substring(0, 3).toUpperCase()}`;
+  };
+
   const farmers: Farmer[] = [
     {
       id: "F-001",
@@ -251,7 +257,7 @@ const CropMonitoring = () => {
 
       <div>
         <h1 className="text-3xl font-bold mb-2">
-          FIELD DETAIL VIEW: {field.id}
+          FIELD DETAIL VIEW: {formatFieldId(field.id)}
         </h1>
         <p className="text-muted-foreground">
           {field.farmerName} - {field.crop}

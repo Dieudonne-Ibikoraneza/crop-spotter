@@ -47,9 +47,15 @@ interface Field {
 }
 
 const RiskAssessment = () => {
-  const navigate = useNavigate();
   const { farmerId, fieldId } = useParams();
+  const navigate = useNavigate();
   const [selectedFarmer, setSelectedFarmer] = useState<Farmer | null>(null);
+
+  // Format field ID as FLD-{three capitalized characters}
+  const formatFieldId = (id: string) => {
+    if (!id || id.length < 3) return id;
+    return `FLD-${id.substring(0, 3).toUpperCase()}`;
+  };
 
   // Fetch assigned farmers with their farms
   const {
@@ -105,16 +111,16 @@ const RiskAssessment = () => {
 
   // Helper function to format sowing date
   const formatSowingDate = (sowingDate?: string): string => {
-    if (!sowingDate) return 'N/A';
+    if (!sowingDate) return "N/A";
     try {
       const date = new Date(sowingDate);
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
       });
     } catch {
-      return 'N/A';
+      return "N/A";
     }
   };
 
@@ -127,7 +133,7 @@ const RiskAssessment = () => {
       const lng = farm.location.coordinates[0];
       return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
     }
-    return 'Location not available';
+    return "Location not available";
   };
 
   // Helper function to get location coordinates
@@ -140,18 +146,20 @@ const RiskAssessment = () => {
 
   // Helper function to calculate season from sowing date
   const getSeasonFromSowingDate = (sowingDate?: string): string => {
-    if (!sowingDate) return 'Season A';
+    if (!sowingDate) return "Season A";
     const date = new Date(sowingDate);
     const month = date.getMonth(); // 0-11
     // Rwanda has two seasons:
     // Season A: September-January (main season)
     // Season B: February-June (secondary season)
-    if (month >= 8 || month <= 0) { // September to January
-      return 'Season A';
-    } else if (month >= 1 && month <= 5) { // February to June
-      return 'Season B';
+    if (month >= 8 || month <= 0) {
+      // September to January
+      return "Season A";
+    } else if (month >= 1 && month <= 5) {
+      // February to June
+      return "Season B";
     }
-    return 'Season A';
+    return "Season A";
   };
 
   const allFields: Field[] =
@@ -354,8 +362,12 @@ const RiskAssessment = () => {
       </Button>
 
       <div>
-        <h1 className="text-3xl font-bold mb-2">FIELD DETAIL VIEW: {field.id}</h1>
-        <p className="text-muted-foreground">{field.farmerName} - {field.crop}</p>
+        <h1 className="text-3xl font-bold mb-2">
+          FIELD DETAIL VIEW: {formatFieldId(field.id)}
+        </h1>
+        <p className="text-muted-foreground">
+          {field.farmerName} - {field.crop}
+        </p>
       </div>
 
       <Tabs defaultValue="basic" className="w-full">
