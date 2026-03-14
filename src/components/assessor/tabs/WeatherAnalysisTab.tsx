@@ -17,6 +17,8 @@ import {
   Cloud,
   RefreshCw,
   Loader2,
+  Save,
+  FileText,
 } from "lucide-react";
 import {
   BarChart,
@@ -36,6 +38,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { authStorage } from "@/lib/api/client";
+import { useComprehensiveNotes } from "@/hooks/useComprehensiveNotes";
 
 interface WeatherData {
   date: string;
@@ -253,6 +256,8 @@ interface WeatherAnalysisTabProps {
   farmerName: string;
   cropType: string;
   location: string;
+  assessmentId?: string;
+  initialNotes?: string;
 }
 
 export const WeatherAnalysisTab = ({
@@ -260,6 +265,8 @@ export const WeatherAnalysisTab = ({
   farmerName,
   cropType,
   location,
+  assessmentId,
+  initialNotes,
 }: WeatherAnalysisTabProps) => {
   const [loading, setLoading] = useState(false);
   const [forecastData, setForecastData] = useState<ForecastResponse | null>(
@@ -271,6 +278,21 @@ export const WeatherAnalysisTab = ({
     useState<AccumulatedResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [farmData, setFarmData] = useState<any>(null);
+
+  // Shared notes functionality
+  const {
+    comprehensiveNotes,
+    setComprehensiveNotes,
+    saveNotes,
+    generateReport,
+    isSaving,
+    lastSaved,
+    hasChanges,
+    canGenerateReport,
+  } = useComprehensiveNotes({
+    assessmentId,
+    initialNotes,
+  });
 
   // Calculate risk levels based on real weather data
   const calculateDroughtRisk = (totalRainfall: number, days: number) => {
@@ -1075,31 +1097,58 @@ export const WeatherAnalysisTab = ({
         </CardContent>
       </Card>
 
-      {/* Assessor Notes */}
+      {/* Comprehensive Assessment Notes */}
       <Card>
         <CardHeader>
-          <CardTitle>Assessor Notes</CardTitle>
+          <CardTitle className="flex items-center justify-between">
+            Comprehensive Assessment Notes
+            {lastSaved && (
+              <span className="text-sm font-normal text-muted-foreground">
+                Last saved: {lastSaved.toLocaleTimeString()}
+              </span>
+            )}
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <Textarea
-            placeholder="Add your weather analysis notes here..."
-            className="min-h-[100px]"
-            defaultValue={
-              historicalData?.success
-                ? `Weather analysis completed. ${historicalData.data.count} days of data analyzed. ${
-                    accumulatedData?.success
-                      ? `Total rainfall: ${accumulatedData.data.total_rainfall}mm, avg temp: ${accumulatedData.data.avg_temperature}°C`
-                      : "Accumulated data loading..."
-                  }`
-                : "Loading weather data..."
-            }
+            value={comprehensiveNotes}
+            onChange={(e) => setComprehensiveNotes(e.target.value)}
+            placeholder="Write comprehensive feedback about the field assessment including weather analysis..."
+            className="min-h-[150px]"
           />
-          <div className="flex gap-2">
-            <Button onClick={fetchWeatherData}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh Data
-            </Button>
-            <Button variant="outline">Save Assessment</Button>
+          <div className="flex items-center justify-between">
+            <div className="flex gap-2">
+              <Button
+                onClick={saveNotes}
+                disabled={isSaving || !hasChanges}
+                className="flex items-center gap-2"
+              >
+                {isSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                {isSaving ? "Saving..." : "Save Notes"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={generateReport}
+                disabled={!canGenerateReport || isSaving}
+                className="flex items-center gap-2"
+              >
+                <FileText className="h-4 w-4" />
+                Generate Report
+              </Button>
+              <Button onClick={fetchWeatherData} variant="outline">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh Weather
+              </Button>
+            </div>
+            {hasChanges && (
+              <span className="text-sm text-muted-foreground">
+                Unsaved changes
+              </span>
+            )}
           </div>
         </CardContent>
       </Card>

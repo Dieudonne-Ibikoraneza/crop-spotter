@@ -400,6 +400,8 @@ const RiskAssessment = () => {
             farmerName={field.farmerName}
             cropType={field.crop}
             location={field.location}
+            assessmentId={assessmentData?._id || assessmentData?.id}
+            initialNotes={assessmentData?.comprehensiveNotes || ""}
           />
         </TabsContent>
 
@@ -410,6 +412,7 @@ const RiskAssessment = () => {
             cropType={field.crop}
             area={field.area}
             assessmentId={assessmentData?._id || assessmentData?.id}
+            initialNotes={assessmentData?.comprehensiveNotes || ""}
           />
         </TabsContent>
 
@@ -420,6 +423,8 @@ const RiskAssessment = () => {
             cropHealth="82.4% (from drone)"
             recommendation="Continue monitoring"
             analysisType="drone"
+            assessmentId={assessmentData?._id || assessmentData?.id}
+            initialNotes={assessmentData?.comprehensiveNotes || ""}
           />
         </TabsContent>
       </Tabs>

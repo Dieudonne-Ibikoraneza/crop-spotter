@@ -5,6 +5,7 @@ import { FarmerWithFarms, Farm } from "../types";
 const ASSESSOR_ENDPOINTS = {
   assignedFarmers: "/assessments/farmers/list",
   getAssessment: (id: string) => `/assessments/${id}`,
+  updateAssessment: (id: string) => `/assessments/${id}`,
   uploadDronePdf: (id: string) => `/assessments/${id}/upload-drone-pdf`,
   getPdfs: (id: string) => `/assessments/${id}/pdfs`,
   generateReport: (id: string) => `/assessments/${id}/generate-report`,
@@ -33,6 +34,7 @@ export interface Assessment {
   photoUrls?: string[];
   reportGenerated?: boolean;
   assignedAt?: string;
+  comprehensiveNotes?: string;
   droneAnalysisPdfs?: Array<{
     _id: string;
     pdfType: PdfType;
@@ -104,6 +106,19 @@ export const assessorService = {
    */
   getAssessment: async (id: string): Promise<Assessment> => {
     return apiClient.get<Assessment>(ASSESSOR_ENDPOINTS.getAssessment(id));
+  },
+
+  /**
+   * Update assessment (for comprehensive notes)
+   */
+  updateAssessment: async (
+    id: string,
+    data: { comprehensiveNotes?: string },
+  ): Promise<Assessment> => {
+    return apiClient.put<Assessment>(
+      ASSESSOR_ENDPOINTS.updateAssessment(id),
+      data,
+    );
   },
 
   /**

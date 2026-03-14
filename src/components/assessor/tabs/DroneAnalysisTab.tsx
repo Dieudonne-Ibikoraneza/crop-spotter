@@ -18,6 +18,7 @@ import {
   Map,
   Check,
   X,
+  Save,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -27,6 +28,7 @@ import {
   Assessment,
 } from "@/lib/api/services/assessor";
 import { Farm } from "@/lib/api/types";
+import { useComprehensiveNotes } from "@/hooks/useComprehensiveNotes";
 
 // Import pdfjs for PDF parsing
 import * as pdfjsLib from "pdfjs-dist";
@@ -44,6 +46,7 @@ interface DroneAnalysisTabProps {
   cropType: string;
   area: number;
   assessmentId?: string;
+  initialNotes?: string;
 }
 
 interface StressLevel {
@@ -73,6 +76,7 @@ export const DroneAnalysisTab = ({
   cropType,
   area,
   assessmentId,
+  initialNotes,
 }: DroneAnalysisTabProps) => {
   const [dataSource, setDataSource] = useState<"drone" | "manual">("drone");
   const [selectedPdfType, setSelectedPdfType] =
@@ -82,6 +86,21 @@ export const DroneAnalysisTab = ({
   const [manualMoisture, setManualMoisture] = useState([58]);
   const [manualWeed, setManualWeed] = useState([7.3]);
   const [manualPest, setManualPest] = useState([4.4]);
+
+  // Shared notes functionality
+  const {
+    comprehensiveNotes,
+    setComprehensiveNotes,
+    saveNotes,
+    generateReport,
+    isSaving,
+    lastSaved,
+    hasChanges,
+    canGenerateReport,
+  } = useComprehensiveNotes({
+    assessmentId,
+    initialNotes,
+  });
 
   // State to store data for each PDF type separately
   const [plantHealthData, setPlantHealthData] =
@@ -1050,43 +1069,78 @@ export const DroneAnalysisTab = ({
         </>
       )}
 
-      {/* Assessor Notes (Common to both paths) */}
+      {/* Comprehensive Assessment Notes */}
       <Card>
         <CardHeader>
-          <CardTitle>Assessor Notes</CardTitle>
+          <CardTitle className="flex items-center justify-between">
+            Comprehensive Assessment Notes
+            {lastSaved && (
+              <span className="text-sm font-normal text-muted-foreground">
+                Last saved: {lastSaved.toLocaleTimeString()}
+              </span>
+            )}
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <Textarea
-            placeholder="Add your analysis notes here..."
-            className="min-h-[100px]"
-            defaultValue="Weed clusters in north. Pest minimal."
+            value={comprehensiveNotes}
+            onChange={(e) => setComprehensiveNotes(e.target.value)}
+            placeholder="Write comprehensive feedback about the field assessment including drone analysis..."
+            className="min-h-[150px]"
           />
-          <div className="flex gap-2">
-            <Button>Save Analysis</Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                if (displayData) {
-                  const blob = new Blob(
-                    [JSON.stringify(displayData, null, 2)],
-                    {
-                      type: "application/json",
-                    },
-                  );
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = `field-${fieldId}-analysis.json`;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                  toast.success("JSON downloaded");
-                } else {
-                  toast.info("No parsed data to download");
-                }
-              }}
-            >
-              Download Summary JSON
-            </Button>
+          <div className="flex items-center justify-between">
+            <div className="flex gap-2">
+              <Button
+                onClick={saveNotes}
+                disabled={isSaving || !hasChanges}
+                className="flex items-center gap-2"
+              >
+                {isSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                {isSaving ? "Saving..." : "Save Notes"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={generateReport}
+                disabled={!canGenerateReport || isSaving}
+                className="flex items-center gap-2"
+              >
+                <FileText className="h-4 w-4" />
+                Generate Report
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (displayData) {
+                    const blob = new Blob(
+                      [JSON.stringify(displayData, null, 2)],
+                      {
+                        type: "application/json",
+                      },
+                    );
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `field-${fieldId}-analysis.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    toast.success("JSON downloaded");
+                  } else {
+                    toast.info("No parsed data to download");
+                  }
+                }}
+              >
+                Download Summary JSON
+              </Button>
+            </div>
+            {hasChanges && (
+              <span className="text-sm text-muted-foreground">
+                Unsaved changes
+              </span>
+            )}
           </div>
         </CardContent>
       </Card>
