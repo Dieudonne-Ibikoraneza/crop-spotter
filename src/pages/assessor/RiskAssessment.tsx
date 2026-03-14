@@ -87,6 +87,10 @@ const RiskAssessment = () => {
             a.farmId,
             "match:",
             farmIdMatch,
+            "droneAnalysisPdfs:",
+            a.droneAnalysisPdfs,
+            "weatherData:",
+            a.weatherData,
           );
           return farmIdMatch;
         });
@@ -418,13 +422,18 @@ const RiskAssessment = () => {
 
         <TabsContent value="overview" className="mt-6">
           <OverviewTab
-            fieldStatus="Healthy"
-            weatherRisk="Low (1.5/5)"
-            cropHealth="82.4% (from drone)"
-            recommendation="Continue monitoring"
             analysisType="drone"
             assessmentId={assessmentData?._id || assessmentData?.id}
             initialNotes={assessmentData?.comprehensiveNotes || ""}
+            dronePdfs={assessmentData?.droneAnalysisPdfs || []}
+            weatherData={assessmentData?.weatherData || {}}
+            farmDetails={{
+              name: field.name,
+              cropType: field.crop,
+              area: field.area,
+              location: field.location,
+              farmerName: field.farmerName,
+            }}
           />
         </TabsContent>
       </Tabs>
