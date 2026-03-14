@@ -28,24 +28,24 @@ export interface ReportData {
 type RGB = [number, number, number];
 
 const C: Record<string, RGB> = {
-  forest:      [13,  74,  42],
-  leaf:        [22, 101,  52],
-  sage:        [45, 134,  83],
-  mint:        [232, 245, 238],
-  cream:       [250, 250, 247],
-  white:       [255, 255, 255],
-  charcoal:    [28,  28,  30],
-  slate:       [74,  85, 104],
-  mist:        [226, 232, 240],
-  amber:       [217, 119,   6],
-  amberLite:   [254, 243, 199],
-  sky:         [37,  99, 235],
-  rose:        [220,  38,  38],
-  roseLite:    [254, 226, 226],
-  emerald:     [5,  150, 105],
+  forest: [13, 74, 42],
+  leaf: [22, 101, 52],
+  sage: [45, 134, 83],
+  mint: [232, 245, 238],
+  cream: [250, 250, 247],
+  white: [255, 255, 255],
+  charcoal: [28, 28, 30],
+  slate: [74, 85, 104],
+  mist: [226, 232, 240],
+  amber: [217, 119, 6],
+  amberLite: [254, 243, 199],
+  sky: [37, 99, 235],
+  rose: [220, 38, 38],
+  roseLite: [254, 226, 226],
+  emerald: [5, 150, 105],
   emeraldLite: [209, 250, 229],
   accentGreen: [74, 222, 128],
-  softGreen:   [167, 243, 208],
+  softGreen: [167, 243, 208],
 };
 
 // ─── Low-level colour helpers ────────────────────────────────────────────────
@@ -67,14 +67,20 @@ function setTxt(doc: jsPDF, rgb: RGB) {
 /** Draw a rounded rectangle with optional fill and/or stroke. */
 function rRect(
   doc: jsPDF,
-  x: number, y: number, w: number, h: number,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
   r: number,
   fillRgb?: RGB,
   strokeRgb?: RGB,
   lw = 0.4,
 ) {
-  if (fillRgb)   setFill(doc, fillRgb);
-  if (strokeRgb) { setDraw(doc, strokeRgb); doc.setLineWidth(lw); }
+  if (fillRgb) setFill(doc, fillRgb);
+  if (strokeRgb) {
+    setDraw(doc, strokeRgb);
+    doc.setLineWidth(lw);
+  }
   const style = fillRgb && strokeRgb ? "FD" : fillRgb ? "F" : "D";
   doc.roundedRect(x, y, w, h, r, r, style);
 }
@@ -83,7 +89,8 @@ function rRect(
 function pill(
   doc: jsPDF,
   label: string,
-  cx: number, cy: number,
+  cx: number,
+  cy: number,
   fillRgb: RGB,
   labelRgb: RGB,
   fontSize = 8,
@@ -110,8 +117,11 @@ function pill(
  */
 function strokeArc(
   doc: jsPDF,
-  cx: number, cy: number, r: number,
-  startDeg: number, endDeg: number,
+  cx: number,
+  cy: number,
+  r: number,
+  startDeg: number,
+  endDeg: number,
 ) {
   const MAX_STEP = 90; // split into ≤90° segments for bezier accuracy
   let cur = startDeg;
@@ -125,18 +135,24 @@ function strokeArc(
   doc.moveTo(start.x, start.y);
 
   while (cur < endDeg) {
-    const next  = Math.min(cur + MAX_STEP, endDeg);
-    const span  = next - cur;
+    const next = Math.min(cur + MAX_STEP, endDeg);
+    const span = next - cur;
     const alpha = (span * Math.PI) / 180 / 2;
-    const bk    = (4 / 3) * Math.tan(alpha);
+    const bk = (4 / 3) * Math.tan(alpha);
 
-    const a0 = (cur  * Math.PI) / 180;
+    const a0 = (cur * Math.PI) / 180;
     const a3 = (next * Math.PI) / 180;
     const p0 = pt(cur);
     const p3 = pt(next);
 
-    const p1 = { x: p0.x - bk * r * Math.sin(a0), y: p0.y - bk * r * Math.cos(a0) };
-    const p2 = { x: p3.x + bk * r * Math.sin(a3), y: p3.y + bk * r * Math.cos(a3) };
+    const p1 = {
+      x: p0.x - bk * r * Math.sin(a0),
+      y: p0.y - bk * r * Math.cos(a0),
+    };
+    const p2 = {
+      x: p3.x + bk * r * Math.sin(a3),
+      y: p3.y + bk * r * Math.cos(a3),
+    };
 
     doc.curveTo(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y);
     cur = next;
@@ -149,28 +165,38 @@ function strokeArc(
 
 function levelColors(level: string): { main: RGB; lite: RGB } {
   switch (level) {
-    case "LOW":      return { main: C.emerald,     lite: C.emeraldLite };
-    case "MODERATE": return { main: C.amber,       lite: C.amberLite };
-    case "HIGH":     return { main: [234, 88, 12], lite: [255, 237, 213] };
-    case "CRITICAL": return { main: C.rose,        lite: C.roseLite };
-    default:         return { main: C.slate,       lite: C.mist };
+    case "LOW":
+      return { main: C.emerald, lite: C.emeraldLite };
+    case "MODERATE":
+      return { main: C.amber, lite: C.amberLite };
+    case "HIGH":
+      return { main: [234, 88, 12], lite: [255, 237, 213] };
+    case "CRITICAL":
+      return { main: C.rose, lite: C.roseLite };
+    default:
+      return { main: C.slate, lite: C.mist };
   }
 }
 
 function statusColors(status: string): { main: RGB; lite: RGB } {
-  if (status === "Healthy")  return { main: C.emerald, lite: C.emeraldLite };
-  if (status === "At Risk")  return { main: C.amber,   lite: C.amberLite };
-  if (status === "Critical") return { main: C.rose,    lite: C.roseLite };
+  if (status === "Healthy") return { main: C.emerald, lite: C.emeraldLite };
+  if (status === "At Risk") return { main: C.amber, lite: C.amberLite };
+  if (status === "Critical") return { main: C.rose, lite: C.roseLite };
   return { main: C.slate, lite: C.mist };
 }
 
 function severityColor(severity: string): RGB {
   switch ((severity ?? "").toLowerCase()) {
-    case "healthy":  return C.emerald;
-    case "low":      return C.sky;
-    case "moderate": return C.amber;
-    case "high":     return C.rose;
-    default:         return C.slate;
+    case "healthy":
+      return C.emerald;
+    case "low":
+      return C.sky;
+    case "moderate":
+      return C.amber;
+    case "high":
+      return C.rose;
+    default:
+      return C.slate;
   }
 }
 
@@ -208,17 +234,17 @@ function formatLocation(loc: string): string {
 // ════════════════════════════════════════════════════════════════════════════
 export class ComprehensiveReportGenerator {
   private doc: jsPDF;
-  private W:  number;  // page width  (mm)
-  private H:  number;  // page height (mm)
-  private M:  number;  // margin      (mm)
-  private CW: number;  // content width
+  private W: number; // page width  (mm)
+  private H: number; // page height (mm)
+  private M: number; // margin      (mm)
+  private CW: number; // content width
 
   constructor() {
     this.doc = new jsPDF("p", "mm", "a4");
-    this.W   = this.doc.internal.pageSize.getWidth();
-    this.H   = this.doc.internal.pageSize.getHeight();
-    this.M   = 14;
-    this.CW  = this.W - 2 * this.M;
+    this.W = this.doc.internal.pageSize.getWidth();
+    this.H = this.doc.internal.pageSize.getHeight();
+    this.M = 14;
+    this.CW = this.W - 2 * this.M;
   }
 
   // ── Footer ────────────────────────────────────────────────────────────────
@@ -237,13 +263,22 @@ export class ComprehensiveReportGenerator {
 
     doc.setFont("helvetica", "normal");
     setTxt(doc, C.white);
-    doc.text("CROP RISK ASSESSMENT  \u00B7  Confidential", W / 2, fy + 4.5, { align: "center" });
+    doc.text("CROP RISK ASSESSMENT  \u00B7  Confidential", W / 2, fy + 4.5, {
+      align: "center",
+    });
 
     const dateStr = new Date().toLocaleDateString("en-US", {
-      year: "numeric", month: "long", day: "numeric",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
     setTxt(doc, C.softGreen);
-    doc.text(`${dateStr}  \u00B7  Page ${pageNum} of ${totalPages}`, W - M, fy + 4.5, { align: "right" });
+    doc.text(
+      `${dateStr}  \u00B7  Page ${pageNum} of ${totalPages}`,
+      W - M,
+      fy + 4.5,
+      { align: "right" },
+    );
   }
 
   // ── Page header (pages 2+) ────────────────────────────────────────────────
@@ -270,7 +305,7 @@ export class ComprehensiveReportGenerator {
   private drawHero(data: ReportData): number {
     const { doc, M, CW } = this;
     const heroY = 14;
-    const HH    = 48;
+    const HH = 48;
 
     // Base forest-green background
     rRect(doc, M, heroY, CW, HH, 5, C.forest);
@@ -322,7 +357,11 @@ export class ComprehensiveReportGenerator {
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     setTxt(doc, C.softGreen);
-    doc.text("STARHAWK\u2122  \u00B7  Drone-Powered Agricultural Intelligence", M + 7, heroY + 21);
+    doc.text(
+      "STARHAWK\u2122  \u00B7  Drone-Powered Agricultural Intelligence",
+      M + 7,
+      heroY + 21,
+    );
 
     setDraw(doc, C.accentGreen);
     doc.setLineWidth(0.6);
@@ -334,16 +373,23 @@ export class ComprehensiveReportGenerator {
     setTxt(doc, C.white);
     doc.text(
       `${data.farmDetails.name}  \u00B7  ${formatLocation(data.farmDetails.location)}`,
-      M + 7, heroY + 31,
+      M + 7,
+      heroY + 31,
     );
 
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     setTxt(doc, C.softGreen);
     const dateStr = data.reportGeneratedAt.toLocaleDateString("en-US", {
-      year: "numeric", month: "long", day: "numeric",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
-    doc.text(`Generated ${dateStr}  \u00B7  ID: ${data.assessmentId}`, M + 7, heroY + 40);
+    doc.text(
+      `Generated ${dateStr}  \u00B7  ID: ${data.assessmentId}`,
+      M + 7,
+      heroY + 40,
+    );
 
     return heroY + HH + 6;
   }
@@ -364,16 +410,16 @@ export class ComprehensiveReportGenerator {
   private drawInfoGrid(items: Array<[string, string]>, y: number): number {
     const { doc, M, CW } = this;
     const cols = 2;
-    const cw   = CW / cols;
-    const rh   = 10;
+    const cw = CW / cols;
+    const rh = 10;
     const rows = Math.ceil(items.length / cols);
 
     items.forEach(([key, val], i) => {
       const col = i % cols;
       const row = Math.floor(i / cols);
-      const x   = M + col * cw;
-      const ry  = y + row * rh;
-      const bg  = row % 2 === 0 ? C.mint : C.white;
+      const x = M + col * cw;
+      const ry = y + row * rh;
+      const bg = row % 2 === 0 ? C.mint : C.white;
 
       rRect(doc, x + 0.5, ry + 0.5, cw - 1, rh - 1, 2, bg, C.mist, 0.3);
 
@@ -407,7 +453,7 @@ export class ComprehensiveReportGenerator {
     // strokeArc draws CCW so we go from 180° down to 0°.
     doc.setLineWidth(6);
     setDraw(doc, C.mist);
-    strokeArc(doc, cx, cy, r, 0, 180);   // full grey track (left → right, top arc)
+    strokeArc(doc, cx, cy, r, 0, 180); // full grey track (left → right, top arc)
 
     // Coloured portion: map score 0–100 → 0–180°, drawn from left side inward
     const fillAngle = (risk.score / 100) * 180;
@@ -438,7 +484,10 @@ export class ComprehensiveReportGenerator {
   // ── Status badge ──────────────────────────────────────────────────────────
   private drawStatusBadge(
     status: string,
-    x: number, y: number, w: number, h: number,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
   ) {
     const { doc } = this;
     const { main, lite } = statusColors(status);
@@ -456,15 +505,18 @@ export class ComprehensiveReportGenerator {
 
   // ── Metric bar ────────────────────────────────────────────────────────────
   private drawMetricBar(
-    label: string, value: number,
-    x: number, y: number, totalW: number,
+    label: string,
+    value: number,
+    x: number,
+    y: number,
+    totalW: number,
   ): number {
     const { doc } = this;
     const BAR_X = x + 50;
     const BAR_W = totalW - 50 - 22;
     const BAR_H = 4;
     const BAR_Y = y + 2;
-    const col   = barColor(value);
+    const col = barColor(value);
 
     doc.setFontSize(8.5);
     doc.setFont("helvetica", "bold");
@@ -503,17 +555,28 @@ export class ComprehensiveReportGenerator {
       doc.setFontSize(7.5);
       doc.setFont("helvetica", "bold");
       setTxt(doc, C.white);
-      doc.text(String(i + 1).padStart(2, "0"), M + 5, ry + 7, { align: "center" });
+      doc.text(String(i + 1).padStart(2, "0"), M + 5, ry + 7, {
+        align: "center",
+      });
 
-      // Text (first line only, emoji-cleaned)
+      // Text - show full recommendation without truncation
       const lines = doc.splitTextToSize(cleanText(rec), CW - 14) as string[];
       doc.setFontSize(8.5);
       doc.setFont("helvetica", "normal");
       setTxt(doc, C.slate);
-      doc.text(lines[0], M + 11, ry + 7);
+
+      // Show all lines, not just the first one
+      lines.forEach((line, lineIndex) => {
+        if (lineIndex === 0) {
+          doc.text(line, M + 11, ry + 7);
+        } else {
+          // Additional lines for longer recommendations
+          doc.text(line, M + 11, ry + 7 + lineIndex * 4);
+        }
+      });
     });
 
-    return y + recs.length * rowH + 4;
+    return y + recs.length * rowH + 10; // Increased spacing for longer text
   }
 
   // ── Drone analysis card ───────────────────────────────────────────────────
@@ -524,7 +587,7 @@ export class ComprehensiveReportGenerator {
   ): number {
     const { doc, M, CW } = this;
     const levels = data.weed_analysis?.levels ?? [];
-    const cardH  = 18 + levels.length * 10 + 4;
+    const cardH = 18 + levels.length * 10 + 4;
 
     rRect(doc, M, y, CW, cardH, 4, C.cream, C.mist, 0.6);
 
@@ -556,12 +619,12 @@ export class ComprehensiveReportGenerator {
 
     // Stress level bars
     levels.forEach((level, i) => {
-      const bY    = y + 20 + i * 10;
+      const bY = y + 20 + i * 10;
       const BAR_X = M + 60;
       const BAR_W = CW - 60 - 28;
       const BAR_H = 4;
-      const col   = severityColor(level.severity);
-      const pct   = level.percentage ?? 0;
+      const col = severityColor(level.severity);
+      const pct = level.percentage ?? 0;
 
       doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
@@ -570,7 +633,15 @@ export class ComprehensiveReportGenerator {
 
       rRect(doc, BAR_X, bY, BAR_W, BAR_H, 2, C.mist);
       if (pct > 0) {
-        rRect(doc, BAR_X, bY, Math.max(BAR_W * (pct / 100), BAR_H), BAR_H, 2, col);
+        rRect(
+          doc,
+          BAR_X,
+          bY,
+          Math.max(BAR_W * (pct / 100), BAR_H),
+          BAR_H,
+          2,
+          col,
+        );
       }
 
       doc.setFontSize(8);
@@ -589,6 +660,7 @@ export class ComprehensiveReportGenerator {
   // ── Assessor notes ────────────────────────────────────────────────────────
   private drawNotes(notes: string, y: number): number {
     const { doc, M, CW } = this;
+
     doc.setFontSize(8.5);
     const lines = doc.splitTextToSize(notes, CW - 12) as string[];
     const cardH = lines.length * 5 + 12;
@@ -604,12 +676,21 @@ export class ComprehensiveReportGenerator {
   }
 
   // ── Sign-off block ────────────────────────────────────────────────────────
-  private drawSignOff(y: number): number {
+
+  private drawSignOff(y: number, data: ReportData): number {
     const { doc, M, CW } = this;
-    const cols   = 2;
-    const cw     = CW / cols;
-    const ch     = 20;
-    const labels = ["Assessor Signature", "Date"];
+    const cols = 2;
+    const cw = CW / cols;
+    const ch = 20;
+    const labels = ["Assessor Name", "Date"];
+    const values = [
+      data.farmDetails.farmerName || "N/A", // Use farmer name as assessor
+      data.reportGeneratedAt.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }),
+    ];
 
     labels.forEach((label, i) => {
       const x = M + i * cw;
@@ -620,15 +701,15 @@ export class ComprehensiveReportGenerator {
       setTxt(doc, C.leaf);
       doc.text(label, x + 4, y + 6);
 
-      setDraw(doc, C.mist);
-      doc.setLineWidth(0.4);
-      doc.line(x + 4, y + 15, x + cw - 5, y + 15);
+      // Fill in the value directly (no signature line)
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      setTxt(doc, C.slate);
+      doc.text(values[i], x + 4, y + 17);
     });
 
     return y + ch + 4;
   }
-
-  // ── Page-break guard ──────────────────────────────────────────────────────
   private needsBreak(y: number, needed: number): boolean {
     return y + needed > this.H - 18;
   }
@@ -646,26 +727,31 @@ export class ComprehensiveReportGenerator {
 
     y = this.drawSection("Farm Overview", y);
     // Round area to 2 dp; format location coords nicely if they look like "lat, lng"
-    const areaDisplay = typeof data.farmDetails.area === "number"
-      ? `${data.farmDetails.area.toFixed(2)} ha`
-      : `${data.farmDetails.area} ha`;
+    const areaDisplay =
+      typeof data.farmDetails.area === "number"
+        ? `${data.farmDetails.area.toFixed(2)} ha`
+        : `${data.farmDetails.area} ha`;
     const locationDisplay = formatLocation(data.farmDetails.location);
 
-    y = this.drawInfoGrid([
-      ["Farm / Field",  data.farmDetails.name],
-      ["Crop Type",     data.farmDetails.cropType],
-      ["Total Area",    areaDisplay],
-      ["Location",      locationDisplay],
-      ["Farmer",        data.farmDetails.farmerName],
-      ["Assessment ID", data.assessmentId],
-    ], y);
+    y = this.drawInfoGrid(
+      [
+        ["Farm / Field", data.farmDetails.name],
+        ["Crop Type", data.farmDetails.cropType],
+        ["Total Area", areaDisplay],
+        ["Location", locationDisplay],
+        ["Farmer", data.farmDetails.farmerName],
+        ["Assessment ID", data.assessmentId],
+      ],
+      y,
+    );
 
     y = this.drawSection("Risk Assessment Summary", y);
 
     const levelDesc: Record<string, string> = {
-      LOW:      "The field is in good condition with minimal intervention required.",
-      MODERATE: "The field shows stress indicators. Close monitoring is recommended.",
-      HIGH:     "Significant risks detected. Prompt agronomic intervention advised.",
+      LOW: "The field is in good condition with minimal intervention required.",
+      MODERATE:
+        "The field shows stress indicators. Close monitoring is recommended.",
+      HIGH: "Significant risks detected. Prompt agronomic intervention advised.",
       CRITICAL: "Critical conditions identified. Immediate action required.",
     };
     const blurb =
@@ -681,9 +767,9 @@ export class ComprehensiveReportGenerator {
 
     // Score dial + field status badge — side by side
     // Dial: cx centred at M+32, cy sits r+8 below y so the arc top clears y
-    const DIAL_R  = 18;
+    const DIAL_R = 18;
     const DIAL_CX = M + 32;
-    const DIAL_CY = y + DIAL_R + 8;          // arc crown lands at y+8, base at y+DIAL_R*2+8
+    const DIAL_CY = y + DIAL_R + 8; // arc crown lands at y+8, base at y+DIAL_R*2+8
     const DIAL_BOTTOM = DIAL_CY + DIAL_R + 16; // pill + caption below arc
 
     this.drawScoreDial(data.riskAssessment, DIAL_CX, DIAL_CY, DIAL_R);
@@ -693,7 +779,13 @@ export class ComprehensiveReportGenerator {
     const BADGE_H = 24;
     const BADGE_X = M + 74;
     const BADGE_Y = DIAL_CY - BADGE_H / 2;
-    this.drawStatusBadge(data.riskAssessment.fieldStatus, BADGE_X, BADGE_Y, BADGE_W, BADGE_H);
+    this.drawStatusBadge(
+      data.riskAssessment.fieldStatus,
+      BADGE_X,
+      BADGE_Y,
+      BADGE_W,
+      BADGE_H,
+    );
 
     y = DIAL_BOTTOM + 4;
 
@@ -705,16 +797,19 @@ export class ComprehensiveReportGenerator {
     y += 5;
 
     [
-      { name: "Crop Health",  value: data.riskAssessment.components.cropHealth },
+      { name: "Crop Health", value: data.riskAssessment.components.cropHealth },
       { name: "Weather Risk", value: data.riskAssessment.components.weather },
-      { name: "Growth Stage", value: data.riskAssessment.components.growthStage },
-      { name: "Flowering",    value: data.riskAssessment.components.flowering },
+      {
+        name: "Growth Stage",
+        value: data.riskAssessment.components.growthStage,
+      },
+      { name: "Flowering", value: data.riskAssessment.components.flowering },
     ].forEach(({ name, value }) => {
       y = this.drawMetricBar(name, value, M, y, CW);
     });
+    y += 4;
 
-    y += 2;
-
+    // ── Recommendations ───────────────────────────────────────────────────
     y = this.drawSection("Key Recommendations", y);
     y = this.drawRecommendations(data.riskAssessment.recommendations, y);
 
@@ -727,7 +822,7 @@ export class ComprehensiveReportGenerator {
 
     y = this.drawSection("Drone Analysis Results", y);
 
-    const validDrones = data.dronePdfs.filter(p => p.droneAnalysisData);
+    const validDrones = data.dronePdfs.filter((p) => p.droneAnalysisData);
     if (validDrones.length === 0) {
       doc.setFontSize(9);
       doc.setFont("helvetica", "italic");
@@ -737,9 +832,11 @@ export class ComprehensiveReportGenerator {
     } else {
       for (const pdf of validDrones) {
         const title =
-          pdf.pdfType === "plant_health" ? "Plant Health Analysis"
-          : pdf.pdfType === "flowering"  ? "Flowering Analysis"
-          : `Analysis (${pdf.pdfType})`;
+          pdf.pdfType === "plant_health"
+            ? "Plant Health Analysis"
+            : pdf.pdfType === "flowering"
+              ? "Flowering Analysis"
+              : `Analysis (${pdf.pdfType})`;
 
         if (this.needsBreak(y, 60)) {
           doc.addPage();
@@ -760,6 +857,11 @@ export class ComprehensiveReportGenerator {
     y = this.drawSection("Assessor Comprehensive Notes", y);
     y = this.drawNotes(data.comprehensiveNotes, y);
 
+    // ── Recommendations ─────────────────────────────────────────────────────
+    y = this.drawSection("Key Recommendations", y);
+    y = this.drawRecommendations(data.riskAssessment.recommendations, y);
+
+    // ── Sign-Off ──────────────────────────────────────────────────────────
     if (this.needsBreak(y, 32)) {
       doc.addPage();
       this.drawPageHeader("Sign-Off");
@@ -767,7 +869,7 @@ export class ComprehensiveReportGenerator {
     }
 
     y = this.drawSection("Report Sign-Off", y);
-    this.drawSignOff(y);
+    this.drawSignOff(y, data);
 
     this.drawFooter(2, TOTAL_PAGES);
 
@@ -782,10 +884,10 @@ export class ComprehensiveReportGenerator {
       `crop-assessment-${data.farmDetails.name}-` +
       `${data.reportGeneratedAt.toISOString().split("T")[0]}.pdf`;
 
-    this.generateReport(data).then(blob => {
+    this.generateReport(data).then((blob) => {
       const url = URL.createObjectURL(blob);
-      const a   = document.createElement("a");
-      a.href     = url;
+      const a = document.createElement("a");
+      a.href = url;
       a.download = filename ?? defaultFilename;
       document.body.appendChild(a);
       a.click();
