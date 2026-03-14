@@ -69,9 +69,6 @@ export const OverviewTab = ({
 
   // Calculate risk assessment when data changes
   useEffect(() => {
-    console.log("OverviewTab - dronePdfs:", dronePdfs);
-    console.log("OverviewTab - weatherData:", weatherData);
-
     if (dronePdfs.length > 0 || weatherData) {
       const assessment = calculateOverallRisk(dronePdfs, weatherData as any);
       setRiskAssessment(assessment);
@@ -117,17 +114,14 @@ export const OverviewTab = ({
         farmDetails,
         dronePdfs: dronePdfs.map((pdf) => ({
           pdfType: pdf.pdfType,
-          droneAnalysisData: pdf.droneAnalysisData as any,
+          droneAnalysisData: pdf.droneAnalysisData as unknown,
         })),
-        weatherData: weatherData as any,
+        weatherData: weatherData as unknown,
         comprehensiveNotes,
         riskAssessment,
         reportGeneratedAt: new Date(),
       };
 
-      console.log("Report data being passed:", reportData);
-      console.log("dronePdfs array length:", dronePdfs.length);
-      console.log("dronePdfs contents:", dronePdfs);
       reportGenerator.downloadReport(reportData);
     } catch (error) {
       console.error("Error generating report:", error);
@@ -287,9 +281,7 @@ export const OverviewTab = ({
                           className="text-sm text-muted-foreground flex items-start gap-2"
                         >
                           <span className="text-xs mt-1">•</span>
-                          <span>
-                            {rec.replace(/[🚨⚠️🌦️🌱🌸🔴🟡🟢✅]/g, "").trim()}
-                          </span>
+                          <span>{rec.replace(/[^\w\s,.!?-]/g, "").trim()}</span>
                         </div>
                       ))}
                   </div>
