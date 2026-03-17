@@ -181,7 +181,27 @@ export const FieldMapWithLayers = ({
 
     // Require boundary to initialize map
     if (!boundary) {
-      throw new Error("FieldMapWithLayers requires a boundary prop");
+      console.warn(
+        "FieldMapWithLayers: No boundary provided, using default location",
+      );
+      // Use default location instead of throwing error
+      const defaultCenter = center || [-1.9565, 30.0615]; // Rwanda coordinates
+      mapRef.current = L.map(mapContainerRef.current).setView(
+        defaultCenter,
+        15,
+      );
+
+      const terrainConfig = terrainOptions[terrain];
+      tileLayerRef.current = L.tileLayer(terrainConfig.url, {
+        attribution: terrainConfig.attribution,
+      }).addTo(mapRef.current);
+
+      return () => {
+        if (mapRef.current) {
+          mapRef.current.remove();
+          mapRef.current = null;
+        }
+      };
     }
 
     // Calculate center from boundary

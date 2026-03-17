@@ -19,7 +19,12 @@ const statusConfig = {
 };
 
 export function StatusBadge({ status, label }: StatusBadgeProps) {
-  const config = statusConfig[status];
+  const normalizedStatus = String(status || "").toLowerCase() as keyof typeof statusConfig;
+  const config = statusConfig[normalizedStatus] || { 
+    color: "bg-muted text-muted-foreground border-border", 
+    label: String(status || "Unknown") 
+  };
+  
   return (
     <Badge variant="outline" className={cn("border font-medium", config.color)}>
       {label || config.label}

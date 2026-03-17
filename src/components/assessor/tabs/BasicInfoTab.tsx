@@ -36,11 +36,12 @@ export const BasicInfoTab = ({
   const formattedFieldId = fieldId
     ? `FLD-${fieldId.slice(0, 3).toUpperCase()}`
     : "N/A";
-  
+
   // Calculate center from location coordinates
-  const center = locationCoords && locationCoords.length >= 2
-    ? [locationCoords[1], locationCoords[0]] as [number, number]
-    : undefined;
+  const center =
+    locationCoords && locationCoords.length >= 2
+      ? ([locationCoords[1], locationCoords[0]] as [number, number])
+      : undefined;
   return (
     <div className="space-y-6">
       <Card>
@@ -105,7 +106,7 @@ export const BasicInfoTab = ({
             <FieldMapWithLayers
               fieldId={fieldId}
               showLayerControls={false}
-              boundary={boundary || null}
+              boundary={boundary}
               center={center}
             />
           </div>

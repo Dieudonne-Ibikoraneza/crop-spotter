@@ -1,15 +1,17 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, ArrowLeft, Sprout, MapPin } from "lucide-react";
+import { Search, Filter, ArrowLeft, Sprout, MapPin, Plus } from "lucide-react";
 import { DataTable } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { BasicInfoTab } from "@/components/assessor/tabs/BasicInfoTab";
-import { WeatherAnalysisTab } from "@/components/assessor/tabs/WeatherAnalysisTab";
-import { SatelliteAnalysisTab } from "@/components/assessor/tabs/SatelliteAnalysisTab";
-import { OverviewTab } from "@/components/assessor/tabs/OverviewTab";
+import { MonitoringTab } from "@/components/assessor/tabs/MonitoringTab";
+import { assessorService } from "@/lib/api/services/assessor";
+import { cropMonitoringService } from "@/lib/api/services/cropMonitoring";
+import { policiesService } from "@/lib/api/services/policies";
+import { useToast } from "@/hooks/use-toast";
 
 interface Farmer {
   id: string;
@@ -22,16 +24,106 @@ interface Field {
   id: string;
   farmerId: string;
   farmerName: string;
+  name?: string;
   crop: string;
   area: number;
   season: string;
   status: "active" | "moderate" | "healthy";
   location: string;
+  boundary?: {
+    type: string;
+    coordinates: number[][][] | number[][][][];
+  } | null;
+  coordinates?: number[] | null;
+  weatherRisk?: string;
+  cropHealth?: string;
+  recommendation?: string;
+  region?: string;
 }
 
 const CropMonitoring = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   const { farmerId, fieldId } = useParams();
+  const [startingCycle, setStartingCycle] = useState(false);
+
+  // -------- Data fetching (all hooks at the top, unconditionally) --------
+
+  // Fetch farmers data from API using the same service as Risk Assessment
+  const {
+    data: farmersData,
+    isLoading: farmersLoading,
+    error: farmersError,
+  } = useQuery({
+    queryKey: ["assignedFarmers"],
+    queryFn: () => assessorService.getAssignedFarmers(),
+  });
+
+  // Fetch crop monitoring tasks (assessor-only)
+  const { data: cropMonitoring, isLoading: monitoringLoading } = useQuery({
+    queryKey: ["crop-monitoring"],
+    queryFn: () => cropMonitoringService.listTasks(),
+  });
+
+  // Fetch policies visible to assessor (assigned farms only)
+  const { data: policies, isLoading: policiesLoading } = useQuery({
+    queryKey: ["policies"],
+    queryFn: () => policiesService.listMyPolicies(),
+  });
+
+  // -------- Derived data (hooks order is now stable) --------
+
+  const farmers = farmersData || [];
+
+  const fields = useMemo(
+    () =>
+      farmers.flatMap(
+        (farmer: any) =>
+          farmer.farms?.map((farm: any) => ({
+            id: farm._id || farm.id,
+            farmerId: farmer._id || farmer.id,
+            farmerName:
+              farmer.name ||
+              `${farmer.firstName || ""} ${farmer.lastName || ""}`.trim() ||
+              farmer.email ||
+              "Unknown Farmer",
+            name: farm.name,
+            crop: farm.cropType,
+            area: farm.area || 0,
+            season: farm.season || "A",
+            location: farm.location || "Unknown",
+            status: farm.status || "active",
+            boundary: farm.boundary || null,
+            coordinates: farm.location?.coordinates || null,
+          })) || [],
+      ),
+    [farmers],
+  );
+
+  const activePolicies = (policies || []).filter(
+    (p: any) => p?.status === "ACTIVE" || p?.status === "active",
+  );
+
+  const policyByFarmId = useMemo(() => {
+    const map = new Map<string, any>();
+    activePolicies.forEach((p: any) => {
+      const farmIdVal = p.farmId?._id || p.farmId;
+      if (farmIdVal) map.set(String(farmIdVal), p);
+    });
+    return map;
+  }, [activePolicies]);
+
+  // Filter fields by farmer when farmerId is provided
+  const farmerFields = farmerId
+    ? fields.filter((f) => f.farmerId === farmerId)
+    : fields;
+
+  // Get current farmer and field
+  const farmer = farmerId
+    ? farmers.find((f: any) => (f._id || f.id) === farmerId)
+    : null;
+  const field = fieldId ? fields.find((f) => f.id === fieldId) : null;
 
   // Format field ID as FLD-{three capitalized characters}
   const formatFieldId = (id: string) => {
@@ -39,94 +131,60 @@ const CropMonitoring = () => {
     return `FLD-${id.substring(0, 3).toUpperCase()}`;
   };
 
-  const farmers: Farmer[] = [
-    {
-      id: "F-001",
-      name: "Mugabo John",
-      location: "Gatsibo, Eastern Province",
-      fields: 3,
-    },
-    {
-      id: "F-002",
-      name: "Kamali Peace",
-      location: "Bugesera, Eastern Province",
-      fields: 2,
-    },
-    {
-      id: "F-003",
-      name: "Uwase Marie",
-      location: "Nyagatare, Eastern Province",
-      fields: 4,
-    },
-  ];
-
-  const allFields: Field[] = [
-    {
-      id: "FLD-001",
-      farmerId: "F-001",
-      farmerName: "Mugabo John",
-      crop: "Maize",
-      area: 3.4,
-      season: "B",
-      status: "healthy",
-      location: "Kigali City, Rwanda",
-    },
-    {
-      id: "FLD-002",
-      farmerId: "F-002",
-      farmerName: "Kamali Peace",
-      crop: "Wheat",
-      area: 2.1,
-      season: "A",
-      status: "moderate",
-      location: "Rwamagana District, Eastern Province, Rwanda",
-    },
-    {
-      id: "FLD-003",
-      farmerId: "F-003",
-      farmerName: "Uwase Marie",
-      crop: "Soybean",
-      area: 1.8,
-      season: "B",
-      status: "active",
-      location: "Ngoma District, Eastern Province, Rwanda",
-    },
-    {
-      id: "FLD-004",
-      farmerId: "F-001",
-      farmerName: "Mugabo John",
-      crop: "Rice",
-      area: 2.5,
-      season: "A",
-      status: "healthy",
-      location: "Kigali City, Rwanda",
-    },
-    {
-      id: "FLD-005",
-      farmerId: "F-001",
-      farmerName: "Mugabo John",
-      crop: "Beans",
-      area: 1.4,
-      season: "B",
-      status: "active",
-      location: "Bugesera District, Eastern Province, Rwanda",
-    },
-  ];
+  // -------- Column definitions (inside component so navigate is in scope) --------
 
   const farmerColumns = [
-    { key: "id", label: "Farmer ID" },
-    { key: "name", label: "Farmer Name" },
+    { key: "id", label: "Farmer ID", render: (f: any) => f._id || f.id },
+    { key: "name", label: "Farmer Name", render: (f: any) => `${f.firstName || ""} ${f.lastName || ""}`.trim() || f.email || "-" },
     {
       key: "location",
       label: "Location",
-      render: (farmer: Farmer) => (
-        <div className="flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-muted-foreground" />
-          {farmer.location}
-        </div>
-      ),
+      render: (f: any) => {
+        const loc = [f.province, f.district, f.sector].filter(Boolean).join(", ");
+        return (
+          <div className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-muted-foreground" />
+            {loc || "Unknown"}
+          </div>
+        );
+      },
     },
-    { key: "fields", label: "Total Fields" },
+    { key: "fields", label: "Total Fields", render: (f: any) => f.farms?.length || 0 },
+  ];
+
+  const policyColumns = [
+    { key: "policyNumber", label: "Policy Number", render: (p: any) => p.policyNumber || "N/A" },
+    { key: "farmName", label: "Field", render: (p: any) => {
+        const farmIdStr = typeof p.farmId === 'object' ? p.farmId._id : p.farmId;
+        const f = fields.find((field) => String(field.id) === String(farmIdStr));
+        return f ? (f.name || f.crop) : "Unknown Field";
+      }
+    },
+    { key: "farmerName", label: "Farmer", render: (p: any) => {
+        const farmIdStr = typeof p.farmId === 'object' ? p.farmId._id : p.farmId;
+        const f = fields.find((field) => String(field.id) === String(farmIdStr));
+        return f ? f.farmerName : "Unknown";
+      }
+    },
+    { key: "status", label: "Status", render: (p: any) => <StatusBadge status={p.status} /> },
+    { key: "actions", label: "Actions", render: (p: any) => {
+        const farmIdStr = typeof p.farmId === 'object' ? p.farmId._id : p.farmId;
+        const f = fields.find((field) => String(field.id) === String(farmIdStr));
+        return (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (f) navigate(`/assessor/crop-monitoring/${f.farmerId}/${f.id}`);
+            }}
+            disabled={!f}
+          >
+            Monitor Field
+          </Button>
+        );
+      }
+    },
   ];
 
   const fieldColumns = [
@@ -135,40 +193,73 @@ const CropMonitoring = () => {
     {
       key: "crop",
       label: "Crop",
-      render: (field: Field) => (
+      render: (f: Field) => (
         <div className="flex items-center gap-2">
           <Sprout className="h-4 w-4 text-primary" />
-          {field.crop}
+          {f.crop}
         </div>
       ),
     },
     {
       key: "area",
       label: "Area (ha)",
-      render: (field: Field) => `${field.area} ha`,
+      render: (f: Field) => `${f.area} ha`,
     },
     { key: "season", label: "Season" },
     {
       key: "status",
       label: "Status",
-      render: (field: Field) => <StatusBadge status={field.status} />,
+      render: (f: any) => <StatusBadge status={f.status} />,
     },
     {
       key: "actions",
       label: "Actions",
-      render: (field: Field) => (
+      render: (f: any) => (
         <Button
           size="sm"
           variant="outline"
           onClick={() =>
-            navigate(`/assessor/crop-monitoring/${field.farmerId}/${field.id}`)
+            navigate(
+              `/assessor/crop-monitoring/${f.farmerId}/${f.id}`,
+            )
           }
         >
-          View
+          View Details
         </Button>
       ),
     },
   ];
+
+  // -------- Loading / Error --------
+
+  if (farmersLoading || monitoringLoading || policiesLoading) {
+    return (
+      <div className="p-8 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <p className="mt-4 text-muted-foreground">
+            Loading crop monitoring data...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (farmersError) {
+    return (
+      <div className="p-8">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          <h2 className="text-lg font-semibold mb-2">Error Loading Data</h2>
+          <p>Failed to load crop monitoring data. Please try again later.</p>
+          <Button className="mt-4" onClick={() => window.location.reload()}>
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // -------- Views --------
 
   // Farmer List View
   if (!farmerId) {
@@ -181,33 +272,53 @@ const CropMonitoring = () => {
           </p>
         </div>
 
-        <div className="flex gap-2">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search farmers..." className="pl-10" />
-          </div>
-          <Button variant="outline">
-            <Filter className="h-4 w-4 mr-2" />
-            Filter
-          </Button>
-        </div>
+        <Tabs defaultValue="farmers" className="w-full">
+          <div className="flex justify-between items-center mb-6">
+            <TabsList>
+              <TabsTrigger value="farmers">Farmers & Fields</TabsTrigger>
+              <TabsTrigger value="policies">Policies</TabsTrigger>
+            </TabsList>
 
-        <DataTable
-          data={farmers}
-          columns={farmerColumns}
-          onRowClick={(farmer) =>
-            navigate(`/assessor/crop-monitoring/${farmer.id}`)
-          }
-        />
+            <div className="flex gap-2">
+              <div className="relative w-64">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Search..." className="pl-10 h-9" />
+              </div>
+              <Button variant="outline" size="sm" className="h-9">
+                <Filter className="h-4 w-4 mr-2" />
+                Filter
+              </Button>
+            </div>
+          </div>
+
+          <TabsContent value="farmers" className="mt-0">
+            <DataTable
+              data={farmers || []}
+              columns={farmerColumns}
+              onRowClick={(farmer: any) =>
+                navigate(`/assessor/crop-monitoring/${farmer._id || farmer.id}`)
+              }
+            />
+          </TabsContent>
+
+          <TabsContent value="policies" className="mt-0">
+            <DataTable
+              data={activePolicies || []}
+              columns={policyColumns}
+              onRowClick={(policy: any) => {
+                const farmIdStr = typeof policy.farmId === 'object' ? policy.farmId._id : policy.farmId;
+                const f = fields.find((field) => String(field.id) === String(farmIdStr));
+                if (f) navigate(`/assessor/crop-monitoring/${f.farmerId}/${f.id}`);
+              }}
+            />
+          </TabsContent>
+        </Tabs>
       </div>
     );
   }
 
   // Field List View
-  const farmer = farmers.find((f) => f.id === farmerId);
-  const farmerFields = allFields.filter((f) => f.farmerId === farmerId);
-
-  if (!fieldId) {
+  if (farmerId && !fieldId) {
     return (
       <div className="p-8 space-y-6">
         <Button
@@ -236,87 +347,71 @@ const CropMonitoring = () => {
           </Button>
         </div>
 
-        <DataTable data={farmerFields} columns={fieldColumns} />
+        <DataTable data={farmerFields || []} columns={fieldColumns} />
       </div>
     );
   }
 
-  // Field Detail View with Tabs
-  const field = allFields.find((f) => f.id === fieldId);
-  if (!field) return null;
+  // Field Detail View
+  if (fieldId && field) {
+    const fieldPolicy = policyByFarmId.get(String(field.id));
 
-  return (
-    <div className="p-8 space-y-6">
-      <Button
-        variant="ghost"
-        onClick={() => navigate(`/assessor/crop-monitoring/${farmerId}`)}
-      >
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        Back to Field List
-      </Button>
+    return (
+      <div className="p-8 space-y-6">
+        <Button
+          variant="ghost"
+          onClick={() => navigate(`/assessor/crop-monitoring/${farmerId}`)}
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Field List
+        </Button>
 
-      <div>
-        <h1 className="text-3xl font-bold mb-2">
-          FIELD DETAIL VIEW: {formatFieldId(field.id)}
-        </h1>
-        <p className="text-muted-foreground">
-          {field.farmerName} - {field.crop}
-        </p>
+        <div>
+          <h1 className="text-3xl font-bold mb-2">
+            FIELD DETAIL VIEW: {formatFieldId(field.id)}
+          </h1>
+          <p className="text-muted-foreground">
+            {field.farmerName} - {field.crop} | Area: {field.area} ha | Season: {field.season}
+          </p>
+        </div>
+
+        {fieldPolicy ? (
+          <MonitoringTab
+            policyId={fieldPolicy._id}
+            fieldName={field.name || `${field.crop} Field`}
+          />
+        ) : (
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-6 text-center">
+            <p className="font-medium text-lg">No Active Policy</p>
+            <p className="mt-1 mb-4">
+              Crop monitoring requires an active insurance policy for this
+              field. Please ensure a policy has been issued first.
+            </p>
+            <Button disabled>Start Monitoring Cycle</Button>
+          </div>
+        )}
       </div>
+    );
+  }
 
-      <Tabs defaultValue="basic" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="basic">📋 Basic Info</TabsTrigger>
-          <TabsTrigger value="weather">🌦️ Weather Analysis</TabsTrigger>
-          <TabsTrigger value="crop">🌱 Crop Analysis (Satellite)</TabsTrigger>
-          <TabsTrigger value="overview">📝 Overview</TabsTrigger>
-        </TabsList>
+  // Handle 404 or invalid field
+  if (fieldId && !field) {
+    return (
+      <div className="p-8">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4">Field Not Found</h2>
+          <p className="text-muted-foreground mb-4">
+            The field you're looking for doesn't exist or has been removed.
+          </p>
+          <Button onClick={() => navigate("/assessor/crop-monitoring")}>
+            Back to Crop Monitoring
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
-        <TabsContent value="basic" className="mt-6">
-          <BasicInfoTab
-            fieldId={field.id}
-            fieldName="North Maize Plot"
-            farmerId={field.farmerId}
-            farmerName={field.farmerName}
-            cropType={field.crop}
-            area={field.area}
-            season={field.season}
-            location={field.location}
-          />
-        </TabsContent>
-
-        <TabsContent value="weather" className="mt-6">
-          <WeatherAnalysisTab
-            fieldId={field.id}
-            farmerName={field.farmerName}
-            cropType={field.crop}
-            location={field.location}
-          />
-        </TabsContent>
-
-        <TabsContent value="crop" className="mt-6">
-          <SatelliteAnalysisTab
-            fieldId={field.id}
-            farmerName={field.farmerName}
-            cropType={field.crop}
-            area={field.area}
-            season={field.season}
-            region="Eastern Province"
-          />
-        </TabsContent>
-
-        <TabsContent value="overview" className="mt-6">
-          <OverviewTab
-            fieldStatus="Healthy"
-            weatherRisk="Low (1.5/5)"
-            cropHealth="82.4% (from satellite)"
-            recommendation="Continue monitoring"
-            analysisType="satellite"
-          />
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
+  return null;
 };
 
 export default CropMonitoring;
