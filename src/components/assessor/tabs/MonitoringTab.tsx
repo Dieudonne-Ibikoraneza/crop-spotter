@@ -365,24 +365,28 @@ export const MonitoringTab = ({ policyId, fieldName }: MonitoringTabProps) => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-col gap-2">
                 {observations.map((obs, idx) => (
-                  <Badge
+                  <div
                     key={idx}
-                    variant="secondary"
-                    className="flex items-center gap-1 py-1.5 px-3 text-sm"
+                    className="flex justify-between items-start gap-3 p-3 rounded-md bg-muted/40 border text-sm group transition-colors hover:bg-muted/80"
                   >
-                    {obs}
-                    <button
+                    <div className="flex items-start gap-3">
+                      <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                      <span className="leading-relaxed">{obs}</span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity flex-shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                       onClick={() => removeObservation(idx)}
-                      className="ml-1 hover:text-destructive"
                     >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
                 ))}
                 {observations.length === 0 && (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground p-4 border border-dashed rounded-md text-center bg-muted/20">
                     No observations added yet.
                   </p>
                 )}
@@ -595,11 +599,12 @@ export const MonitoringTab = ({ policyId, fieldName }: MonitoringTabProps) => {
             {cycle.observations && cycle.observations.length > 0 && (
               <div>
                 <p className="text-muted-foreground mb-1">Observations</p>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-col gap-2 mt-2">
                   {cycle.observations.map((obs, idx) => (
-                    <Badge key={idx} variant="secondary" className="text-xs">
-                      {obs}
-                    </Badge>
+                    <div key={idx} className="flex items-start gap-3 text-sm text-foreground">
+                      <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary/60 shrink-0" />
+                      <span className="leading-relaxed">{obs}</span>
+                    </div>
                   ))}
                 </div>
               </div>
