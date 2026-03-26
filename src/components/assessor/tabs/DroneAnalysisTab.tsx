@@ -981,16 +981,46 @@ export const DroneAnalysisTab = ({
                                 <th className="text-left p-3 font-medium">Zone</th>
                                 <th className="text-right p-3 font-medium">Rate</th>
                                 <th className="text-right p-3 font-medium">Area</th>
+                                {rx.rates[0]?.percentage != null && (
+                                  <th className="text-right p-3 font-medium">%</th>
+                                )}
                               </tr>
                             </thead>
                             <tbody>
-                              {rx.rates.map((rate: any, i: number) => (
-                                <tr key={i} className="border-t border-border">
-                                  <td className="p-3">{rate.zone || rate.name || `Zone ${i + 1}`}</td>
-                                  <td className="p-3 text-right font-medium">{rate.rate || rate.amount || "N/A"}</td>
-                                  <td className="p-3 text-right font-medium">{rate.area_hectares || rate.area || "N/A"}</td>
-                                </tr>
-                              ))}
+                              {rx.rates.map((rate: any, i: number) => {
+                                const zoneColors = [
+                                  "bg-green-500",
+                                  "bg-lime-400",
+                                  "bg-yellow-400",
+                                  "bg-orange-400",
+                                  "bg-red-400",
+                                  "bg-red-600",
+                                ];
+                                const dotColor = zoneColors[i] || "bg-gray-400";
+                                return (
+                                  <tr key={i} className="border-t border-border hover:bg-muted/30 transition-colors">
+                                    <td className="p-3">
+                                      <div className="flex items-center gap-2">
+                                        <div className={`w-3 h-3 rounded ${dotColor}`} />
+                                        {rate.zone || rate.name || `Zone ${i + 1}`}
+                                      </div>
+                                    </td>
+                                    <td className="p-3 text-right font-medium">
+                                      {rate.rate != null ? rate.rate : (rate.amount != null ? rate.amount : "\u2014")}
+                                      {rate.rate_unit ? ` ${rate.rate_unit.replace(/_/g, "/")}` : ""}
+                                    </td>
+                                    <td className="p-3 text-right font-medium">
+                                      {rate.area != null ? rate.area : (rate.area_hectares != null ? rate.area_hectares : "\u2014")}
+                                      {rate.area_unit ? ` ${rate.area_unit}` : ""}
+                                    </td>
+                                    {rx.rates[0]?.percentage != null && (
+                                      <td className="p-3 text-right font-medium">
+                                        {rate.percentage != null ? `${rate.percentage}%` : "\u2014"}
+                                      </td>
+                                    )}
+                                  </tr>
+                                );
+                              })}
                             </tbody>
                           </table>
                         </div>

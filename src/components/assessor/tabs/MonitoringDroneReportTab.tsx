@@ -169,24 +169,6 @@ export const MonitoringDroneReportTab = ({
               <p className="text-lg font-bold">{reportData.provider}</p>
             </div>
           )}
-          {reportData.type && (
-            <div className="p-3 rounded-lg bg-muted/50 border">
-              <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">
-                Report Type
-              </p>
-              <p className="text-lg font-bold">{reportData.type}</p>
-            </div>
-          )}
-          {reportData.detected_report_type && (
-            <div className="p-3 rounded-lg bg-muted/50 border">
-              <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">
-                Detected Type
-              </p>
-              <p className="text-lg font-bold capitalize">
-                {reportData.detected_report_type.replace(/_/g, " ")}
-              </p>
-            </div>
-          )}
         </div>
 
         {/* Additional Info */}
@@ -256,17 +238,7 @@ export const MonitoringDroneReportTab = ({
               </table>
             </div>
           </div>
-        ) : (
-          <div className="p-6 rounded-lg border border-amber-200 bg-amber-50/50 text-center">
-            <p className="text-sm font-medium text-amber-800">
-              No analysis levels were extracted from this report.
-            </p>
-            <p className="text-xs text-amber-600 mt-1">
-              The PDF may not contain level data or the extraction may have
-              failed.
-            </p>
-          </div>
-        )}
+        ) : null}
 
         {/* Total Affected Area */}
         {analysisSection.total_area_hectares > 0 && (
@@ -382,22 +354,47 @@ export const MonitoringDroneReportTab = ({
                           <th className="text-left p-3 font-medium">Zone</th>
                           <th className="text-right p-3 font-medium">Rate</th>
                           <th className="text-right p-3 font-medium">Area</th>
+                          {rx.rates[0]?.percentage != null && (
+                            <th className="text-right p-3 font-medium">%</th>
+                          )}
                         </tr>
                       </thead>
                       <tbody>
-                        {rx.rates.map((rate: any, i: number) => (
-                          <tr key={i} className="border-t border-border">
-                            <td className="p-3">
+                    {rx.rates.map((rate: any, i: number) => {
+                      // Zone colors 1-6
+                      const zoneColors = [
+                        "bg-green-500",
+                        "bg-lime-400",
+                        "bg-yellow-400",
+                        "bg-orange-400",
+                        "bg-red-400",
+                        "bg-red-600",
+                      ];
+                      const dotColor = zoneColors[i] || "bg-gray-400";
+                      return (
+                        <tr key={i} className="border-t border-border hover:bg-muted/30 transition-colors">
+                          <td className="p-3">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-3 h-3 rounded ${dotColor}`} />
                               {rate.zone || rate.name || `Zone ${i + 1}`}
-                            </td>
+                            </div>
+                          </td>
+                          <td className="p-3 text-right font-medium">
+                            {rate.rate != null ? rate.rate : (rate.amount != null ? rate.amount : "—")}
+                            {rate.rate_unit ? ` ${rate.rate_unit.replace(/_/g, "/")}` : ""}
+                          </td>
+                          <td className="p-3 text-right font-medium">
+                            {rate.area != null ? rate.area : (rate.area_hectares != null ? rate.area_hectares : "—")}
+                            {rate.area_unit ? ` ${rate.area_unit}` : ""}
+                          </td>
+                          {rx.rates[0]?.percentage != null && (
                             <td className="p-3 text-right font-medium">
-                              {rate.rate || rate.amount || "—"}
+                              {rate.percentage != null ? `${rate.percentage}%` : "—"}
                             </td>
-                            <td className="p-3 text-right font-medium">
-                              {rate.area_hectares || rate.area || "—"}
-                            </td>
-                          </tr>
-                        ))}
+                          )}
+                        </tr>
+                      );
+                    })}
                       </tbody>
                     </table>
                   </div>
