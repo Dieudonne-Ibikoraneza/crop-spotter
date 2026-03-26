@@ -3,15 +3,21 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, Filter, ArrowLeft, Sprout, MapPin, Plus } from "lucide-react";
 import { DataTable } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { MonitoringTab } from "@/components/assessor/tabs/MonitoringTab";
+import { MonitoringBasicInfoTab } from "@/components/assessor/tabs/MonitoringBasicInfoTab";
+import { MonitoringWeatherTab } from "@/components/assessor/tabs/MonitoringWeatherTab";
+import { MonitoringDroneReportTab } from "@/components/assessor/tabs/MonitoringDroneReportTab";
+import { MonitoringOverviewTab } from "@/components/assessor/tabs/MonitoringOverviewTab";
 import { assessorService } from "@/lib/api/services/assessor";
 import { cropMonitoringService } from "@/lib/api/services/cropMonitoring";
 import { policiesService } from "@/lib/api/services/policies";
 import { useToast } from "@/hooks/use-toast";
+import { useMutation } from "@tanstack/react-query";
+import { Loader2 } from "lucide-react";
 
 interface Farmer {
   id: string;
@@ -76,9 +82,12 @@ const CropMonitoring = () => {
 
   const farmers = farmersData || [];
 
+  // Get current farmer and field
+  const farmer = useMemo(() => farmerId ? (farmersData || []).find((f: any) => (f._id || f.id) === farmerId) : null, [farmersData, farmerId]);
+
   const fields = useMemo(
     () =>
-      farmers.flatMap(
+      (farmersData || []).flatMap(
         (farmer: any) =>
           farmer.farms?.map((farm: any) => ({
             id: farm._id || farm.id,
@@ -92,18 +101,20 @@ const CropMonitoring = () => {
             crop: farm.cropType,
             area: farm.area || 0,
             season: farm.season || "A",
-            location: farm.location || "Unknown",
+            location: farm.locationName || farm.location || "Unknown",
             status: farm.status || "active",
             boundary: farm.boundary || null,
             coordinates: farm.location?.coordinates || null,
           })) || [],
       ),
-    [farmers],
+    [farmersData],
   );
 
-  const activePolicies = (policies || []).filter(
+  const field = useMemo(() => fieldId ? fields.find((f) => f.id === fieldId) : null, [fields, fieldId]);
+
+  const activePolicies = useMemo(() => (policies || []).filter(
     (p: any) => p?.status === "ACTIVE" || p?.status === "active",
-  );
+  ), [policies]);
 
   const policyByFarmId = useMemo(() => {
     const map = new Map<string, any>();
@@ -114,16 +125,46 @@ const CropMonitoring = () => {
     return map;
   }, [activePolicies]);
 
+  const fieldPolicy = useMemo(() => field?.id ? policyByFarmId.get(String(field.id)) : null, [field, policyByFarmId]);
+
+  // Fetch monitoring cycles for the specific policy
+  const {
+    data: cycles,
+    isLoading: cyclesLoading,
+  } = useQuery({
+    queryKey: ["crop-monitoring-policy", fieldPolicy?._id],
+    queryFn: () => cropMonitoringService.getByPolicy(fieldPolicy!._id),
+    enabled: !!fieldPolicy?._id,
+  });
+
+  const activeCycle = useMemo(() => (cycles || []).find((c) => c.status === "IN_PROGRESS"), [cycles]);
+
+  // Mutations
+  const startMutation = useMutation({
+    mutationFn: () => cropMonitoringService.startCycle(fieldPolicy!._id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["crop-monitoring"] });
+      queryClient.invalidateQueries({ queryKey: ["crop-monitoring-policy", fieldPolicy?._id] });
+      toast({
+        title: "Monitoring Started",
+        description: "A new monitoring cycle has been started successfully.",
+      });
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Error",
+        description: err?.message || "Failed to start monitoring cycle.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // -------- Derived data --------
+
   // Filter fields by farmer when farmerId is provided
   const farmerFields = farmerId
     ? fields.filter((f) => f.farmerId === farmerId)
     : fields;
-
-  // Get current farmer and field
-  const farmer = farmerId
-    ? farmers.find((f: any) => (f._id || f.id) === farmerId)
-    : null;
-  const field = fieldId ? fields.find((f) => f.id === fieldId) : null;
 
   // Format field ID as FLD-{three capitalized characters}
   const formatFieldId = (id: string) => {
@@ -236,7 +277,7 @@ const CropMonitoring = () => {
     return (
       <div className="p-8 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
           <p className="mt-4 text-muted-foreground">
             Loading crop monitoring data...
           </p>
@@ -354,8 +395,6 @@ const CropMonitoring = () => {
 
   // Field Detail View
   if (fieldId && field) {
-    const fieldPolicy = policyByFarmId.get(String(field.id));
-
     return (
       <div className="p-8 space-y-6">
         <Button
@@ -366,21 +405,23 @@ const CropMonitoring = () => {
           Back to Field List
         </Button>
 
-        <div>
-          <h1 className="text-3xl font-bold mb-2">
-            FIELD DETAIL VIEW: {formatFieldId(field.id)}
-          </h1>
-          <p className="text-muted-foreground">
-            {field.farmerName} - {field.crop} | Area: {field.area} ha | Season: {field.season}
-          </p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">
+              FIELD DETAIL: {formatFieldId(field.id)}
+            </h1>
+            <p className="text-muted-foreground">
+              {field.farmerName} - {field.crop} | Area: {field.area} ha | Season: {field.season}
+            </p>
+          </div>
+          {fieldPolicy && (
+            <Badge variant="outline" className="text-sm px-4 py-1.5 border-green-200 bg-green-50 text-green-700">
+              Active Policy: {fieldPolicy.policyNumber}
+            </Badge>
+          )}
         </div>
 
-        {fieldPolicy ? (
-          <MonitoringTab
-            policyId={fieldPolicy._id}
-            fieldName={field.name || `${field.crop} Field`}
-          />
-        ) : (
+        {!fieldPolicy ? (
           <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-6 text-center">
             <p className="font-medium text-lg">No Active Policy</p>
             <p className="mt-1 mb-4">
@@ -389,6 +430,56 @@ const CropMonitoring = () => {
             </p>
             <Button disabled>Start Monitoring Cycle</Button>
           </div>
+        ) : (
+          <Tabs defaultValue="basic" className="w-full">
+            <TabsList className="grid w-full grid-cols-4 mb-6">
+              <TabsTrigger value="basic">📋 Basic Info</TabsTrigger>
+              <TabsTrigger value="weather">🌦️ Weather</TabsTrigger>
+              <TabsTrigger value="drone">🛸 Drone Report</TabsTrigger>
+              <TabsTrigger value="overview">📝 Overview</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="basic" className="mt-0">
+              <MonitoringBasicInfoTab
+                fieldId={field.id}
+                fieldName={field.name || "N/A"}
+                farmerName={field.farmerName}
+                cropType={field.crop}
+                area={field.area}
+                season={field.season}
+                location={field.location}
+                boundary={field.boundary}
+                locationCoords={field.coordinates || undefined}
+                cycles={cycles || []}
+                activeCycle={activeCycle}
+                onStartCycle={() => startMutation.mutate()}
+                isStartingCycle={startMutation.isPending}
+              />
+            </TabsContent>
+
+            <TabsContent value="weather" className="mt-0">
+              <MonitoringWeatherTab cycles={cycles || []} />
+            </TabsContent>
+
+            <TabsContent value="drone" className="mt-0">
+              <MonitoringDroneReportTab
+                monitoringId={activeCycle?._id || ""}
+                activeCycle={activeCycle}
+                cropType={field.crop}
+                area={field.area}
+              />
+            </TabsContent>
+
+            <TabsContent value="overview" className="mt-0">
+              <MonitoringOverviewTab
+                monitoringId={activeCycle?._id || ""}
+                policyId={fieldPolicy._id}
+                fieldName={field.name || "N/A"}
+                cycles={cycles || []}
+                activeCycle={activeCycle}
+              />
+            </TabsContent>
+          </Tabs>
         )}
       </div>
     );

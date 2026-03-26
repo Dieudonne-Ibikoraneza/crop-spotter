@@ -13,6 +13,12 @@ export interface CropMonitoringRecord {
   notes?: string;
   weatherData?: unknown;
   ndviData?: unknown;
+  droneAnalysisPdfs?: {
+    pdfType: string;
+    pdfUrl: string;
+    droneAnalysisData?: any;
+    uploadedAt: string;
+  }[];
   reportGenerated?: boolean;
   reportGeneratedAt?: string;
   createdAt?: string;
@@ -73,6 +79,33 @@ export const cropMonitoringService = {
     return apiClient.upload<{ id: string; url: string }>(
       `/photos/upload?type=ASSESSMENT&entityId=${monitoringId}`,
       formData,
+    );
+  },
+
+  /** Upload drone analysis PDF for a monitoring cycle */
+  uploadDronePdf: async (
+    monitoringId: string,
+    pdfType: string,
+    file: File,
+  ): Promise<any> => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    return apiClient.upload<any>(
+      `/crop-monitoring/${monitoringId}/upload-drone-pdf?pdfType=${pdfType}`,
+      formData,
+    );
+  },
+
+  /** Get all uploaded PDFs for a monitoring cycle */
+  getUploadedPdfs: async (monitoringId: string): Promise<any[]> => {
+    return apiClient.get<any[]>(`/crop-monitoring/${monitoringId}/pdfs`);
+  },
+
+  /** Delete a specific PDF from a monitoring cycle */
+  deletePdf: async (monitoringId: string, pdfType: string): Promise<any> => {
+    return apiClient.delete<any>(
+      `/crop-monitoring/${monitoringId}/pdfs/${pdfType}`,
     );
   },
 };
