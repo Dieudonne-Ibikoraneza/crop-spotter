@@ -14,6 +14,7 @@ export interface CropMonitoringRecord {
   weatherData?: unknown;
   ndviData?: unknown;
   droneAnalysisPdfs?: {
+    _id?: string;
     pdfType: string;
     pdfUrl: string;
     droneAnalysisData?: any;
