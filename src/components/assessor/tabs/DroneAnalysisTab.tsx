@@ -154,14 +154,15 @@ export const DroneAnalysisTab = ({
     enabled: !!farmId,
   });
 
+  // Store the raw backend data for display
+  const [plantHealthRawData, setPlantHealthRawData] = useState<any>(null);
+  const [floweringRawData, setFloweringRawData] = useState<any>(null);
+  const currentRawData =
+    selectedPdfType === "plant_health" ? plantHealthRawData : floweringRawData;
+
   // Process assessment data when it changes
   useEffect(() => {
     if (assessmentData?.droneAnalysisPdfs) {
-      console.log(
-        "Processing uploaded PDFs:",
-        assessmentData.droneAnalysisPdfs,
-      );
-
       const newUploadedPdfs = { plant_health: false, flowering: false };
 
       assessmentData.droneAnalysisPdfs.forEach((pdf) => {
@@ -172,18 +173,24 @@ export const DroneAnalysisTab = ({
         const analysisData =
           (pdf as any).extractedData || pdf.droneAnalysisData;
 
-        if (analysisData) {
-          console.log("Processing PDF type:", pdfType, "data:", analysisData);
+        // Store raw data for JSON view
+        if (pdfType === "plant_health") {
+          setPlantHealthRawData(analysisData || null);
+        } else {
+          setFloweringRawData(analysisData || null);
+        }
 
-          // Backend response has different structure - parse accordingly
-          // Field info from analysisData.field or analysisData.report
+        if (analysisData) {
+          // Use correct backend structure:
+          // analysisData.field  -> { crop, growing_stage, area_hectares, area_acres }
+          // analysisData.report -> { survey_date, analysis_name, detected_report_type }
+          // analysisData.analysis -> { total_area_hectares, total_area_percent, levels[] }
           const fieldData = analysisData.field || {};
           const reportData = analysisData.report || {};
+          const analysisSection = analysisData.analysis || {};
 
-          // Get stress/weed levels from weed_analysis or stress_analysis
-          const weedData =
-            analysisData.weed_analysis || analysisData.stress_analysis || {};
-          const levelsData = weedData.levels || weedData.stress_levels || [];
+          // Get levels from analysisData.analysis.levels (correct path)
+          const levelsData = analysisSection.levels || [];
 
           // Transform levels to match frontend format
           const stressLevels = levelsData.map((level: any) => ({
@@ -192,19 +199,18 @@ export const DroneAnalysisTab = ({
             hectares: parseFloat(level.area_hectares || level.hectares) || 0,
           }));
 
-          // Get survey date from different possible locations
-          const surveyDate =
-            reportData.survey_date || analysisData.survey_date || "";
+          // Get survey date
+          const surveyDate = reportData.survey_date || "";
 
           // Get analysis name
           const analysisName =
             reportData.analysis_name ||
-            (pdfType === "plant_health" ? "PLANT STRESS" : "FLOWERING");
+            (pdfType === "plant_health" ? "Plant Stress" : "Flowering");
 
-          // Get total affected
+          // Get total affected from analysisData.analysis
           const totalAffected = {
-            hectares: parseFloat(weedData.total_area_hectares) || 0,
-            percentage: parseFloat(weedData.total_area_percent) || 0,
+            hectares: parseFloat(analysisSection.total_area_hectares) || 0,
+            percentage: parseFloat(analysisSection.total_area_percent) || 0,
           };
 
           // Get map image URL
@@ -221,15 +227,13 @@ export const DroneAnalysisTab = ({
             report_info: {
               crop: fieldData.crop || cropType,
               field_area_ha: parseFloat(fieldData.area_hectares) || area,
-              growing_stage: fieldData.growing_stage || "Not specified",
+              growing_stage: fieldData.growing_stage || "",
               survey_date: surveyDate,
               analysis_name: analysisName,
             },
             stress_levels: stressLevels,
             total_affected: totalAffected,
           };
-
-          console.log("Parsed data:", parsedData);
 
           if (pdfType === "plant_health") {
             setPlantHealthData(parsedData);
@@ -558,14 +562,16 @@ export const DroneAnalysisTab = ({
   // Current displayed data - prefer local parsed data if parsing, otherwise use backend data
   const displayData = isParsing ? parsedData : currentData;
 
-  // Calculate values from parsed data
-  const totalArea = displayData?.report_info.field_area_ha ?? area;
+  // Calculate values from parsed data – no mock fallbacks
+  const totalArea = displayData?.report_info.field_area_ha || 0;
   const fineLevel = displayData?.stress_levels.find(
-    (s) => s.name.toLowerCase() === "fine",
+    (s) =>
+      s.name.toLowerCase() === "fine" ||
+      s.name.toLowerCase().includes("healthy"),
   );
-  const healthyHa = fineLevel?.hectares ?? 2.8;
-  const totalAffectedHa = displayData?.total_affected.hectares ?? 0;
-  const totalAffectedPercent = displayData?.total_affected.percentage ?? 0;
+  const healthyHa = fineLevel?.hectares || 0;
+  const totalAffectedHa = displayData?.total_affected.hectares || 0;
+  const totalAffectedPercent = displayData?.total_affected.percentage || 0;
 
   // Check if current PDF type is already uploaded
   const isCurrentPdfUploaded = uploadedPdfs[selectedPdfType];
@@ -724,142 +730,371 @@ export const DroneAnalysisTab = ({
                 </div>
               )}
 
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  Flight Date:
-                </span>
-                <Input
-                  type="date"
-                  defaultValue={
-                    displayData?.report_info.survey_date
-                      ?.split("-")
-                      .reverse()
-                      .join("-") || "2025-10-22"
-                  }
-                  className="max-w-[200px]"
-                />
-              </div>
+              {/* Show flight date only if we have data */}
+              {displayData?.report_info.survey_date && (
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">
+                    Flight Date:
+                  </span>
+                  <Input
+                    type="date"
+                    defaultValue={
+                      displayData.report_info.survey_date
+                        ?.split("-")
+                        .reverse()
+                        .join("-") || ""
+                    }
+                    className="max-w-[200px]"
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
 
           {/* Parsed/Drone Metrics */}
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                {displayData
-                  ? displayData.report_info.analysis_name
-                  : "Drone Metrics"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Report Info */}
-              <div className="grid md:grid-cols-4 gap-4">
-                <div className="p-4 rounded-lg bg-muted/50">
-                  <p className="text-sm text-muted-foreground mb-1">Crop</p>
-                  <p className="text-xl font-bold">
-                    {displayData?.report_info.crop || cropType}
-                  </p>
-                </div>
-                <div className="p-4 rounded-lg bg-muted/50">
-                  <p className="text-sm text-muted-foreground mb-1">
-                    Field Area
-                  </p>
-                  <p className="text-xl font-bold">{totalArea} Hectare</p>
-                </div>
-                <div className="p-4 rounded-lg bg-muted/50">
-                  <p className="text-sm text-muted-foreground mb-1">
-                    Growing Stage
-                  </p>
-                  <p className="text-xl font-bold">
-                    {displayData?.report_info.growing_stage || "N/A"}
-                  </p>
-                </div>
-                <div className="p-4 rounded-lg bg-muted/50">
-                  <p className="text-sm text-muted-foreground mb-1">
-                    Analysis Name
-                  </p>
-                  <p className="text-xl font-bold">
-                    {displayData?.report_info.analysis_name || "N/A"}
-                  </p>
-                </div>
-              </div>
-
-              {/* Stress Level Table */}
-              {displayData && displayData.stress_levels.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-3">
-                    Stress Level Table
-                  </h4>
-                  <div className="border border-border rounded-lg overflow-hidden">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="bg-muted/50">
-                          <th className="text-left p-3 text-sm font-medium">
-                            Stress Level
-                          </th>
-                          <th className="text-right p-3 text-sm font-medium">
-                            %
-                          </th>
-                          <th className="text-right p-3 text-sm font-medium">
-                            Hectare
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {displayData.stress_levels.map((level, idx) => (
-                          <tr key={idx} className="border-t border-border">
-                            <td className="p-3 flex items-center gap-2">
-                              <div
-                                className={`w-3 h-3 rounded ${
-                                  idx === 0
-                                    ? "bg-green-500"
-                                    : idx === 1
-                                      ? "bg-yellow-500"
-                                      : "bg-red-500"
-                                }`}
-                              />
-                              {level.name}
-                            </td>
-                            <td className="p-3 text-right font-medium">
-                              {level.percentage.toFixed(2)}%
-                            </td>
-                            <td className="p-3 text-right font-medium">
-                              {level.hectares.toFixed(2)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* Total Affected Area */}
-              {displayData && displayData.total_affected.hectares > 0 && (
-                <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/30">
-                  <p className="text-sm text-muted-foreground mb-1">
-                    Total Area{" "}
-                    {displayData.report_info.analysis_name.toUpperCase()}:
-                  </p>
-                  <p className="text-2xl font-bold text-destructive">
-                    {displayData.total_affected.hectares.toFixed(2)} ha ={" "}
-                    {displayData.total_affected.percentage.toFixed(0)}% field
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Parsed JSON Output */}
-          {displayData && (
+          {displayData ? (
             <Card>
               <CardHeader>
-                <CardTitle>Extracted JSON Data</CardTitle>
+                <CardTitle>
+                  {displayData.report_info.analysis_name || "Drone Metrics"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Report Info - only show non-empty fields */}
+                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {displayData.report_info.crop && (
+                    <div className="p-4 rounded-lg bg-muted/50 border">
+                      <p className="text-sm text-muted-foreground mb-1">Crop</p>
+                      <p className="text-xl font-bold">
+                        {displayData.report_info.crop}
+                      </p>
+                    </div>
+                  )}
+                  {totalArea > 0 && (
+                    <div className="p-4 rounded-lg bg-muted/50 border">
+                      <p className="text-sm text-muted-foreground mb-1">
+                        Field Area
+                      </p>
+                      <p className="text-xl font-bold">{totalArea} Hectare</p>
+                    </div>
+                  )}
+                  {displayData.report_info.growing_stage && (
+                    <div className="p-4 rounded-lg bg-muted/50 border">
+                      <p className="text-sm text-muted-foreground mb-1">
+                        Growing Stage
+                      </p>
+                      <p className="text-xl font-bold">
+                        {displayData.report_info.growing_stage}
+                      </p>
+                    </div>
+                  )}
+                  {displayData.report_info.analysis_name && (
+                    <div className="p-4 rounded-lg bg-muted/50 border">
+                      <p className="text-sm text-muted-foreground mb-1">
+                        Analysis Name
+                      </p>
+                      <p className="text-xl font-bold">
+                        {displayData.report_info.analysis_name}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Additional Info from raw backend data */}
+                {currentRawData?.additional_info && (
+                  <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
+                    <p className="text-xs uppercase font-semibold text-primary/70 mb-1">
+                      Additional Information
+                    </p>
+                    <p className="text-sm font-medium text-foreground">
+                      {currentRawData.additional_info}
+                    </p>
+                  </div>
+                )}
+
+                {/* Stress Level Table */}
+                {displayData.stress_levels.length > 0 ? (
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-3">
+                      Analysis Levels
+                    </h4>
+                    <div className="border border-border rounded-lg overflow-hidden">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="bg-muted/50">
+                            <th className="text-left p-3 text-sm font-medium">
+                              Level
+                            </th>
+                            <th className="text-right p-3 text-sm font-medium">
+                              %
+                            </th>
+                            <th className="text-right p-3 text-sm font-medium">
+                              Hectare
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {displayData.stress_levels.map((level, idx) => {
+                            // Fixed position-based colors: 1st=green, 2nd=yellow, 3rd=red
+                            const dotColor =
+                              idx === 0
+                                ? "bg-green-500"
+                                : idx === 1
+                                  ? "bg-yellow-500"
+                                  : "bg-red-500";
+
+                            return (
+                              <tr
+                                key={idx}
+                                className="border-t border-border hover:bg-muted/30 transition-colors"
+                              >
+                                <td className="p-3 flex items-center gap-2">
+                                  <div
+                                    className={`w-3 h-3 rounded ${dotColor}`}
+                                  />
+                                  {level.name}
+                                </td>
+                                <td className="p-3 text-right font-medium">
+                                  {level.percentage.toFixed(2)}%
+                                </td>
+                                <td className="p-3 text-right font-medium">
+                                  {level.hectares.toFixed(2)}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-6 rounded-lg border border-amber-200 bg-amber-50/50 text-center">
+                    <p className="text-sm font-medium text-amber-800">
+                      No analysis levels were extracted from this report.
+                    </p>
+                    <p className="text-xs text-amber-600 mt-1">
+                      The PDF may not contain level data or the extraction may
+                      have failed.
+                    </p>
+                  </div>
+                )}
+
+                {/* Total Affected Area */}
+                {totalAffectedHa > 0 && (
+                  <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/30">
+                    <p className="text-sm text-muted-foreground mb-1">
+                      Total Area{" "}
+                      {displayData.report_info.analysis_name.toUpperCase()}:
+                    </p>
+                    <p className="text-2xl font-bold text-destructive">
+                      {totalAffectedHa.toFixed(2)} ha ={" "}
+                      {totalAffectedPercent.toFixed(0)}% field
+                    </p>
+                  </div>
+                )}
+
+                {/* Report Metadata (provider, type, detected type) */}
+                {currentRawData?.report && (() => {
+                  const r = currentRawData.report;
+                  const items = [
+                    r.provider && { label: "Provider", value: r.provider },
+                    r.type && { label: "Report Type", value: r.type },
+                    r.detected_report_type && { label: "Detected Type", value: r.detected_report_type.replace(/_/g, " ") },
+                  ].filter(Boolean);
+                  if (items.length === 0) return null;
+                  return (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {items.map((item: any, i: number) => (
+                        <div key={i} className="p-3 rounded-lg bg-muted/50 border">
+                          <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">{item.label}</p>
+                          <p className="text-sm font-medium text-foreground capitalize">{item.value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+
+                {/* Area in Acres (if available) */}
+                {currentRawData?.field?.area_acres && currentRawData.field.area_acres > 0 && (
+                  <div className="p-3 rounded-lg bg-muted/50 border inline-block">
+                    <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Field Area (Acres)</p>
+                    <p className="text-lg font-bold text-foreground">{currentRawData.field.area_acres} Acres</p>
+                  </div>
+                )}
+
+                {/* Stand Count Analysis (when non-null) */}
+                {currentRawData?.stand_count_analysis && (() => {
+                  const sc = currentRawData.stand_count_analysis;
+                  const items = [
+                    sc.plants_counted != null && { label: "Plants Counted", value: sc.plants_counted.toLocaleString() },
+                    sc.average_plant_density != null && { label: "Avg Plant Density", value: `${sc.average_plant_density} ${sc.plant_density_unit || ""}`.trim() },
+                    sc.planned_plants != null && { label: "Planned Plants", value: sc.planned_plants.toLocaleString() },
+                    sc.difference_percent != null && { label: "Difference", value: `${sc.difference_percent}% ${sc.difference_type || ""}`.trim() },
+                    sc.difference_plants != null && { label: "Difference (Plants)", value: sc.difference_plants.toLocaleString() },
+                  ].filter(Boolean);
+                  if (items.length === 0) return null;
+                  return (
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-3">🌾 Stand Count Analysis</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {items.map((item: any, i: number) => (
+                          <div key={i} className="p-3 rounded-lg bg-muted/50 border">
+                            <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">{item.label}</p>
+                            <p className="text-sm font-bold text-foreground">{item.value}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* RX Spraying Analysis (when non-null) */}
+                {currentRawData?.rx_spraying_analysis && (() => {
+                  const rx = currentRawData.rx_spraying_analysis;
+                  const hasRates = rx.rates && rx.rates.length > 0;
+                  const items = [
+                    rx.planned_date && { label: "Planned Date", value: rx.planned_date },
+                    rx.pesticide_type && { label: "Pesticide Type", value: rx.pesticide_type },
+                    rx.total_pesticide_amount != null && { label: "Total Amount", value: String(rx.total_pesticide_amount) },
+                    rx.average_pesticide_amount != null && { label: "Avg Amount", value: String(rx.average_pesticide_amount) },
+                  ].filter(Boolean);
+                  if (items.length === 0 && !hasRates) return null;
+                  return (
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-3">🧪 RX Spraying Analysis</h4>
+                      {items.length > 0 && (
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                          {items.map((item: any, i: number) => (
+                            <div key={i} className="p-3 rounded-lg bg-muted/50 border">
+                              <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">{item.label}</p>
+                              <p className="text-sm font-bold text-foreground">{item.value}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {hasRates && (
+                        <div className="border border-border rounded-lg overflow-hidden">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="bg-muted/50">
+                                <th className="text-left p-3 font-medium">Zone</th>
+                                <th className="text-right p-3 font-medium">Rate</th>
+                                <th className="text-right p-3 font-medium">Area</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {rx.rates.map((rate: any, i: number) => (
+                                <tr key={i} className="border-t border-border">
+                                  <td className="p-3">{rate.zone || rate.name || `Zone ${i + 1}`}</td>
+                                  <td className="p-3 text-right font-medium">{rate.rate || rate.amount || "N/A"}</td>
+                                  <td className="p-3 text-right font-medium">{rate.area_hectares || rate.area || "N/A"}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Zonation Analysis (when non-null) */}
+                {currentRawData?.zonation_analysis && (() => {
+                  const za = currentRawData.zonation_analysis;
+                  const hasZones = za.zones && za.zones.length > 0;
+                  const items = [
+                    za.tile_size != null && { label: "Tile Size", value: String(za.tile_size) },
+                    za.num_zones != null && { label: "Number of Zones", value: String(za.num_zones) },
+                  ].filter(Boolean);
+                  if (items.length === 0 && !hasZones) return null;
+                  return (
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-3">📊 Zonation Analysis</h4>
+                      {items.length > 0 && (
+                        <div className="grid grid-cols-2 gap-3 mb-3">
+                          {items.map((item: any, i: number) => (
+                            <div key={i} className="p-3 rounded-lg bg-muted/50 border">
+                              <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">{item.label}</p>
+                              <p className="text-sm font-bold text-foreground">{item.value}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {hasZones && (
+                        <div className="border border-border rounded-lg overflow-hidden">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="bg-muted/50">
+                                <th className="text-left p-3 font-medium">Zone</th>
+                                <th className="text-right p-3 font-medium">Area (ha)</th>
+                                <th className="text-right p-3 font-medium">%</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {za.zones.map((zone: any, i: number) => (
+                                <tr key={i} className="border-t border-border">
+                                  <td className="p-3">{zone.name || zone.zone || `Zone ${i + 1}`}</td>
+                                  <td className="p-3 text-right font-medium">{zone.area_hectares || zone.hectares || "—"}</td>
+                                  <td className="p-3 text-right font-medium">{zone.percentage || "—"}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Extraction Metadata */}
+                {currentRawData?.metadata && (() => {
+                  const m = currentRawData.metadata;
+                  const items = [
+                    m.extracted_at && { label: "Extracted At", value: new Date(m.extracted_at).toLocaleString() },
+                    m.total_pages != null && { label: "Total Pages", value: String(m.total_pages) },
+                    m.extractor_version && { label: "Extractor Version", value: m.extractor_version },
+                  ].filter(Boolean);
+                  if (items.length === 0) return null;
+                  return (
+                    <div className="pt-4 border-t">
+                      <h4 className="text-xs font-medium text-muted-foreground mb-2 uppercase">Extraction Metadata</h4>
+                      <div className="flex flex-wrap gap-4">
+                        {items.map((item: any, i: number) => (
+                          <div key={i} className="text-xs">
+                            <span className="text-muted-foreground">{item.label}: </span>
+                            <span className="font-medium text-foreground">{item.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+          ) : isCurrentPdfUploaded ? (
+            <Card>
+              <CardContent className="py-8 text-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-3" />
+                <p className="text-sm font-medium">
+                  Processing analysis data...
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Please wait while the system extracts metrics from your PDF.
+                </p>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {/* Backend Raw Data Output */}
+          {currentRawData && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Extracted Analysis Data (Backend)</CardTitle>
               </CardHeader>
               <CardContent>
-                <pre className="bg-muted p-4 rounded-lg text-xs overflow-auto max-h-64">
-                  {JSON.stringify(displayData, null, 2)}
+                <pre className="bg-muted p-4 rounded-lg text-xs overflow-auto max-h-64 text-foreground">
+                  {JSON.stringify(currentRawData, null, 2)}
                 </pre>
               </CardContent>
             </Card>
