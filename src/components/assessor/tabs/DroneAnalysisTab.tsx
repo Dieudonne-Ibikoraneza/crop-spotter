@@ -5,6 +5,17 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { FieldMapWithLayers } from "../FieldMapWithLayers";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -18,7 +29,7 @@ import {
   Map,
   Check,
   X,
-  Save,
+  Save,Trash2
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -559,6 +570,29 @@ export const DroneAnalysisTab = ({
     }
   };
 
+  const handleDeletePdf = async () => {
+    if (!assessmentId) return;
+    
+    // Clear local parsed data before confirming deletion
+    if (selectedPdfType === "plant_health") {
+      setPlantHealthData(null);
+      setPlantHealthImages([]);
+    } else {
+      setFloweringData(null);
+      setFloweringImages([]);
+    }
+
+    try {
+      await assessorService.deletePdf(assessmentId, selectedPdfType);
+      toast.success(
+        `${selectedPdfType === "plant_health" ? "Plant Stress" : "Flowering"} PDF deleted successfully.`,
+      );
+      refetchAssessment();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to delete PDF");
+    }
+  };
+
   // Current displayed data - prefer local parsed data if parsing, otherwise use backend data
   const displayData = isParsing ? parsedData : currentData;
 
@@ -650,29 +684,58 @@ export const DroneAnalysisTab = ({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Show upload status badge */}
-              <div className="flex items-center gap-2 mb-4">
-                {isCurrentPdfUploaded ? (
-                  <>
-                    <Check className="h-5 w-5 text-green-500" />
-                    <span className="text-sm font-medium text-green-600">
-                      {selectedPdfType === "plant_health"
-                        ? "Plant Stress"
-                        : "Flowering"}{" "}
-                      Report Uploaded
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <X className="h-5 w-5 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">
-                      No{" "}
-                      {selectedPdfType === "plant_health"
-                        ? "Plant Stress"
-                        : "Flowering"}{" "}
-                      Report uploaded
-                    </span>
-                  </>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  {isCurrentPdfUploaded ? (
+                    <>
+                      <Check className="h-5 w-5 text-green-500" />
+                      <span className="text-sm font-medium text-green-600">
+                        {selectedPdfType === "plant_health"
+                          ? "Plant Stress"
+                          : "Flowering"}{" "}
+                        Report Uploaded
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <X className="h-5 w-5 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">
+                        No{" "}
+                        {selectedPdfType === "plant_health"
+                          ? "Plant Stress"
+                          : "Flowering"}{" "}
+                        Report uploaded
+                      </span>
+                    </>
+                  )}
+                </div>
+                {isCurrentPdfUploaded && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="gap-2"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete Report
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete the {selectedPdfType === "plant_health" ? "Plant Stress" : "Flowering"} PDF report from the server.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeletePdf}>
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 )}
               </div>
 

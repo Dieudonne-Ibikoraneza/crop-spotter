@@ -189,6 +189,7 @@ export const FieldMapWithLayers = ({
       mapRef.current = L.map(mapContainerRef.current).setView(
         defaultCenter,
         15,
+        { animate: false }
       );
 
       const terrainConfig = terrainOptions[terrain];
@@ -198,6 +199,7 @@ export const FieldMapWithLayers = ({
 
       return () => {
         if (mapRef.current) {
+          mapRef.current.off();
           mapRef.current.remove();
           mapRef.current = null;
         }
@@ -213,7 +215,7 @@ export const FieldMapWithLayers = ({
       (Math.min(...lngs) + Math.max(...lngs)) / 2,
     ];
 
-    mapRef.current = L.map(mapContainerRef.current).setView(viewCenter, 15);
+    mapRef.current = L.map(mapContainerRef.current).setView(viewCenter, 15, { animate: false });
 
     const terrainConfig = terrainOptions[terrain];
     tileLayerRef.current = L.tileLayer(terrainConfig.url, {
@@ -244,11 +246,12 @@ export const FieldMapWithLayers = ({
 
     const bounds = boundaryLayerRef.current.getBounds();
     if (bounds.isValid()) {
-      mapRef.current.fitBounds(bounds, { padding: [30, 30] });
+      mapRef.current.fitBounds(bounds, { padding: [30, 30], animate: false });
     }
 
     return () => {
       if (mapRef.current) {
+        mapRef.current.off();
         mapRef.current.remove();
         mapRef.current = null;
       }

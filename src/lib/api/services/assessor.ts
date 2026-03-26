@@ -7,6 +7,7 @@ const ASSESSOR_ENDPOINTS = {
   getAssessment: (id: string) => `/assessments/${id}`,
   updateAssessment: (id: string) => `/assessments/${id}`,
   uploadDronePdf: (id: string) => `/assessments/${id}/upload-drone-pdf`,
+  deletePdf: (id: string, pdfType: string) => `/assessments/${id}/pdfs/${pdfType}`,
   getPdfs: (id: string) => `/assessments/${id}/pdfs`,
   generateReport: (id: string) => `/assessments/${id}/generate-report`,
   approveAssessment: (id: string) => `/assessments/${id}/approve`,
@@ -172,6 +173,15 @@ export const assessorService = {
   rejectAssessment: async (assessmentId: string): Promise<Assessment> => {
     return apiClient.post<Assessment>(
       ASSESSOR_ENDPOINTS.rejectAssessment(assessmentId),
+    );
+  },
+
+  /**
+   * Delete a specific drone PDF from an assessment
+   */
+  deletePdf: async (assessmentId: string, pdfType: string): Promise<any> => {
+    return apiClient.delete<any>(
+      ASSESSOR_ENDPOINTS.deletePdf(assessmentId, pdfType),
     );
   },
 };

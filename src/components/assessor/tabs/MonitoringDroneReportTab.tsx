@@ -4,6 +4,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Upload,
   FileText,
   Loader2,
@@ -82,6 +93,24 @@ export const MonitoringDroneReportTab = ({
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDeletePdf = async (pdfType: string) => {
+    try {
+      await cropMonitoringService.deletePdf(monitoringId, pdfType);
+      toast({
+        title: "Delete Successful",
+        description: "The PDF report has been deleted.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["crop-monitoring-policy"] });
+      queryClient.invalidateQueries({ queryKey: ["crop-monitoring"] });
+    } catch (error: any) {
+      toast({
+        title: "Delete Failed",
+        description: error.message || "Failed to delete PDF report.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -644,26 +673,55 @@ export const MonitoringDroneReportTab = ({
       {dronePdfs.map((pdf, idx) => (
         <Card key={pdf._id || idx}>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-primary" />
-                <span className="capitalize">
-                  {(pdf.pdfType || "unknown").replace(/_/g, " ")}
-                </span>
-                <Badge
-                  variant="outline"
-                  className="text-xs bg-green-50 text-green-700 border-green-200"
-                >
-                  <Check className="h-3 w-3 mr-1" />
-                  Uploaded
-                </Badge>
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-primary" />
+                  <span className="capitalize">
+                    {(pdf.pdfType || "unknown").replace(/_/g, " ")}
+                  </span>
+                  <Badge
+                    variant="outline"
+                    className="text-xs bg-green-50 text-green-700 border-green-200"
+                  >
+                    <Check className="h-3 w-3 mr-1" />
+                    Uploaded
+                  </Badge>
+                </CardTitle>
+                {pdf.uploadedAt && (
+                  <p className="text-xs text-muted-foreground font-normal">
+                    {new Date(pdf.uploadedAt).toLocaleString()}
+                  </p>
+                )}
               </div>
-              {pdf.uploadedAt && (
-                <span className="text-xs text-muted-foreground font-normal">
-                  {new Date(pdf.uploadedAt).toLocaleString()}
-                </span>
-              )}
-            </CardTitle>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="gap-2 shrink-0"
+                    title="Delete Report"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete Report
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete the "{pdf.pdfType.replace(/_/g, " ")}" PDF report from the server.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => handleDeletePdf(pdf.pdfType)}>
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           </CardHeader>
           <CardContent>{renderAnalysisData(pdf)}</CardContent>
         </Card>
