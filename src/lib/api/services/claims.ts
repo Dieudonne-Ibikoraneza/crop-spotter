@@ -104,4 +104,9 @@ export const claimsService = {
     const response = await apiClient.get<ClaimAssessment>(`/assessments/${assessmentId}`);
     return (response as any).data && !(response as any)._id ? (response as any).data : response;
   },
+
+  /** Get automated damage analysis (NDVI before/after) for a claim */
+  getDamageAnalysis: async (claimId: string): Promise<any> => {
+    return apiClient.get<any>(CLAIMS_ENDPOINTS.getDamageAnalysis(claimId));
+  },
 };
