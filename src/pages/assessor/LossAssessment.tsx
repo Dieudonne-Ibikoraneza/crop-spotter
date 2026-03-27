@@ -1,175 +1,139 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect } from "react";
+import { useParams, useSearchParams, useNavigate } from "react-router-dom";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { FieldMap } from "@/components/assessor/FieldMap";
-import { Search, Filter, Paperclip, AlertCircle, CheckCircle } from "lucide-react";
+import { ChevronLeft, Loader2, AlertCircle } from "lucide-react";
+import { useAssignedFarmers } from "@/lib/api/hooks/useAssessor";
+import { useClaim, useAssessorClaims } from "@/lib/api/hooks/useClaims";
+import { LossBasicInfoTab } from "../../components/assessor/tabs/loss/LossBasicInfoTab";
+import { LossClaimsList } from "../../components/assessor/loss/LossClaimsList";
+import { LossEvidenceTab } from "../../components/assessor/tabs/loss/LossEvidenceTab";
+import { LossDetailsTab } from "../../components/assessor/tabs/loss/LossDetailsTab";
+import { LossOverviewTab } from "../../components/assessor/tabs/loss/LossOverviewTab";
 
 const LossAssessment = () => {
-  return (
-    <div className="p-8 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Loss Assessment</h1>
-        <p className="text-muted-foreground">Document and evaluate crop loss events</p>
-      </div>
+  const { farmerId, fieldId } = useParams();
+  const [searchParams] = useSearchParams();
+  const claimId = searchParams.get("claimId")?.trim();
+  const navigate = useNavigate();
 
-      <div className="flex gap-2">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search fields..." className="pl-10" />
+  const [activeTab, setActiveTab] = useState("basic-info");
+
+  // Fetch data
+  const { data: farmers, isLoading: isFarmersLoading } = useAssignedFarmers();
+  const { data: claims, isLoading: isClaimsLoading } = useAssessorClaims();
+  const { data: claim, isLoading: isClaimLoading } = useClaim(claimId || undefined);
+
+  // Find current farmer and field
+  const farmer = farmers?.find((f) => String(f.id) === String(farmerId));
+  const field = farmer?.farms.find((f) => String(f.id) === String(fieldId));
+
+  const isLoading = isClaimLoading || isClaimsLoading || isFarmersLoading;
+  
+  if (isLoading) {
+    return (
+      <div className="flex h-[80vh] items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" />
+          <p className="text-muted-foreground animate-pulse text-sm">Preparing assessment data...</p>
         </div>
-        <Button variant="outline">
-          <Filter className="h-4 w-4 mr-2" />
-          Filter
-        </Button>
+      </div>
+    );
+  }
+
+  if (!claimId || !claim) {
+    return (
+      <div className="p-4 md:p-8 space-y-6">
+        <div>
+          <Button variant="ghost" className="mb-2 -ml-2" onClick={() => navigate("/assessor/dashboard")}>
+            <ChevronLeft className="h-4 w-4 mr-2" />
+            Back to Dashboard
+          </Button>
+          <h1 className="text-3xl font-bold tracking-tight">Loss Assessments</h1>
+          <p className="text-muted-foreground">
+             Select an assigned claim to start or continue an evaluation
+          </p>
+        </div>
+
+        {claims && claims.length > 0 ? (
+          <LossClaimsList claims={claims} farmers={farmers || []} />
+        ) : (
+          <Card className="border-amber-200 bg-amber-50">
+            <CardContent className="py-12 text-center">
+              <AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+              <h2 className="text-xl font-bold text-amber-900 mb-2">No Active Claim Found</h2>
+              <p className="text-amber-700 max-w-md mx-auto mb-4">
+                {claimId 
+                  ? `The claim with ID "${claimId}" could not be retrieved from our systems.` 
+                  : "We couldn't find any claims assigned to you for this field."}
+                Please verify the claim status on your dashboard.
+              </p>
+              <div className="text-[10px] text-amber-600/50 font-mono">
+                Field: {fieldId} • Farmer: {farmerId} • Claim: {claimId || "None"}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 md:p-8 space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <Button variant="ghost" className="mb-2 -ml-2" onClick={() => navigate("/assessor/dashboard")}>
+            <ChevronLeft className="h-4 w-4 mr-2" />
+            Back to Dashboard
+          </Button>
+          <h1 className="text-3xl font-bold tracking-tight">Loss Assessment</h1>
+          <p className="text-muted-foreground">
+            Evaluating loss for <strong>{field?.name || "Field"}</strong> • {farmer?.firstName} {farmer?.lastName}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+           <div className={`px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider ${
+             claim.status === 'APPROVED' ? 'bg-green-100 text-green-700' :
+             claim.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
+             claim.status === 'SUBMITTED' ? 'bg-blue-100 text-blue-700' :
+             'bg-amber-100 text-amber-700'
+           }`}>
+             {claim.status.replace('_', ' ')}
+           </div>
+        </div>
       </div>
 
-      {/* Field Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Field Summary</CardTitle>
-        </CardHeader>
-        <CardContent className="flex items-center gap-6">
-          <div>
-            <span className="text-sm text-muted-foreground">Farmer: </span>
-            <span className="font-medium">Mugabo John</span>
-          </div>
-          <div className="h-6 w-px bg-border"></div>
-          <div>
-            <span className="text-sm text-muted-foreground">Field ID: </span>
-            <span className="font-medium">9812345</span>
-          </div>
-          <div className="h-6 w-px bg-border"></div>
-          <div>
-            <span className="text-sm text-muted-foreground">Crop: </span>
-            <span className="font-medium">Maize</span>
-          </div>
-          <div className="h-6 w-px bg-border"></div>
-          <div>
-            <span className="text-sm text-muted-foreground">Area: </span>
-            <span className="font-medium">3.4 ha</span>
-          </div>
-        </CardContent>
-      </Card>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-4 lg:w-[600px]">
+          <TabsTrigger value="basic-info">Basic Info</TabsTrigger>
+          <TabsTrigger value="evidence">Evidence</TabsTrigger>
+          <TabsTrigger value="details">Loss Details</TabsTrigger>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+        </TabsList>
 
-      {/* Loss Details */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Loss Details</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Cause</label>
-              <Input defaultValue="Flood" />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block">Date</label>
-              <Input type="date" defaultValue="2025-04-16" />
-            </div>
-          </div>
-          
-          <div>
-            <label className="text-sm font-medium mb-2 block">Description</label>
-            <Textarea 
-              defaultValue="Continuous rainfall caused waterlogging."
-              className="min-h-[100px]"
-            />
-          </div>
-          
-          <div>
-            <label className="text-sm font-medium mb-2 block">Evidence</label>
-            <Button variant="outline" className="w-full justify-start">
-              <Paperclip className="h-4 w-4 mr-2" />
-              View Attachments (3 files)
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+        <div className="mt-6">
+          <TabsContent value="basic-info">
+             <LossBasicInfoTab 
+               field={field} 
+               claim={claim} 
+               farmerName={`${farmer?.firstName} ${farmer?.lastName}`}
+             />
+          </TabsContent>
 
-      {/* Loss Quantification */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Loss Quantification</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid md:grid-cols-3 gap-4">
-            <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20">
-              <p className="text-sm text-muted-foreground mb-1">Affected Area</p>
-              <p className="text-2xl font-bold text-destructive">1.2 ha</p>
-              <p className="text-xs text-muted-foreground mt-1">(35%)</p>
-            </div>
-            <div className="p-4 rounded-lg bg-warning/10 border border-warning/20">
-              <p className="text-sm text-muted-foreground mb-1">Severity</p>
-              <p className="text-2xl font-bold text-warning">Moderate</p>
-            </div>
-            <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20">
-              <p className="text-sm text-muted-foreground mb-1">Yield Impact</p>
-              <p className="text-2xl font-bold text-destructive">40%</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          <TabsContent value="evidence">
+            <LossEvidenceTab claim={claim} />
+          </TabsContent>
 
-      {/* Map Visualization */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Map Visualization</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <FieldMap fieldId="9812345" showLegend={true} overlayType="damage" />
-        </CardContent>
-      </Card>
+          <TabsContent value="details">
+            <LossDetailsTab claim={claim} />
+          </TabsContent>
 
-      {/* Decision Support */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Decision Support</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="p-4 rounded-lg bg-muted/50">
-              <div className="flex items-center gap-2 mb-2">
-                <AlertCircle className="h-5 w-5 text-warning" />
-                <p className="font-medium">Policy Threshold</p>
-              </div>
-              <p className="text-2xl font-bold">30%</p>
-              <p className="text-xs text-muted-foreground mt-1">Minimum affected area</p>
-            </div>
-            <div className="p-4 rounded-lg bg-success/10 border border-success/20">
-              <div className="flex items-center gap-2 mb-2">
-                <CheckCircle className="h-5 w-5 text-success" />
-                <p className="font-medium">Meets Condition</p>
-              </div>
-              <p className="text-2xl font-bold text-success">YES</p>
-              <p className="text-xs text-muted-foreground mt-1">Exceeds threshold by 5%</p>
-            </div>
-          </div>
-          
-          <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
-            <p className="font-medium mb-2">Recommendation</p>
-            <p className="text-lg">Proceed to claim validation</p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Assessor Notes */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Assessor Notes</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Textarea 
-            placeholder="Add your loss assessment notes here..." 
-            className="min-h-[100px]"
-            defaultValue="Severe flood confirmed. Drone verified damage zone."
-          />
-          <div className="flex gap-2">
-            <Button>Save Assessment</Button>
-            <Button variant="outline">Generate Report PDF</Button>
-          </div>
-        </CardContent>
-      </Card>
+          <TabsContent value="overview">
+            <LossOverviewTab claim={claim} fieldName={field?.name || "Field"} />
+          </TabsContent>
+        </div>
+      </Tabs>
     </div>
   );
 };

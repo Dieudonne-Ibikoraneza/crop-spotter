@@ -7,6 +7,17 @@ import { useComprehensiveNotes } from "@/hooks/useComprehensiveNotes";
 import { calculateOverallRisk, RiskAssessment } from "@/utils/riskCalculation";
 import { ComprehensiveReportGenerator } from "@/utils/reportGenerator";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Loader2,
   Save,
   FileText,
@@ -24,6 +35,7 @@ interface OverviewTabProps {
   recommendation?: string;
   analysisType: "drone" | "satellite";
   assessmentId?: string;
+  status?: string;
   initialNotes?: string;
   dronePdfs?: Array<{ pdfType: string; droneAnalysisData?: unknown }>;
   weatherData?: unknown;
@@ -43,6 +55,7 @@ export const OverviewTab = ({
   recommendation,
   analysisType,
   assessmentId,
+  status = "IN_PROGRESS",
   initialNotes,
   dronePdfs = [],
   weatherData,
@@ -74,6 +87,8 @@ export const OverviewTab = ({
       setRiskAssessment(assessment);
     }
   }, [dronePdfs, weatherData]);
+
+  const isCompleted = status === "SUBMITTED" || status === "APPROVED" || status === "COMPLETED";
 
   // Enhanced report generation
   const handleGenerateEnhancedReport = async () => {
@@ -161,12 +176,19 @@ export const OverviewTab = ({
     }
   };
 
+  const statusBadgeColor = isCompleted ? "bg-green-100 text-green-800 border-green-200" : "bg-amber-100 text-amber-800 border-amber-200";
+
   return (
     <div className="space-y-6">
       {/* Overall Summary */}
       <Card>
         <CardHeader>
-          <CardTitle>Overall Summary</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Overall Summary</CardTitle>
+            <Badge variant="outline" className={statusBadgeColor}>
+              {isCompleted ? "✓ Assessment Submitted" : "🕒 In Progress"}
+            </Badge>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {riskAssessment ? (
@@ -365,12 +387,13 @@ export const OverviewTab = ({
             onChange={(e) => setComprehensiveNotes(e.target.value)}
             placeholder="Write comprehensive feedback about the field assessment..."
             className="min-h-[200px]"
+            disabled={isCompleted}
           />
           <div className="flex items-center justify-between">
             <div className="flex gap-2">
               <Button
                 onClick={saveNotes}
-                disabled={isSaving || !hasChanges}
+                disabled={isSaving || !hasChanges || isCompleted}
                 className="flex items-center gap-2"
               >
                 {isSaving ? (
@@ -380,19 +403,40 @@ export const OverviewTab = ({
                 )}
                 {isSaving ? "Saving..." : "Save Feedback"}
               </Button>
-              <Button
-                variant="outline"
-                onClick={handleGenerateEnhancedReport}
-                disabled={!canGenerateReport || isSaving || isGeneratingReport}
-                className="flex items-center gap-2"
-              >
-                {isGeneratingReport ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <FileText className="h-4 w-4" />
-                )}
-                {isGeneratingReport ? "Generating..." : "Generate Full Report"}
-              </Button>
+
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    disabled={!canGenerateReport || isSaving || isGeneratingReport || isCompleted}
+                    className="flex items-center gap-2 border-primary/50 hover:border-primary"
+                  >
+                    {isGeneratingReport ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <CheckCircle className="h-4 w-4" />
+                    )}
+                    {isGeneratingReport ? "Submitting..." : "Complete & Submit to Insurer"}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                   <AlertDialogHeader>
+                    <AlertDialogTitle>Finalize Risk Assessment?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will generate the final report for <strong>{farmDetails?.name}</strong> and submit it to the insurer. This action cannot be undone and you will not be able to edit the assessment further.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction 
+                      onClick={handleGenerateEnhancedReport}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      Complete & Submit
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
               {riskAssessment && (
                 <Button
                   variant="outline"

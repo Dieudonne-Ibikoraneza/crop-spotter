@@ -45,6 +45,7 @@ const App = () => (
             <Route path="crop-monitoring/:farmerId" element={<CropMonitoring />} />
             <Route path="crop-monitoring/:farmerId/:fieldId" element={<CropMonitoring />} />
             <Route path="loss-assessment" element={<LossAssessment />} />
+            <Route path="loss-assessment/:farmerId/:fieldId" element={<LossAssessment />} />
             <Route path="field/:id" element={<FieldDetail />} />
             <Route path="field-processing" element={<FieldProcessing />} />
           </Route>

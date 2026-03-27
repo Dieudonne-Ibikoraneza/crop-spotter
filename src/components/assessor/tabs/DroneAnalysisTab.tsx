@@ -27,9 +27,11 @@ import {
   Loader2,
   Image,
   Map,
-  Check,
+  Save,
+  Trash2,
   X,
-  Save,Trash2
+  Check,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -57,6 +59,7 @@ interface DroneAnalysisTabProps {
   cropType: string;
   area: number;
   assessmentId?: string;
+  status?: string;
   initialNotes?: string;
 }
 
@@ -87,6 +90,7 @@ export const DroneAnalysisTab = ({
   cropType,
   area,
   assessmentId,
+  status = "IN_PROGRESS",
   initialNotes,
 }: DroneAnalysisTabProps) => {
   const [dataSource, setDataSource] = useState<"drone" | "manual">("drone");
@@ -97,6 +101,7 @@ export const DroneAnalysisTab = ({
   const [manualMoisture, setManualMoisture] = useState([58]);
   const [manualWeed, setManualWeed] = useState([7.3]);
   const [manualPest, setManualPest] = useState([4.4]);
+  const isCompleted = status === "SUBMITTED" || status === "APPROVED" || status === "COMPLETED";
 
   // Shared notes functionality
   const {
@@ -712,14 +717,14 @@ export const DroneAnalysisTab = ({
                 {isCurrentPdfUploaded && (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        className="gap-2"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Delete Report
-                      </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          disabled={isCompleted}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
@@ -743,7 +748,6 @@ export const DroneAnalysisTab = ({
               {!isCurrentPdfUploaded && (
                 <div
                   className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
-                  onClick={() => fileInputRef.current?.click()}
                 >
                   {isParsing || isUploading ? (
                     <Loader2 className="h-12 w-12 mx-auto mb-4 text-primary animate-spin" />
@@ -757,25 +761,39 @@ export const DroneAnalysisTab = ({
                         ? "Uploading to server..."
                         : `Upload ${selectedPdfType === "plant_health" ? "Plant Stress" : "Flowering"} PDF Report`}
                   </p>
-                  <p className="text-xs text-muted-foreground mb-4">
-                    {selectedPdfType === "plant_health"
-                      ? "Supports plant stress analysis reports (Agremo format)"
-                      : "Supports flowering analysis reports (Agremo format)"}
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Upload any Agremo analysis report PDF. The file name will be used as the report identifier.
                   </p>
-                  <Input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".pdf"
-                    className="hidden"
-                    onChange={handlePdfUpload}
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={isParsing || isUploading}
-                  >
-                    Select PDF File
-                  </Button>
+
+                  {isCompleted && (
+                    <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-700 text-sm flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      Assessment is finalized. No further uploads allowed.
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      className="hidden"
+                      ref={fileInputRef}
+                      onChange={handlePdfUpload}
+                      disabled={isCompleted}
+                    />
+                    <Button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading || isCompleted}
+                      className="flex items-center gap-2"
+                    >
+                      {isUploading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Upload className="h-4 w-4" />
+                      )}
+                      {isUploading ? "Uploading..." : "Select PDF File"}
+                    </Button>
+                  </div>
                 </div>
               )}
 
@@ -962,8 +980,6 @@ export const DroneAnalysisTab = ({
                   const r = currentRawData.report;
                   const items = [
                     r.provider && { label: "Provider", value: r.provider },
-                    r.type && { label: "Report Type", value: r.type },
-                    r.detected_report_type && { label: "Detected Type", value: r.detected_report_type.replace(/_/g, " ") },
                   ].filter(Boolean);
                   if (items.length === 0) return null;
                   return (
@@ -1396,82 +1412,6 @@ export const DroneAnalysisTab = ({
           </Card>
         </>
       )}
-
-      {/* Comprehensive Assessment Notes */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            Comprehensive Assessment Notes
-            {lastSaved && (
-              <span className="text-sm font-normal text-muted-foreground">
-                Last saved: {lastSaved.toLocaleTimeString()}
-              </span>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Textarea
-            value={comprehensiveNotes}
-            onChange={(e) => setComprehensiveNotes(e.target.value)}
-            placeholder="Write comprehensive feedback about the field assessment including drone analysis..."
-            className="min-h-[150px]"
-          />
-          <div className="flex items-center justify-between">
-            <div className="flex gap-2">
-              <Button
-                onClick={saveNotes}
-                disabled={isSaving || !hasChanges}
-                className="flex items-center gap-2"
-              >
-                {isSaving ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4" />
-                )}
-                {isSaving ? "Saving..." : "Save Notes"}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={generateReport}
-                disabled={!canGenerateReport || isSaving}
-                className="flex items-center gap-2"
-              >
-                <FileText className="h-4 w-4" />
-                Generate Report
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  if (displayData) {
-                    const blob = new Blob(
-                      [JSON.stringify(displayData, null, 2)],
-                      {
-                        type: "application/json",
-                      },
-                    );
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = `field-${fieldId}-analysis.json`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                    toast.success("JSON downloaded");
-                  } else {
-                    toast.info("No parsed data to download");
-                  }
-                }}
-              >
-                Download Summary JSON
-              </Button>
-            </div>
-            {hasChanges && (
-              <span className="text-sm text-muted-foreground">
-                Unsaved changes
-              </span>
-            )}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };

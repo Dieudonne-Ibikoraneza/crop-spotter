@@ -111,7 +111,7 @@ export const FieldMapWithLayers = ({
 
   // Generate index data based on actual field boundary
   const indexData = useMemo(() => {
-    if (!boundary) return null;
+    if (!boundary || !boundary.coordinates || !boundary.coordinates[0]) return null;
 
     // Extract bounds from the actual boundary
     const coords = boundary.coordinates[0]; // First ring of the polygon
@@ -179,8 +179,8 @@ export const FieldMapWithLayers = ({
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
-    // Require boundary to initialize map
-    if (!boundary) {
+    // Require valid boundary to initialize map with bounds
+    if (!boundary || !boundary.coordinates || !boundary.coordinates[0]) {
       console.warn(
         "FieldMapWithLayers: No boundary provided, using default location",
       );
@@ -301,7 +301,7 @@ export const FieldMapWithLayers = ({
       indexLayerRef.current = null;
     }
 
-    if (selectedLayer === "none") return;
+    if (selectedLayer === "none" || !indexData) return;
 
     const data = indexData[selectedLayer];
     if (!data) return;

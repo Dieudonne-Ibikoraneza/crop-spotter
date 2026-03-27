@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-type StatusType = "healthy" | "moderate" | "stress" | "active" | "pending" | "approved" | "rejected";
+type StatusType = "healthy" | "moderate" | "stress" | "active" | "pending" | "approved" | "rejected" | "submitted";
 
 interface StatusBadgeProps {
   status: StatusType;
@@ -16,6 +16,7 @@ const statusConfig = {
   pending: { color: "bg-warning/10 text-warning border-warning/20", label: "Pending" },
   approved: { color: "bg-success/10 text-success border-success/20", label: "Approved" },
   rejected: { color: "bg-destructive/10 text-destructive border-destructive/20", label: "Rejected" },
+  submitted: { color: "bg-blue-100 text-blue-700 border-blue-200", label: "Submitted" },
 };
 
 export function StatusBadge({ status, label }: StatusBadgeProps) {

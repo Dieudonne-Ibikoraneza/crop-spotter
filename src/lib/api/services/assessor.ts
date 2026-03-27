@@ -82,7 +82,8 @@ export const assessorService = {
    * Get list of assigned farmers with their farms
    */
   getAssignedFarmers: async (): Promise<FarmerWithFarms[]> => {
-    return apiClient.get<FarmerWithFarms[]>(ASSESSOR_ENDPOINTS.assignedFarmers);
+    const response = await apiClient.get<FarmerWithFarms[]>(ASSESSOR_ENDPOINTS.assignedFarmers);
+    return Array.isArray(response) ? response : (response as any).data || [];
   },
 
   /**

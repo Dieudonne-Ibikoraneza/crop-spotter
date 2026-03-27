@@ -10,11 +10,19 @@ import {
   Calendar,
   Sprout,
   Loader2,
+  MoreHorizontal,
 } from "lucide-react";
 import { StatCard } from "@/components/ui/stat-card";
 import { DataTable } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { useAssignedFarmers } from "@/lib/api/hooks/useAssessor";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useAssignedFarmers, useAssessments } from "@/lib/api/hooks/useAssessor";
+import { useAssessorClaims } from "@/lib/api/hooks/useClaims";
 
 interface Farmer {
   id: string;
@@ -36,7 +44,7 @@ interface Field {
   crop: string;
   area: number;
   season: string;
-  status: "active" | "moderate" | "healthy" | "pending";
+  status: "active" | "moderate" | "healthy" | "pending" | "submitted" | "approved" | "rejected";
   eosdaFieldId?: string;
   location?: FieldLocation | null;
 }
@@ -46,8 +54,13 @@ const Dashboard = () => {
   const [view, setView] = useState<"farmers" | "fields">("farmers");
   const [selectedFarmer, setSelectedFarmer] = useState<Farmer | null>(null);
 
-  // Use React Query to fetch assigned farmers
-  const { data: farmersData, isLoading, error } = useAssignedFarmers();
+  // Use React Query to fetch data
+  const { data: farmersData, isLoading: farmersLoading, error: farmersError } = useAssignedFarmers();
+  const { data: assessmentsData, isLoading: assessmentsLoading, error: assessmentsError } = useAssessments();
+  const { data: claimsData, isLoading: claimsLoading, error: claimsError } = useAssessorClaims();
+
+  const isLoading = farmersLoading || assessmentsLoading || claimsLoading;
+  const error = farmersError || assessmentsError || claimsError;
 
   // Transform API data to dashboard format
   const farmers: Farmer[] =
@@ -74,14 +87,46 @@ const Dashboard = () => {
           farm.location.coordinates.length >= 2;
         const isProcessed = hasBoundary && hasLocation;
 
+        let fieldStatus: Field["status"] = isProcessed ? "healthy" : "pending";
+        
+        // Find assessment for this farm
+        const assessment = assessmentsData?.find(a => {
+           const farmId = typeof a.farmId === 'string' ? a.farmId : a.farmId?._id;
+           return farmId === farm.id;
+        });
+
+        // Find claim for this farm
+        const claim = Array.isArray(claimsData) ? claimsData.find(c => {
+           const claimFarmId = String(typeof c.farmId === 'string' ? c.farmId : ((c.farmId as any)?._id || c.farmId || ''));
+           const currentFarmId = String(farm.id || (farm as any)._id || '');
+           return claimFarmId === currentFarmId;
+        }) : null;
+
+        if (claim) {
+          const status = claim.status.toLowerCase();
+          if (status === "submitted") fieldStatus = "submitted";
+          else if (status === "approved") fieldStatus = "approved";
+          else if (status === "rejected") fieldStatus = "rejected";
+          else if (status === "filed" || status === "assigned" || status === "in_progress") {
+            fieldStatus = "moderate"; // Using moderate as a 'needs attention' indicator for claims
+          }
+        } else if (assessment) {
+          const status = assessment.status.toLowerCase();
+          if (status === "submitted") fieldStatus = "submitted";
+          else if (status === "approved") fieldStatus = "approved";
+          else if (status === "rejected") fieldStatus = "rejected";
+          else if (status === "in_progress") fieldStatus = "active";
+          else if (status === "completed") fieldStatus = "healthy";
+        }
+
         return {
           id: farm.id || null,
           farmerId: farmer.id,
           farmerName: `${farmer.firstName} ${farmer.lastName}`,
           crop: farm.cropType,
           area: farm.area || 0,
-          season: "Season A", // Default season - could be enhanced
-          status: isProcessed ? ("healthy" as const) : ("pending" as const),
+          season: (farm as any).season || "Season A",
+          status: fieldStatus,
           eosdaFieldId: farm.id,
           location: farm.location,
         };
@@ -177,27 +222,46 @@ const Dashboard = () => {
     {
       key: "actions",
       label: "Actions",
-      render: (field: Field) => (
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant={field.status === "pending" ? "default" : "outline"}
-            onClick={() =>
-              field.status === "pending" && field.id
-                ? navigate(
-                    `/assessor/field-processing?fieldId=${field.id}&farmer=${field.farmerName}&name=${field.crop}`,
-                  )
-                : field.id
-                  ? navigate(`/assessor/field/${field.id}`)
-                  : navigate(
-                      `/assessor/field-processing?fieldId=&farmer=${field.farmerName}&name=${field.crop}`,
-                    )
-            }
-          >
-            {field.status === "pending" ? "✏️ Process" : "👁️ View Data"}
-          </Button>
-        </div>
-      ),
+      render: (field: Field) => {
+        if (!field.id) {
+          return null;
+        }
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <span className="sr-only">Open menu</span>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => navigate(`/assessor/risk-assessment/${field.farmerId}/${field.id}`)}>
+                Risk Assessment
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate(`/assessor/crop-monitoring/${field.farmerId}/${field.id}`)}>
+                Crop Monitoring
+              </DropdownMenuItem>
+              {/* Loss Assessment link */}
+              <DropdownMenuItem
+                onClick={() => {
+                  const claim = Array.isArray(claimsData) ? claimsData.find(c => {
+                    const claimFarmId = String(typeof c.farmId === 'string' ? c.farmId : ((c.farmId as any)?._id || c.farmId || ''));
+                    const currentFieldId = String(field.id || (field as any)._id || '');
+                    return claimFarmId === currentFieldId;
+                  }) : null;
+                  if (claim) {
+                    navigate(`/assessor/loss-assessment/${field.farmerId}/${field.id}?claimId=${claim._id}`);
+                  } else {
+                    navigate(`/assessor/loss-assessment/${field.farmerId}/${field.id}`);
+                  }
+                }}
+              >
+                Loss Assessment
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
     },
   ];
 
@@ -313,7 +377,19 @@ const Dashboard = () => {
             }}
           />
         ) : (
-          <DataTable data={fields} columns={fieldColumns} />
+          <DataTable 
+            data={fields} 
+            columns={fieldColumns}
+            onRowClick={(field) => {
+              if (field.id) {
+                if (field.status === "pending") {
+                  navigate(`/assessor/field-processing?fieldId=${field.id}&farmer=${encodeURIComponent(field.farmerName)}&name=${encodeURIComponent(field.crop + ' Field')}`);
+                } else {
+                  navigate(`/assessor/field/${field.id}`);
+                }
+              }
+            }}
+          />
         ))}
     </div>
   );

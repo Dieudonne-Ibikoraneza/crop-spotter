@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { assessorService, farmService } from "../services/assessor";
+import { assessorService, farmService, Assessment } from "../services/assessor";
 import { assessmentsKeys, farmsKeys } from "../queryKeys";
 import { FarmerWithFarms, Farm } from "../types";
 import { authService } from "../services/auth";
@@ -27,6 +27,19 @@ export function useFarm(farmId: string | undefined) {
     queryKey: farmsKeys.detail(farmId || ""),
     queryFn: () => farmService.getFarm(farmId!),
     enabled: !!farmId && authService.isAuthenticated(),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: 1,
+  });
+}
+
+/**
+ * Hook to get all assessments for the current assessor
+ */
+export function useAssessments() {
+  return useQuery<Assessment[], Error>({
+    queryKey: assessmentsKeys.all,
+    queryFn: () => assessorService.getAssessments(),
+    enabled: authService.isAuthenticated(),
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 1,
   });

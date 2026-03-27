@@ -64,6 +64,8 @@ export const MonitoringOverviewTab = ({
   const [isUploading, setIsUploading] = useState(false);
   const [initialized, setInitialized] = useState(false);
 
+  const isCompleted = activeCycle?.status === "COMPLETED";
+
   // Seed local state from the active cycle
   useEffect(() => {
     if (activeCycle && !initialized) {
@@ -209,17 +211,19 @@ export const MonitoringOverviewTab = ({
                       </p>
                     )}
                   </div>
-                  <div className="flex gap-2">
-                    <Input
-                      value={newObservation}
-                      onChange={(e) => setNewObservation(e.target.value)}
-                      placeholder="Add observation..."
-                      onKeyDown={(e) => e.key === "Enter" && addObservation()}
-                    />
-                    <Button variant="outline" size="icon" onClick={addObservation} disabled={!newObservation.trim()}>
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  {!isCompleted && (
+                    <div className="flex gap-2">
+                      <Input
+                        value={newObservation}
+                        onChange={(e) => setNewObservation(e.target.value)}
+                        placeholder="Add observation..."
+                        onKeyDown={(e) => e.key === "Enter" && addObservation()}
+                      />
+                      <Button variant="outline" size="icon" onClick={addObservation} disabled={!newObservation.trim()}>
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -246,8 +250,8 @@ export const MonitoringOverviewTab = ({
                     ))}
                   </div>
                   <div className="flex items-center gap-2">
-                    <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
-                    <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                    <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} disabled={isCompleted} />
+                    <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isUploading || isCompleted}>
                       {isUploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
                       {isUploading ? "Uploading..." : "Add Photo"}
                     </Button>
@@ -271,50 +275,61 @@ export const MonitoringOverviewTab = ({
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Provide additional details about the field condition..."
                     className="min-h-[250px] resize-none"
+                    disabled={isCompleted}
                   />
                   
-                  <div className="flex flex-col gap-3 pt-4 border-t">
-                    <Button 
-                      onClick={() => updateMutation.mutate()} 
-                      disabled={updateMutation.isPending}
-                      className="w-full bg-green-600 hover:bg-green-700"
-                    >
-                      {updateMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                      Save Progress
-                    </Button>
+                  {!isCompleted && (
+                    <div className="flex flex-col gap-3 pt-4 border-t">
+                      <Button 
+                        onClick={() => updateMutation.mutate()} 
+                        disabled={updateMutation.isPending}
+                        className="w-full bg-green-600 hover:bg-green-700"
+                      >
+                        {updateMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                        Save Progress
+                      </Button>
 
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="outline" className="w-full" disabled={!canGenerateReport}>
-                          <CheckCircle2 className="h-4 w-4 mr-2" />
-                          Complete Cycle & Generate Report
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Finalize Monitoring Cycle?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This will generate the final report for Cycle #{activeCycle.monitoringNumber} of <strong>{fieldName}</strong> and notify the insurer. You won't be able to edit this cycle further.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction 
-                            onClick={() => reportMutation.mutate()}
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            Generate Report
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="outline" className="w-full" disabled={!canGenerateReport}>
+                            <CheckCircle2 className="h-4 w-4 mr-2" />
+                            Complete Cycle & Generate Report
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Finalize Monitoring Cycle?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will generate the final report for Cycle #{activeCycle.monitoringNumber} of <strong>{fieldName}</strong> and notify the insurer. You won't be able to edit this cycle further.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction 
+                              onClick={() => reportMutation.mutate()}
+                              className="bg-green-600 hover:bg-green-700"
+                            >
+                              Generate Report
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
 
-                    {!canGenerateReport && (
-                      <p className="text-xs text-muted-foreground text-center">
-                        Add observations, notes, and at least one drone report to finalize.
-                      </p>
-                    )}
-                  </div>
+                      {!canGenerateReport && (
+                        <p className="text-xs text-muted-foreground text-center">
+                          Add observations, notes, and at least one drone report to finalize.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {isCompleted && (
+                    <div className="pt-4 border-t">
+                      <Badge className="w-full justify-center py-2 bg-green-100 text-green-800 border-green-200">
+                        <CheckCircle2 className="h-4 w-4 mr-2" />
+                        Cycle Finalized
+                      </Badge>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>

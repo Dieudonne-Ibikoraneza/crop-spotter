@@ -416,6 +416,7 @@ const RiskAssessment = () => {
             cropType={field.crop}
             area={field.area}
             assessmentId={assessmentData?._id || assessmentData?.id}
+            status={assessmentData?.status || "IN_PROGRESS"}
             initialNotes={assessmentData?.comprehensiveNotes || ""}
           />
         </TabsContent>
@@ -424,6 +425,7 @@ const RiskAssessment = () => {
           <OverviewTab
             analysisType="drone"
             assessmentId={assessmentData?._id || assessmentData?.id}
+            status={assessmentData?.status || "IN_PROGRESS"}
             initialNotes={assessmentData?.comprehensiveNotes || ""}
             dronePdfs={assessmentData?.droneAnalysisPdfs || []}
             weatherData={assessmentData?.weatherData || {}}
