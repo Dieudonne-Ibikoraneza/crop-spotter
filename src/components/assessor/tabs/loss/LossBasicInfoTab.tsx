@@ -25,13 +25,44 @@ export const LossBasicInfoTab = ({
       ? ([locationCoords[1], locationCoords[0]] as [number, number])
       : undefined;
 
-  const formatLocation = (loc: any) => {
-    if (!loc) return "N/A";
-    if (typeof loc === 'string') return loc;
-    if (loc.coordinates && Array.isArray(loc.coordinates)) {
-      return `${loc.coordinates[1].toFixed(4)}, ${loc.coordinates[0].toFixed(4)}`;
+  const formatSowingDate = (sowingDate?: string): string => {
+    if (!sowingDate) return "N/A";
+    try {
+      const date = new Date(sowingDate);
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+    } catch {
+      return "N/A";
     }
-    return "N/A";
+  };
+
+  const getLocation = (f: any): string => {
+    if (f?.locationName) return f.locationName;
+    if (f?.location?.coordinates && f.location.coordinates.length >= 2) {
+      const lat = f.location.coordinates[1];
+      const lng = f.location.coordinates[0];
+      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    }
+    return "Location not available";
+  };
+
+  const getSeasonFromSowingDate = (sowingDate?: string): string => {
+    if (!sowingDate) return "Season A";
+    const date = new Date(sowingDate);
+    if (isNaN(date.getTime())) return "Season A";
+    const month = date.getMonth(); // 0-11
+    // Rwanda has two seasons:
+    // Season A: September-January
+    // Season B: February-June
+    if (month >= 8 || month <= 0) {
+      return "Season A";
+    } else if (month >= 1 && month <= 5) {
+      return "Season B";
+    }
+    return "Season A";
   };
 
   return (
@@ -66,14 +97,14 @@ export const LossBasicInfoTab = ({
               <p className="text-sm text-muted-foreground mb-1">Season</p>
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-primary" />
-                <p className="font-medium">{field?.season || "N/A"}</p>
+                <p className="font-medium">{getSeasonFromSowingDate(field?.sowingDate)}</p>
               </div>
             </div>
             <div>
               <p className="text-sm text-muted-foreground mb-1">Location</p>
               <div className="flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-primary" />
-                <p className="font-medium truncate">{formatLocation(field?.location)}</p>
+                <p className="font-medium truncate">{getLocation(field)}</p>
               </div>
             </div>
           </CardContent>
@@ -101,10 +132,10 @@ export const LossBasicInfoTab = ({
               </div>
               <div className="space-y-4">
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Description</p>
-                  <p className="text-sm leading-relaxed bg-muted/30 p-3 rounded border italic">
-                    "{claim.lossDescription}"
-                  </p>
+                  <p className="text-sm text-muted-foreground mb-1">Claim Status</p>
+                  <Badge variant="secondary" className="font-medium">
+                    UNDER EVALUATION
+                  </Badge>
                 </div>
               </div>
             </div>
