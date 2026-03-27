@@ -59,7 +59,9 @@ export const MonitoringBasicInfoTab = ({
           <div className="space-y-4">
             <div>
               <p className="text-sm text-muted-foreground mb-1">Field ID</p>
-              <p className="font-medium font-mono text-sm">{formattedFieldId}</p>
+              <p className="font-medium font-mono text-sm">
+                {formattedFieldId}
+              </p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground mb-1">Field Name</p>
@@ -95,7 +97,7 @@ export const MonitoringBasicInfoTab = ({
               </div>
             </div>
           </div>
-          <div className="h-[300px] rounded-lg overflow-hidden border">
+          <div className="h-[400px] rounded-lg overflow-hidden border">
             <FieldMapWithLayers
               fieldId={fieldId}
               showLayerControls={false}
@@ -128,7 +130,9 @@ export const MonitoringBasicInfoTab = ({
             <div className="text-center py-6 text-muted-foreground">
               <Clock className="h-10 w-10 mx-auto mb-3 opacity-50" />
               <p>No Monitoring Cycles</p>
-              <p className="text-sm">Click "Start Monitoring Cycle" to begin.</p>
+              <p className="text-sm">
+                Click "Start Monitoring Cycle" to begin.
+              </p>
             </div>
           )}
           <div className="grid gap-4 md:grid-cols-2">
@@ -143,13 +147,17 @@ export const MonitoringBasicInfoTab = ({
                   <Clock className="h-6 w-6 text-amber-500 shrink-0" />
                 )}
                 <div className="flex-1">
-                  <p className="font-semibold">Cycle #{cycle.monitoringNumber}</p>
+                  <p className="font-semibold">
+                    Cycle #{cycle.monitoringNumber}
+                  </p>
                   <p className="text-sm text-muted-foreground">
-                    Started: {new Date(cycle.monitoringDate).toLocaleDateString()}
+                    Started:{" "}
+                    {new Date(cycle.monitoringDate).toLocaleDateString()}
                   </p>
                   {cycle.reportGeneratedAt && (
                     <p className="text-xs text-muted-foreground">
-                      Completed: {new Date(cycle.reportGeneratedAt).toLocaleDateString()}
+                      Completed:{" "}
+                      {new Date(cycle.reportGeneratedAt).toLocaleDateString()}
                     </p>
                   )}
                 </div>

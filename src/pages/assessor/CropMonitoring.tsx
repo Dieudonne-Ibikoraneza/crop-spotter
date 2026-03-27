@@ -85,6 +85,23 @@ const CropMonitoring = () => {
   // Get current farmer and field
   const farmer = useMemo(() => farmerId ? (farmersData || []).find((f: any) => (f._id || f.id) === farmerId) : null, [farmersData, farmerId]);
 
+  // Helper function to calculate season from sowing date
+  const getSeasonFromSowingDate = (sowingDate?: string): string => {
+    if (!sowingDate) return "Season A";
+    const date = new Date(sowingDate);
+    if (isNaN(date.getTime())) return "Season A";
+    const month = date.getMonth(); // 0-11
+    // Rwanda has two seasons:
+    // Season A: September-January
+    // Season B: February-June
+    if (month >= 8 || month <= 0) {
+      return "Season A";
+    } else if (month >= 1 && month <= 5) {
+      return "Season B";
+    }
+    return "Season A";
+  };
+
   const fields = useMemo(
     () =>
       (farmersData || []).flatMap(
@@ -100,7 +117,7 @@ const CropMonitoring = () => {
             name: farm.name,
             crop: farm.cropType,
             area: farm.area || 0,
-            season: farm.season || "A",
+            season: getSeasonFromSowingDate(farm.sowingDate),
             location: farm.locationName || farm.location || "Unknown",
             status: farm.status || "active",
             boundary: farm.boundary || null,
@@ -138,6 +155,13 @@ const CropMonitoring = () => {
   });
 
   const activeCycle = useMemo(() => (cycles || []).find((c) => c.status === "IN_PROGRESS"), [cycles]);
+
+  // Unified loading state like in Loss Assessment
+  const isGlobalLoading =
+    farmersLoading ||
+    monitoringLoading ||
+    policiesLoading ||
+    (!!fieldPolicy && cyclesLoading);
 
   // Mutations
   const startMutation = useMutation({
@@ -273,13 +297,13 @@ const CropMonitoring = () => {
 
   // -------- Loading / Error --------
 
-  if (farmersLoading || monitoringLoading || policiesLoading) {
+  if (isGlobalLoading) {
     return (
-      <div className="p-8 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
-          <p className="mt-4 text-muted-foreground">
-            Loading crop monitoring data...
+      <div className="flex h-[80vh] items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" />
+          <p className="text-muted-foreground animate-pulse text-sm">
+            Syncing monitoring data...
           </p>
         </div>
       </div>

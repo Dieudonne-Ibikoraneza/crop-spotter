@@ -102,11 +102,11 @@ export const BasicInfoTab = ({
               <Button variant="outline">View History</Button>
             </div>
           </div>
-          <div className="h-[400px]">
+          <div className="h-[400px] rounded-lg overflow-hidden border">
             <FieldMapWithLayers
               fieldId={fieldId}
               showLayerControls={false}
-              boundary={boundary}
+              boundary={boundary as any}
               center={center}
             />
           </div>

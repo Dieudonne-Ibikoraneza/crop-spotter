@@ -11,6 +11,31 @@ import { Layers, Map as MapIcon } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
+// Helper for point-in-polygon check (ray-casting algorithm)
+const isPointInPolygon = (point: number[], vs: number[][]) => {
+  const x = point[0], y = point[1];
+  let inside = false;
+  for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+    const xi = vs[i][0], yi = vs[i][1];
+    const xj = vs[j][0], yj = vs[j][1];
+    const intersect = ((yi > y) !== (yj > y))
+      && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+};
+
+const isPointInBoundary = (point: number[], boundary: any) => {
+  if (!boundary || !boundary.coordinates) return false;
+  const type = (boundary.type || "Polygon").toLowerCase();
+  if (type === "polygon") {
+    return isPointInPolygon(point, boundary.coordinates[0]);
+  } else if (type === "multipolygon") {
+    return boundary.coordinates.some((polygon: any) => isPointInPolygon(point, polygon[0]));
+  }
+  return false;
+};
+
 interface FieldMapWithLayersProps {
   fieldId: string;
   showLayerControls?: boolean;
@@ -109,14 +134,22 @@ export const FieldMapWithLayers = ({
   const boundaryLayerRef = useRef<L.GeoJSON | null>(null);
   const indexLayerRef = useRef<L.GeoJSON | null>(null);
 
-  // Generate index data based on actual field boundary
   const indexData = useMemo(() => {
-    if (!boundary || !boundary.coordinates || !boundary.coordinates[0]) return null;
+    if (!boundary || !boundary.coordinates) return null;
 
-    // Extract bounds from the actual boundary
-    const coords = boundary.coordinates[0]; // First ring of the polygon
-    const lats = coords.map((coord) => coord[1]);
-    const lngs = coords.map((coord) => coord[0]);
+    let allPoints: number[][] = [];
+    if (boundary.type === "Polygon") {
+      allPoints = boundary.coordinates[0] || [];
+    } else if (boundary.type === "MultiPolygon") {
+      boundary.coordinates.forEach((poly: any) => {
+        if (poly[0]) allPoints = [...allPoints, ...poly[0]];
+      });
+    }
+
+    if (allPoints.length === 0) return null;
+
+    const lats = allPoints.map((coord) => coord[1]);
+    const lngs = allPoints.map((coord) => coord[0]);
 
     const bounds = {
       south: Math.min(...lats),
@@ -125,7 +158,9 @@ export const FieldMapWithLayers = ({
       east: Math.max(...lngs),
     };
 
-    const gridSize = (bounds.north - bounds.south) / 20; // 20x20 grid within the field
+    const latStep = (bounds.north - bounds.south) / 25;
+    const lngStep = (bounds.east - bounds.west) / 25;
+
     const data: Record<LayerType, any> = {} as any;
 
     (Object.keys(layerConfig) as LayerType[])
@@ -133,21 +168,14 @@ export const FieldMapWithLayers = ({
       .forEach((index) => {
         const features: any[] = [];
 
-        for (let lat = bounds.south; lat < bounds.north; lat += gridSize) {
-          for (let lng = bounds.west; lng < bounds.east; lng += gridSize) {
-            // Check if this grid point is within the field boundary
-            const pointInBounds =
-              lng >= bounds.west &&
-              lng <= bounds.east &&
-              lat >= bounds.south &&
-              lat <= bounds.north;
-
-            if (pointInBounds) {
-              // Generate spatially correlated values
+        for (let lat = bounds.south; lat < bounds.north; lat += latStep) {
+          for (let lng = bounds.west; lng < bounds.east; lng += lngStep) {
+            const centerPoint = [lng + lngStep / 2, lat + latStep / 2];
+            
+            if (isPointInBoundary(centerPoint, boundary)) {
               const baseValue =
-                0.5 + Math.sin(lat * 2000) * 0.25 + Math.cos(lng * 2000) * 0.2;
-              const noise = (Math.random() - 0.5) * 0.2;
-              const value = Math.max(0, Math.min(1, baseValue + noise));
+                0.5 + Math.sin(lat * 5000) * 0.25 + Math.cos(lng * 5000) * 0.2;
+              const value = Math.max(0.1, Math.min(0.9, baseValue));
 
               features.push({
                 type: "Feature",
@@ -157,9 +185,9 @@ export const FieldMapWithLayers = ({
                   coordinates: [
                     [
                       [lng, lat],
-                      [lng + gridSize, lat],
-                      [lng + gridSize, lat + gridSize],
-                      [lng, lat + gridSize],
+                      [lng + lngStep, lat],
+                      [lng + lngStep, lat + latStep],
+                      [lng, lat + latStep],
                       [lng, lat],
                     ],
                   ],
@@ -175,17 +203,11 @@ export const FieldMapWithLayers = ({
     return data;
   }, [boundary]);
 
-  // Initialize map
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
-    // Require valid boundary to initialize map with bounds
     if (!boundary || !boundary.coordinates || !boundary.coordinates[0]) {
-      console.warn(
-        "FieldMapWithLayers: No boundary provided, using default location",
-      );
-      // Use default location instead of throwing error
-      const defaultCenter = center || [-1.9565, 30.0615]; // Rwanda coordinates
+      const defaultCenter = center || [-1.9565, 30.0615];
       mapRef.current = L.map(mapContainerRef.current).setView(
         defaultCenter,
         15,
@@ -206,7 +228,6 @@ export const FieldMapWithLayers = ({
       };
     }
 
-    // Calculate center from boundary
     const coords = boundary.coordinates[0];
     const lats = coords.map((coord) => coord[1]);
     const lngs = coords.map((coord) => coord[0]);
@@ -222,7 +243,6 @@ export const FieldMapWithLayers = ({
       attribution: terrainConfig.attribution,
     }).addTo(mapRef.current);
 
-    // Use the provided boundary
     const fieldGeometry = {
       type: "FeatureCollection" as const,
       features: [
@@ -234,7 +254,6 @@ export const FieldMapWithLayers = ({
       ],
     };
 
-    // Add boundary layer
     boundaryLayerRef.current = L.geoJSON(fieldGeometry as any, {
       style: {
         color: "#ffffff",
@@ -258,11 +277,9 @@ export const FieldMapWithLayers = ({
     };
   }, [boundary, center, terrain]);
 
-  // Update terrain
   useEffect(() => {
     if (!mapRef.current) return;
 
-    // Remove existing layers
     if (tileLayerRef.current) {
       mapRef.current.removeLayer(tileLayerRef.current);
     }
@@ -276,14 +293,12 @@ export const FieldMapWithLayers = ({
       attribution: terrainConfig.attribution,
     }).addTo(mapRef.current);
 
-    // Add labels layer for hybrid terrain
     if (terrainConfig.labelsUrl) {
       labelsLayerRef.current = L.tileLayer(terrainConfig.labelsUrl, {
         attribution: "",
       }).addTo(mapRef.current);
     }
 
-    // Ensure index layer is on top
     if (indexLayerRef.current) {
       indexLayerRef.current.bringToFront();
     }
@@ -292,7 +307,6 @@ export const FieldMapWithLayers = ({
     }
   }, [terrain]);
 
-  // Update index layer
   useEffect(() => {
     if (!mapRef.current) return;
 
@@ -333,9 +347,33 @@ export const FieldMapWithLayers = ({
   const currentLayerConfig = layerConfig[selectedLayer];
 
   return (
-    <div className="relative w-full h-[500px] rounded-lg overflow-hidden border border-border">
+    <div className="relative w-full h-full rounded-lg overflow-hidden border border-border">
       {/* Leaflet Map */}
       <div ref={mapContainerRef} className="absolute inset-0 z-0" />
+
+      {/* Top Right - Legend (Always show if a layer is active, independent of controls) */}
+      {selectedLayer !== "none" && currentLayerConfig.colors.length > 0 && (
+        <div className="absolute top-4 right-4 z-[1000]">
+          <Card className="bg-card/95 backdrop-blur-sm border-border shadow-lg">
+            <div className="px-4 py-3 space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                {currentLayerConfig.description}
+              </p>
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-muted-foreground">Low</span>
+                {currentLayerConfig.colors.map((color, i) => (
+                  <div
+                    key={i}
+                    className="w-5 h-4 first:rounded-l last:rounded-r"
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+                <span className="text-xs text-muted-foreground">High</span>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
 
       {/* Controls Overlay */}
       {showLayerControls && (
@@ -388,30 +426,6 @@ export const FieldMapWithLayers = ({
               </div>
             </Card>
           </div>
-
-          {/* Top Right - Legend */}
-          {selectedLayer !== "none" && currentLayerConfig.colors.length > 0 && (
-            <div className="absolute top-4 right-4 z-[1000]">
-              <Card className="bg-card/95 backdrop-blur-sm border-border shadow-lg">
-                <div className="px-4 py-3 space-y-2">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    {currentLayerConfig.description}
-                  </p>
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs text-muted-foreground">Low</span>
-                    {currentLayerConfig.colors.map((color, i) => (
-                      <div
-                        key={i}
-                        className="w-5 h-4 first:rounded-l last:rounded-r"
-                        style={{ backgroundColor: color }}
-                      />
-                    ))}
-                    <span className="text-xs text-muted-foreground">High</span>
-                  </div>
-                </div>
-              </Card>
-            </div>
-          )}
         </>
       )}
     </div>

@@ -104,7 +104,7 @@ export const LossBasicInfoTab = ({
               <p className="text-sm text-muted-foreground mb-1">Location</p>
               <div className="flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-primary" />
-                <p className="font-medium truncate">{getLocation(field)}</p>
+                <p className="font-medium">{getLocation(field)}</p>
               </div>
             </div>
           </CardContent>
@@ -140,7 +140,7 @@ export const LossBasicInfoTab = ({
               </div>
             </div>
 
-            <div className="pt-4 border-t h-[300px]">
+            <div className="pt-4 border-t h-[400px]">
                <FieldMapWithLayers
                 fieldId={field?.id}
                 showLayerControls={false}
