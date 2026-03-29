@@ -128,7 +128,7 @@ export const FieldMapWithLayers = ({
   const [terrain, setTerrain] = useState<TerrainType>("satellite");
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<L.Map | null>(null);
+  const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const labelsLayerRef = useRef<L.TileLayer | null>(null);
   const boundaryLayerRef = useRef<L.GeoJSON | null>(null);
@@ -204,27 +204,20 @@ export const FieldMapWithLayers = ({
   }, [boundary]);
 
   useEffect(() => {
-    if (!mapContainerRef.current || mapRef.current) return;
-
     if (!boundary || !boundary.coordinates || !boundary.coordinates[0]) {
       const defaultCenter = center || [-1.9565, 30.0615];
-      mapRef.current = L.map(mapContainerRef.current).setView(
+      const map = L.map(mapContainerRef.current).setView(
         defaultCenter,
         15,
         { animate: false }
       );
 
-      const terrainConfig = terrainOptions[terrain];
-      tileLayerRef.current = L.tileLayer(terrainConfig.url, {
-        attribution: terrainConfig.attribution,
-      }).addTo(mapRef.current);
+      setMapInstance(map);
 
       return () => {
-        if (mapRef.current) {
-          mapRef.current.off();
-          mapRef.current.remove();
-          mapRef.current = null;
-        }
+        map.off();
+        map.remove();
+        setMapInstance(null);
       };
     }
 
@@ -236,12 +229,7 @@ export const FieldMapWithLayers = ({
       (Math.min(...lngs) + Math.max(...lngs)) / 2,
     ];
 
-    mapRef.current = L.map(mapContainerRef.current).setView(viewCenter, 15, { animate: false });
-
-    const terrainConfig = terrainOptions[terrain];
-    tileLayerRef.current = L.tileLayer(terrainConfig.url, {
-      attribution: terrainConfig.attribution,
-    }).addTo(mapRef.current);
+    const map = L.map(mapContainerRef.current).setView(viewCenter, 15, { animate: false });
 
     const fieldGeometry = {
       type: "FeatureCollection" as const,
@@ -261,42 +249,42 @@ export const FieldMapWithLayers = ({
         fillColor: "transparent",
         fillOpacity: 0,
       },
-    }).addTo(mapRef.current);
+    }).addTo(map);
 
     const bounds = boundaryLayerRef.current.getBounds();
     if (bounds.isValid()) {
-      mapRef.current.fitBounds(bounds, { padding: [30, 30], animate: false });
+      map.fitBounds(bounds, { padding: [30, 30], animate: false });
     }
+
+    setMapInstance(map);
 
     return () => {
-      if (mapRef.current) {
-        mapRef.current.off();
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
+      map.off();
+      map.remove();
+      setMapInstance(null);
     };
-  }, [boundary, center, terrain]);
+  }, [boundary, center]);
 
   useEffect(() => {
-    if (!mapRef.current) return;
+    if (!mapInstance) return;
 
     if (tileLayerRef.current) {
-      mapRef.current.removeLayer(tileLayerRef.current);
+      mapInstance.removeLayer(tileLayerRef.current);
     }
     if (labelsLayerRef.current) {
-      mapRef.current.removeLayer(labelsLayerRef.current);
+      mapInstance.removeLayer(labelsLayerRef.current);
       labelsLayerRef.current = null;
     }
 
     const terrainConfig = terrainOptions[terrain];
     tileLayerRef.current = L.tileLayer(terrainConfig.url, {
       attribution: terrainConfig.attribution,
-    }).addTo(mapRef.current);
+    }).addTo(mapInstance);
 
     if (terrainConfig.labelsUrl) {
       labelsLayerRef.current = L.tileLayer(terrainConfig.labelsUrl, {
         attribution: "",
-      }).addTo(mapRef.current);
+      }).addTo(mapInstance);
     }
 
     if (indexLayerRef.current) {
@@ -305,13 +293,13 @@ export const FieldMapWithLayers = ({
     if (boundaryLayerRef.current) {
       boundaryLayerRef.current.bringToFront();
     }
-  }, [terrain]);
+  }, [mapInstance, terrain]);
 
   useEffect(() => {
-    if (!mapRef.current) return;
+    if (!mapInstance) return;
 
     if (indexLayerRef.current) {
-      mapRef.current.removeLayer(indexLayerRef.current);
+      mapInstance.removeLayer(indexLayerRef.current);
       indexLayerRef.current = null;
     }
 
@@ -336,13 +324,13 @@ export const FieldMapWithLayers = ({
           fillOpacity: 0.75,
         };
       },
-    }).addTo(mapRef.current);
+    }).addTo(mapInstance);
 
     // Keep boundary on top
     if (boundaryLayerRef.current) {
       boundaryLayerRef.current.bringToFront();
     }
-  }, [selectedLayer, indexData]);
+  }, [mapInstance, selectedLayer, indexData]);
 
   const currentLayerConfig = layerConfig[selectedLayer];
 
