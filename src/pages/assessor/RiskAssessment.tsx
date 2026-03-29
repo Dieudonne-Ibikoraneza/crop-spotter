@@ -104,15 +104,18 @@ const RiskAssessment = () => {
     const date = new Date(sowingDate);
     if (isNaN(date.getTime())) return "Season A";
     const month = date.getMonth(); // 0-11
-    // Rwanda has two seasons:
-    // Season A: September-January
-    // Season B: February-June
-    if (month >= 8 || month <= 0) {
-      return "Season A";
-    } else if (month >= 1 && month <= 5) {
-      return "Season B";
+    const year = date.getFullYear();
+    // Rwanda has three seasons:
+    // Season A: September (8) - February (1)
+    // Season B: March (2) - June (5)
+    // Season C: July (6) - August (7)
+    if (month >= 8 || month <= 1) {
+      return `Season ${year} A`;
+    } else if (month >= 2 && month <= 5) {
+      return `Season ${year} B`;
+    } else {
+      return `Season ${year} C`;
     }
-    return "Season A";
   };
 
   const allFields: Field[] = useMemo(
@@ -130,7 +133,7 @@ const RiskAssessment = () => {
           sowingDate: farm.sowingDate ? new Date(farm.sowingDate).toLocaleDateString() : "N/A",
           boundary: farm.boundary,
           locationCoords: farm.location?.coordinates,
-          status: farm.boundary ? ("healthy" as const) : ("active" as const),
+          status: farm.status || (farm.boundary ? "healthy" : "active"),
         })),
       ) || [],
     [farmersData],
@@ -228,11 +231,12 @@ const RiskAssessment = () => {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() =>
-                    navigate(`/assessor/risk-assessment/${f.farmerId}/${f.id}`)
-                  }
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/assessor/risk-assessment/${f.farmerId}/${f.id}`);
+                  }}
                 >
-                  View
+                  View Detail
                 </Button>
               ),
             },

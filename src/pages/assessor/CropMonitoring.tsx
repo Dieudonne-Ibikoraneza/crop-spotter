@@ -91,15 +91,18 @@ const CropMonitoring = () => {
     const date = new Date(sowingDate);
     if (isNaN(date.getTime())) return "Season A";
     const month = date.getMonth(); // 0-11
-    // Rwanda has two seasons:
-    // Season A: September-January
-    // Season B: February-June
-    if (month >= 8 || month <= 0) {
-      return "Season A";
-    } else if (month >= 1 && month <= 5) {
-      return "Season B";
+    const year = date.getFullYear();
+    // Rwanda has three seasons:
+    // Season A: September (8) - February (1)
+    // Season B: March (2) - June (5)
+    // Season C: July (6) - August (7)
+    if (month >= 8 || month <= 1) {
+      return `Season ${year} A`;
+    } else if (month >= 2 && month <= 5) {
+      return `Season ${year} B`;
+    } else {
+      return `Season ${year} C`;
     }
-    return "Season A";
   };
 
   const fields = useMemo(
@@ -215,6 +218,22 @@ const CropMonitoring = () => {
       },
     },
     { key: "fields", label: "Total Fields", render: (f: any) => f.farms?.length || 0 },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (f: any) => (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/assessor/crop-monitoring/${f._id || f.id}`);
+          }}
+        >
+          View Fields
+        </Button>
+      ),
+    },
   ];
 
   const policyColumns = [

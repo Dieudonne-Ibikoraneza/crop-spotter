@@ -30,6 +30,14 @@ const LossAssessment = () => {
   const field = farmer?.farms.find((f) => String(f.id) === String(fieldId));
 
   const isLoading = isClaimLoading || isClaimsLoading || isFarmersLoading;
+
+  // Filter claims for this specific field if both IDs are provided in the URL
+  const filteredClaims = (fieldId && claims) 
+    ? claims.filter(c => {
+        const cFarmId = typeof c.farmId === 'string' ? c.farmId : c.farmId?._id;
+        return String(cFarmId) === String(fieldId);
+      })
+    : claims;
   
   if (isLoading) {
     return (
@@ -56,8 +64,12 @@ const LossAssessment = () => {
           </p>
         </div>
 
-        {claims && claims.length > 0 ? (
-          <LossClaimsList claims={claims} farmers={farmers || []} />
+        {filteredClaims && filteredClaims.length > 0 ? (
+          <LossClaimsList 
+            claims={filteredClaims} 
+            farmers={farmers || []} 
+            title={fieldId ? `Claims for ${field?.name || "this Field"}` : undefined}
+          />
         ) : (
           <Card className="border-amber-200 bg-amber-50">
             <CardContent className="py-12 text-center">

@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, MapPin, Calendar, Sprout, Loader2 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { FieldMapWithLayers } from "@/components/assessor/FieldMapWithLayers";
-import { useFarm } from "@/lib/api/hooks/useAssessor";
+import { useFarm, useAssessments } from "@/lib/api/hooks/useAssessor";
+import { useAssessorClaims } from "@/lib/api/hooks/useClaims";
 
 const FieldDetail = () => {
   const { id } = useParams();
@@ -18,6 +19,19 @@ const FieldDetail = () => {
 
   // Use React Query to fetch farm data
   const { data: farm, isLoading, error } = useFarm(farmId || undefined);
+  const { data: assessments } = useAssessments();
+  const { data: claimsData } = useAssessorClaims();
+
+  // Find existing assessment and claim for this field
+  const existingAssessment = assessments?.find(a => {
+    const aFarmId = typeof a.farmId === 'object' ? a.farmId?._id : a.farmId;
+    return String(aFarmId) === String(farmId);
+  });
+
+  const existingClaim = Array.isArray(claimsData) ? claimsData?.find(c => {
+    const cFarmId = typeof c.farmId === 'object' ? (c.farmId as any)?._id : c.farmId;
+    return String(cFarmId) === String(farmId);
+  }) : null;
 
   // Helper functions to safely extract farmer ID and name
   // The API may return farmerId as a JSON string instead of an object
@@ -116,23 +130,38 @@ const FieldDetail = () => {
         farmerId: farm.farmerId,
         crop: farm.cropType || "Unknown",
         area: farm.area || 0,
-        season: "Season A", // Default - could be enhanced
+        season: getSeasonFromSowingDate(farm.sowingDate),
         location: farm.locationName
           ? farm.locationName
           : farm.location?.coordinates
             ? `${farm.location.coordinates[1].toFixed(4)}, ${farm.location.coordinates[0].toFixed(4)}`
             : "Location unknown",
         sowingDate: formatSowingDate(farm.sowingDate),
-        status:
-          farm.status === "Processed"
-            ? ("healthy" as const)
-            : farm.status === "Processing"
-              ? ("moderate" as const)
-              : ("pending" as const),
+        status: farm.status?.toLowerCase() || (farm.boundary ? "healthy" : "active"),
         boundary: farm.boundary,
         locationCoords: farm.location?.coordinates,
       }
     : null;
+
+  // Helper for Season label
+  function getSeasonFromSowingDate(sowingDate?: string): string {
+    if (!sowingDate) return "Season A";
+    const date = new Date(sowingDate);
+    if (isNaN(date.getTime())) return "Season A";
+    const month = date.getMonth(); // 0-11
+    const year = date.getFullYear();
+    // Rwanda has three seasons:
+    // Season A: September (8) - February (1)
+    // Season B: March (2) - June (5)
+    // Season C: July (6) - August (7)
+    if (month >= 8 || month <= 1) {
+      return `Season ${year} A`;
+    } else if (month >= 2 && month <= 5) {
+      return `Season ${year} B`;
+    } else {
+      return `Season ${year} C`;
+    }
+  }
 
   // Fallback for when no data
   const fallbackField = {
@@ -299,10 +328,38 @@ const FieldDetail = () => {
             </Card>
           </div>
 
-          <div className="flex gap-2 mt-6">
-            <Button variant="outline">Edit Info</Button>
-            <Button variant="outline">View History</Button>
-            <Button>Generate Report</Button>
+          <div className="flex flex-wrap gap-4 mt-8 pt-6 border-t border-border">
+            <Button 
+              size="lg"
+              className="px-8 font-medium"
+              onClick={() => navigate(`/assessor/risk-assessment/${displayField.farmerId}/${displayField.id}`)}
+              variant={existingAssessment ? "outline" : "default"}
+            >
+              {existingAssessment ? "View Risk Assessment" : "Start Risk Assessment"}
+            </Button>
+            <Button 
+              variant="outline"
+              size="lg"
+              className="px-8 font-medium"
+              onClick={() => navigate(`/assessor/crop-monitoring/${displayField.farmerId}/${displayField.id}`)}
+            >
+              Field Monitoring
+            </Button>
+            <Button 
+              variant={existingClaim ? "secondary" : "default"}
+              size="lg"
+              className="px-8 font-medium"
+              onClick={() => {
+                const path = `/assessor/loss-assessment/${displayField.farmerId}/${displayField.id}`;
+                if (existingClaim) {
+                  navigate(`${path}?claimId=${existingClaim._id}`);
+                } else {
+                  navigate(path);
+                }
+              }}
+            >
+              {existingClaim ? "View Loss Assessment" : "Assess Loss"}
+            </Button>
           </div>
         </>
       )}

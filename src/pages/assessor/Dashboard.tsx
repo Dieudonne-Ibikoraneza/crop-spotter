@@ -62,6 +62,26 @@ const Dashboard = () => {
   const isLoading = farmersLoading || assessmentsLoading || claimsLoading;
   const error = farmersError || assessmentsError || claimsError;
 
+  // Helper function to calculate season from sowing date
+  const getSeasonFromSowingDate = (sowingDate?: string): string => {
+    if (!sowingDate) return "Season A";
+    const date = new Date(sowingDate);
+    if (isNaN(date.getTime())) return "Season A";
+    const month = date.getMonth(); // 0-11
+    const year = date.getFullYear();
+    // Rwanda has three seasons:
+    // Season A: September (8) - February (1)
+    // Season B: March (2) - June (5)
+    // Season C: July (6) - August (7)
+    if (month >= 8 || month <= 1) {
+      return `Season ${year} A`;
+    } else if (month >= 2 && month <= 5) {
+      return `Season ${year} B`;
+    } else {
+      return `Season ${year} C`;
+    }
+  };
+
   // Transform API data to dashboard format
   const farmers: Farmer[] =
     farmersData?.map((farmer) => ({
@@ -76,19 +96,6 @@ const Dashboard = () => {
   const allFields: Field[] =
     farmersData?.flatMap((farmer) =>
       (farmer.farms || []).map((farm) => {
-        // Check if field has boundary and location (meaning KML was uploaded)
-        const hasBoundary =
-          farm.boundary &&
-          farm.boundary.coordinates &&
-          farm.boundary.coordinates.length > 0;
-        const hasLocation =
-          farm.location &&
-          farm.location.coordinates &&
-          farm.location.coordinates.length >= 2;
-        const isProcessed = hasBoundary && hasLocation;
-
-        let fieldStatus: Field["status"] = isProcessed ? "healthy" : "pending";
-        
         // Find assessment for this farm
         const assessment = assessmentsData?.find(a => {
            const farmId = typeof a.farmId === 'string' ? a.farmId : a.farmId?._id;
@@ -102,21 +109,13 @@ const Dashboard = () => {
            return claimFarmId === currentFarmId;
         }) : null;
 
+        let fieldStatus: Field["status"] = (farm.status?.toLowerCase() as any) || "pending";
+        
+        // If we have claim/assessment, we could refine status, but maintaining farm.status as primary
         if (claim) {
           const status = claim.status.toLowerCase();
-          if (status === "submitted") fieldStatus = "submitted";
-          else if (status === "approved") fieldStatus = "approved";
+          if (status === "approved") fieldStatus = "approved";
           else if (status === "rejected") fieldStatus = "rejected";
-          else if (status === "filed" || status === "assigned" || status === "in_progress") {
-            fieldStatus = "moderate"; // Using moderate as a 'needs attention' indicator for claims
-          }
-        } else if (assessment) {
-          const status = assessment.status.toLowerCase();
-          if (status === "submitted") fieldStatus = "submitted";
-          else if (status === "approved") fieldStatus = "approved";
-          else if (status === "rejected") fieldStatus = "rejected";
-          else if (status === "in_progress") fieldStatus = "active";
-          else if (status === "completed") fieldStatus = "healthy";
         }
 
         return {
@@ -125,7 +124,7 @@ const Dashboard = () => {
           farmerName: `${farmer.firstName} ${farmer.lastName}`,
           crop: farm.cropType,
           area: farm.area || 0,
-          season: (farm as any).season || "Season A",
+          season: getSeasonFromSowingDate(farm.sowingDate),
           status: fieldStatus,
           eosdaFieldId: farm.id,
           location: farm.location,
@@ -138,7 +137,7 @@ const Dashboard = () => {
   const totalFields = allFields.length;
   const totalArea = allFields.reduce((sum, f) => sum + f.area, 0);
   const processedFields = allFields.filter(
-    (f) => f.status === "healthy",
+    (f) => f.status === "healthy" || f.status === "active" || f.status === "approved" || f.status === "submitted",
   ).length;
 
   const fields = selectedFarmer
@@ -206,62 +205,7 @@ const Dashboard = () => {
     {
       key: "status",
       label: "Status",
-      render: (field: Field) => (
-        <StatusBadge
-          status={field.status}
-          label={
-            field.status === "healthy"
-              ? "Processed"
-              : field.status === "moderate"
-                ? "Processing"
-                : "Pending"
-          }
-        />
-      ),
-    },
-    {
-      key: "actions",
-      label: "Actions",
-      render: (field: Field) => {
-        if (!field.id) {
-          return null;
-        }
-        return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                <span className="sr-only">Open menu</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => navigate(`/assessor/risk-assessment/${field.farmerId}/${field.id}`)}>
-                Risk Assessment
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate(`/assessor/crop-monitoring/${field.farmerId}/${field.id}`)}>
-                Crop Monitoring
-              </DropdownMenuItem>
-              {/* Loss Assessment link */}
-              <DropdownMenuItem
-                onClick={() => {
-                  const claim = Array.isArray(claimsData) ? claimsData.find(c => {
-                    const claimFarmId = String(typeof c.farmId === 'string' ? c.farmId : ((c.farmId as any)?._id || c.farmId || ''));
-                    const currentFieldId = String(field.id || (field as any)._id || '');
-                    return claimFarmId === currentFieldId;
-                  }) : null;
-                  if (claim) {
-                    navigate(`/assessor/loss-assessment/${field.farmerId}/${field.id}?claimId=${claim._id}`);
-                  } else {
-                    navigate(`/assessor/loss-assessment/${field.farmerId}/${field.id}`);
-                  }
-                }}
-              >
-                Loss Assessment
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        );
-      },
+      render: (field: Field) => <StatusBadge status={field.status} />,
     },
   ];
 

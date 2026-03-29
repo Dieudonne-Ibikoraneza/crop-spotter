@@ -9,9 +9,10 @@ import { useNavigate } from "react-router-dom";
 interface LossClaimsListProps {
   claims: Claim[];
   farmers: any[];
+  title?: string;
 }
 
-export const LossClaimsList = ({ claims, farmers }: LossClaimsListProps) => {
+export const LossClaimsList = ({ claims, farmers, title }: LossClaimsListProps) => {
   const navigate = useNavigate();
 
   const columns = [
@@ -96,9 +97,9 @@ export const LossClaimsList = ({ claims, farmers }: LossClaimsListProps) => {
   return (
     <Card className="border-none shadow-none bg-transparent">
       <CardHeader className="px-0">
-        <CardTitle className="text-xl font-bold flex items-center gap-2">
-          Assigned Loss Assessments
-          <Badge variant="secondary" className="font-normal">{claims.length}</Badge>
+        <CardTitle className="text-xl font-bold flex items-center gap-2 text-primary">
+          {title || "Assigned Loss Assessments"}
+          <Badge variant="secondary" className="font-normal bg-primary/10 text-primary border-primary/20">{claims.length}</Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="px-0">
