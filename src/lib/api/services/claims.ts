@@ -22,13 +22,13 @@ export interface ClaimAssessment {
 
 export interface Claim {
   _id: string;
-  policyId: string | any;
-  farmerId: string | any;
-  farmId: string | any;
-  assessorId?: string | any;
+  policyId: string | { _id: string; policyNumber?: string; status?: string; coverageLevel?: string; premiumAmount?: number };
+  farmerId: string | { _id: string; firstName?: string; lastName?: string; email?: string };
+  farmId: string | { _id: string; name?: string; cropType?: string; area?: number; locationName?: string };
+  assessorId?: string | { _id: string; firstName?: string; lastName?: string; email?: string };
   assessmentReportId?: string | ClaimAssessment;
   lossEventType: string;
-  lossDescription: string;
+  lossDescription?: string;
   damagePhotos: string[];
   status: string;
   filedAt: string;

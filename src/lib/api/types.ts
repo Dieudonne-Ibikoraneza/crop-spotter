@@ -101,11 +101,10 @@ export interface ApiError {
 
 // Pagination
 export interface PaginatedResponse<T> {
-  data: T[];
-  page: number;
-  size: number;
-  total: number;
+  items: T[];
+  totalItems: number;
   totalPages: number;
+  currentPage: number;
 }
 
 export interface PaginatedRequest {
@@ -138,17 +137,29 @@ export interface Farm {
   id: string;
   farmerId: string;
   farmerName?: string;
-  name: string;
-  area: number;
+  /** Set after assessor completes KML upload for PENDING registrations */
+  name?: string;
+  area?: number;
   cropType: string;
   sowingDate?: string;
-  location: FarmLocation;
+  location?: FarmLocation;
   locationName?: string;
-  boundary: FarmBoundary;
+  /** Present after KML / geometry is registered */
+  boundary?: FarmBoundary;
   status: string;
   eosdaFieldId?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface InsuranceRequest {
+  _id: string;
+  farmId: string | { _id: string };
+  farmerId?: string | { _id: string };
+  status: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // Farmer with Farms (for Assessor Dashboard)
@@ -172,4 +183,68 @@ export interface FarmerWithFarms {
   farms: Farm[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface DashboardStats {
+  totalFarms: number;
+  activePolicies: number;
+  pendingClaims: number;
+  /** NDVI average (0–1) when available; null avoids duplicate monitoring API calls (see farm rows) */
+  averageHealth: number | null;
+}
+
+export interface MonitoringRecord {
+  id: string;
+  farmId: string;
+  policyId: string;
+  monitoredAt: string;
+  currentNdvi?: number;
+  ndviTrend?: number;
+  weatherAlerts?: string[];
+  thresholdsExceeded: boolean;
+  alertSent: boolean;
+}
+
+export interface MonitoringAlert {
+  id: string;
+  farmId: string;
+  farmName: string;
+  type: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  message: string;
+  createdAt: string;
+  read: boolean;
+}
+
+export interface WeatherForecastDataPoint {
+  dt: number;
+  main: {
+    temp: number;
+    temp_min: number;
+    temp_max: number;
+    pressure: number;
+    humidity: number;
+  };
+  weather: Array<{
+    id: number;
+    main: string;
+    description: string;
+    icon: string;
+  }>;
+  wind: {
+    speed: number;
+    deg: number;
+  };
+  clouds: {
+    all: number;
+  };
+  rain?: {
+    '1h'?: number;
+    '3h'?: number;
+  };
+}
+
+export interface WeatherForecastResponse {
+  field_id: string;
+  data: WeatherForecastDataPoint[];
 }

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -38,7 +39,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { authStorage } from "@/lib/api/client";
-import { useComprehensiveNotes } from "@/hooks/useComprehensiveNotes";
+// Notes are handled in Overview tab only.
 
 interface WeatherData {
   date: string;
@@ -120,137 +121,6 @@ interface AccumulatedResponse {
   };
 }
 
-const mockWeatherForecast: WeatherData[] = [
-  {
-    date: "Oct 23",
-    tempHigh: 27,
-    tempLow: 16,
-    rain: 5.9,
-    humidity: 76,
-    clouds: 68,
-    wind: 2,
-  },
-  {
-    date: "Oct 24",
-    tempHigh: 30,
-    tempLow: 16,
-    rain: 9.1,
-    humidity: 75,
-    clouds: 66,
-    wind: 2,
-  },
-  {
-    date: "Oct 25",
-    tempHigh: 24,
-    tempLow: 16,
-    rain: 29.1,
-    humidity: 87,
-    clouds: 75,
-    wind: 3,
-  },
-  {
-    date: "Oct 26",
-    tempHigh: 26,
-    tempLow: 17,
-    rain: 3.2,
-    humidity: 72,
-    clouds: 60,
-    wind: 2,
-  },
-  {
-    date: "Oct 27",
-    tempHigh: 28,
-    tempLow: 18,
-    rain: 0.5,
-    humidity: 65,
-    clouds: 45,
-    wind: 1,
-  },
-  {
-    date: "Oct 28",
-    tempHigh: 29,
-    tempLow: 18,
-    rain: 0.0,
-    humidity: 58,
-    clouds: 30,
-    wind: 1,
-  },
-  {
-    date: "Oct 29",
-    tempHigh: 30,
-    tempLow: 19,
-    rain: 0.2,
-    humidity: 62,
-    clouds: 40,
-    wind: 2,
-  },
-];
-
-// Generate historical precipitation data for full year
-const generatePrecipitationData = () => {
-  const data = [];
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-
-  for (let m = 0; m < 12; m++) {
-    for (let d = 1; d <= daysInMonth[m]; d += 7) {
-      data.push({
-        date: `${months[m]} ${d}`,
-        precipitation: Math.random() * 35,
-      });
-    }
-  }
-  return data;
-};
-
-// Generate historical temperature data for full year
-const generateTemperatureData = () => {
-  const data = [];
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-
-  for (let m = 0; m < 12; m++) {
-    for (let d = 1; d <= daysInMonth[m]; d += 7) {
-      const baseTemp = 20 + Math.sin((m / 12) * Math.PI * 2) * 8;
-      data.push({
-        date: `${months[m]} ${d}`,
-        maxTemp: baseTemp + 5 + Math.random() * 5,
-        minTemp: baseTemp - 5 + Math.random() * 5,
-      });
-    }
-  }
-  return data;
-};
-
-const precipitationData = generatePrecipitationData();
-const temperatureData = generateTemperatureData();
-
 interface WeatherAnalysisTabProps {
   fieldId: string;
   farmerName: string;
@@ -278,21 +148,6 @@ export const WeatherAnalysisTab = ({
     useState<AccumulatedResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [farmData, setFarmData] = useState<any>(null);
-
-  // Shared notes functionality
-  const {
-    comprehensiveNotes,
-    setComprehensiveNotes,
-    saveNotes,
-    generateReport,
-    isSaving,
-    lastSaved,
-    hasChanges,
-    canGenerateReport,
-  } = useComprehensiveNotes({
-    assessmentId,
-    initialNotes,
-  });
 
   // Calculate risk levels based on real weather data
   const calculateDroughtRisk = (totalRainfall: number, days: number) => {
@@ -541,16 +396,79 @@ export const WeatherAnalysisTab = ({
     }));
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Loading State */}
-      {loading && (
+  if (loading && !forecastData && !historicalData && !accumulatedData && !error) {
+    return (
+      <div className="space-y-6">
         <Card>
-          <CardContent className="flex items-center justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <span className="ml-2">Loading weather data...</span>
+          <CardHeader>
+            <CardTitle>Field Summary</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="space-y-2">
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-5 w-32" />
+              </div>
+            ))}
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Current conditions</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 md:grid-cols-6 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="rounded-lg border border-border/50 p-4 space-y-2"
+              >
+                <Skeleton className="h-4 w-16" />
+                <Skeleton className="h-7 w-20" />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>7-Day Forecast</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Skeleton className="h-10 w-full" />
+            {Array.from({ length: 7 }).map((_, i) => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Historical Weather Charts (Last 30 Days)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-8">
+            <div className="space-y-3">
+              <Skeleton className="h-4 w-56" />
+              <Skeleton className="h-[350px] w-full" />
+            </div>
+            <div className="space-y-3">
+              <Skeleton className="h-4 w-56" />
+              <Skeleton className="h-[350px] w-full" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Loading State (refresh) */}
+      {loading && (forecastData || historicalData || accumulatedData) && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Updating weather data…
+        </div>
       )}
 
       {/* Error State */}
@@ -701,63 +619,43 @@ export const WeatherAnalysisTab = ({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {forecastData
-                ? transformForecastData(forecastData).map((day, index) => {
-                    const highTempRisk = day.tempHigh > 30;
-                    const rainRisk = day.rain > 20;
-                    return (
-                      <TableRow key={`${day.date}-${index}`}>
-                        <TableCell className="font-medium">
-                          {day.date}
-                        </TableCell>
-                        <TableCell
-                          className={
-                            highTempRisk ? "text-destructive font-semibold" : ""
-                          }
-                        >
-                          {day.tempHigh} / {day.tempLow}
-                        </TableCell>
-                        <TableCell
-                          className={
-                            rainRisk ? "text-destructive font-semibold" : ""
-                          }
-                        >
-                          {day.rain}
-                        </TableCell>
-                        <TableCell>{day.humidity}%</TableCell>
-                        <TableCell>{day.clouds}%</TableCell>
-                        <TableCell>{day.wind} m/s</TableCell>
-                      </TableRow>
-                    );
-                  })
-                : mockWeatherForecast.map((day) => {
-                    const highTempRisk = day.tempHigh > 30;
-                    const rainRisk = day.rain > 20;
-                    return (
-                      <TableRow key={day.date}>
-                        <TableCell className="font-medium">
-                          {day.date}
-                        </TableCell>
-                        <TableCell
-                          className={
-                            highTempRisk ? "text-destructive font-semibold" : ""
-                          }
-                        >
-                          {day.tempHigh} / {day.tempLow}
-                        </TableCell>
-                        <TableCell
-                          className={
-                            rainRisk ? "text-destructive font-semibold" : ""
-                          }
-                        >
-                          {day.rain}
-                        </TableCell>
-                        <TableCell>{day.humidity}%</TableCell>
-                        <TableCell>{day.clouds}%</TableCell>
-                        <TableCell>{day.wind} m/s</TableCell>
-                      </TableRow>
-                    );
-                  })}
+              {forecastData && transformForecastData(forecastData).length > 0 ? (
+                transformForecastData(forecastData).map((day, index) => {
+                  const highTempRisk = day.tempHigh > 30;
+                  const rainRisk = day.rain > 20;
+                  return (
+                    <TableRow key={`${day.date}-${index}`}>
+                      <TableCell className="font-medium">{day.date}</TableCell>
+                      <TableCell
+                        className={
+                          highTempRisk ? "text-destructive font-semibold" : ""
+                        }
+                      >
+                        {day.tempHigh} / {day.tempLow}
+                      </TableCell>
+                      <TableCell
+                        className={
+                          rainRisk ? "text-destructive font-semibold" : ""
+                        }
+                      >
+                        {day.rain}
+                      </TableCell>
+                      <TableCell>{day.humidity}%</TableCell>
+                      <TableCell>{day.clouds}%</TableCell>
+                      <TableCell>{day.wind} m/s</TableCell>
+                    </TableRow>
+                  );
+                })
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={6}
+                    className="text-center text-muted-foreground py-8"
+                  >
+                    {loading ? "Loading forecast…" : "No forecast data available."}
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
@@ -790,7 +688,7 @@ export const WeatherAnalysisTab = ({
                         date: item.date,
                         precipitation: item.rain,
                       }))
-                    : precipitationData
+                    : []
                 }
                 margin={{ bottom: 40 }}
               >
@@ -879,7 +777,7 @@ export const WeatherAnalysisTab = ({
                         maxTemp: item.tempHigh,
                         minTemp: item.tempLow,
                       }))
-                    : temperatureData
+                    : []
                 }
                 margin={{ bottom: 40 }}
               >
@@ -1097,61 +995,6 @@ export const WeatherAnalysisTab = ({
         </CardContent>
       </Card>
 
-      {/* Comprehensive Assessment Notes */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            Comprehensive Assessment Notes
-            {lastSaved && (
-              <span className="text-sm font-normal text-muted-foreground">
-                Last saved: {lastSaved.toLocaleTimeString()}
-              </span>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Textarea
-            value={comprehensiveNotes}
-            onChange={(e) => setComprehensiveNotes(e.target.value)}
-            placeholder="Write comprehensive feedback about the field assessment including weather analysis..."
-            className="min-h-[150px]"
-          />
-          <div className="flex items-center justify-between">
-            <div className="flex gap-2">
-              <Button
-                onClick={saveNotes}
-                disabled={isSaving || !hasChanges}
-                className="flex items-center gap-2"
-              >
-                {isSaving ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4" />
-                )}
-                {isSaving ? "Saving..." : "Save Notes"}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={generateReport}
-                disabled={!canGenerateReport || isSaving}
-                className="flex items-center gap-2"
-              >
-                <FileText className="h-4 w-4" />
-                Generate Report
-              </Button>
-              <Button onClick={fetchWeatherData} variant="outline">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh Weather
-              </Button>
-            </div>
-            {hasChanges && (
-              <span className="text-sm text-muted-foreground">
-                Unsaved changes
-              </span>
-            )}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };

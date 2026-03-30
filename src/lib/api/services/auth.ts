@@ -63,10 +63,13 @@ export const authService = {
   },
 
   /**
-   * Get stored user data
+   * Get current auth status - combines authentication check and stored user data
    */
-  getStoredUser: (): LoginResponse | null => {
-    return authStorage.getUser<LoginResponse>();
+  getAuthStatus: () => {
+    return {
+      isAuthenticated: authStorage.isAuthenticated(),
+      user: authStorage.getUser<LoginResponse>(),
+    };
   },
 };
 

@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import {
@@ -41,7 +40,6 @@ import {
   Assessment,
 } from "@/lib/api/services/assessor";
 import { Farm } from "@/lib/api/types";
-import { useComprehensiveNotes } from "@/hooks/useComprehensiveNotes";
 
 // Import pdfjs for PDF parsing
 import * as pdfjsLib from "pdfjs-dist";
@@ -102,21 +100,6 @@ export const DroneAnalysisTab = ({
   const [manualWeed, setManualWeed] = useState([7.3]);
   const [manualPest, setManualPest] = useState([4.4]);
   const isCompleted = status === "SUBMITTED" || status === "APPROVED" || status === "COMPLETED";
-
-  // Shared notes functionality
-  const {
-    comprehensiveNotes,
-    setComprehensiveNotes,
-    saveNotes,
-    generateReport,
-    isSaving,
-    lastSaved,
-    hasChanges,
-    canGenerateReport,
-  } = useComprehensiveNotes({
-    assessmentId,
-    initialNotes,
-  });
 
   // State to store data for each PDF type separately
   const [plantHealthData, setPlantHealthData] =
@@ -1202,9 +1185,14 @@ export const DroneAnalysisTab = ({
                 <CardTitle>Extracted Analysis Data (Backend)</CardTitle>
               </CardHeader>
               <CardContent>
-                <pre className="bg-muted p-4 rounded-lg text-xs overflow-auto max-h-64 text-foreground">
-                  {JSON.stringify(currentRawData, null, 2)}
-                </pre>
+                <details className="border rounded-lg">
+                  <summary className="p-3 text-sm font-medium cursor-pointer hover:bg-muted/30 transition-colors">
+                    View Raw Extracted Data (JSON)
+                  </summary>
+                  <pre className="p-4 bg-muted text-xs overflow-auto max-h-64 text-foreground rounded-b-lg">
+                    {JSON.stringify(currentRawData, null, 2)}
+                  </pre>
+                </details>
               </CardContent>
             </Card>
           )}
@@ -1280,10 +1268,12 @@ export const DroneAnalysisTab = ({
                   )}
                 </div>
               ) : farmData?.boundary ? (
-                <FieldMapWithLayers
-                  fieldId={fieldId}
-                  boundary={farmData.boundary}
-                />
+                <div className="relative h-[420px] w-full">
+                  <FieldMapWithLayers
+                    fieldId={fieldId}
+                    boundary={farmData.boundary}
+                  />
+                </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   <Map className="h-12 w-12 mx-auto mb-2 opacity-50" />
@@ -1403,11 +1393,13 @@ export const DroneAnalysisTab = ({
               <CardTitle>Field Reference Map</CardTitle>
             </CardHeader>
             <CardContent>
-              <FieldMapWithLayers
-                fieldId={fieldId}
-                showLayerControls={false}
-                boundary={farmData?.boundary || null}
-              />
+              <div className="relative h-[360px] w-full">
+                <FieldMapWithLayers
+                  fieldId={fieldId}
+                  showLayerControls={false}
+                  boundary={farmData?.boundary || null}
+                />
+              </div>
             </CardContent>
           </Card>
         </>
