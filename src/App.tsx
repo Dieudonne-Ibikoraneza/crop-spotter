@@ -24,9 +24,11 @@ import FarmerHealthReports from "./pages/farmer/HealthReports";
 import InsurerLayout from "./components/layouts/InsurerLayout";
 import InsurerDashboard from "./pages/insurer/Dashboard";
 import InsurerClaims from "./pages/insurer/Claims";
+import InsurerClaimDetail from "./pages/insurer/InsurerClaimDetail";
 import InsurerPolicies from "./pages/insurer/Policies";
 import InsurerAssessors from "./pages/insurer/Assessors";
 import InsurerReports from "./pages/insurer/Reports";
+import InsuranceRequests from "./pages/insurer/InsuranceRequests";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 
 const queryClient = new QueryClient({
@@ -49,25 +51,40 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
-          
+
           {/* Assessor Portal */}
           <Route path="/assessor" element={<AssessorLayout />}>
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="risk-assessment" element={<RiskAssessment />} />
-            <Route path="risk-assessment/:farmerId" element={<RiskAssessment />} />
-            <Route path="risk-assessment/:farmerId/:fieldId" element={<RiskAssessment />} />
+            <Route
+              path="risk-assessment/:farmerId"
+              element={<RiskAssessment />}
+            />
+            <Route
+              path="risk-assessment/:farmerId/:fieldId"
+              element={<RiskAssessment />}
+            />
             <Route path="crop-monitoring" element={<CropMonitoring />} />
-            <Route path="crop-monitoring/:farmerId" element={<CropMonitoring />} />
-            <Route path="crop-monitoring/:farmerId/:fieldId" element={<CropMonitoring />} />
+            <Route
+              path="crop-monitoring/:farmerId"
+              element={<CropMonitoring />}
+            />
+            <Route
+              path="crop-monitoring/:farmerId/:fieldId"
+              element={<CropMonitoring />}
+            />
             <Route path="loss-assessment" element={<LossAssessment />} />
-            <Route path="loss-assessment/:farmerId/:fieldId" element={<LossAssessment />} />
+            <Route
+              path="loss-assessment/:farmerId/:fieldId"
+              element={<LossAssessment />}
+            />
             <Route path="field/:id" element={<FieldDetail />} />
             <Route path="field-processing" element={<FieldProcessing />} />
           </Route>
-          
+
           {/* Farmer Portal */}
-          <Route 
-            path="/farmer" 
+          <Route
+            path="/farmer"
             element={
               <ProtectedRoute allowedRole="FARMER">
                 <FarmerLayout />
@@ -93,7 +110,9 @@ const App = () => (
             }
           >
             <Route path="dashboard" element={<InsurerDashboard />} />
+            <Route path="requests" element={<InsuranceRequests />} />
             <Route path="claims" element={<InsurerClaims />} />
+            <Route path="claims/:id" element={<InsurerClaimDetail />} />
             <Route path="policies" element={<InsurerPolicies />} />
             <Route path="assessors" element={<InsurerAssessors />} />
             <Route path="reports" element={<InsurerReports />} />

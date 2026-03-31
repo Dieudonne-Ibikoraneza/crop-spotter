@@ -79,6 +79,13 @@ const FARMS_ENDPOINTS = {
  */
 export const assessorService = {
   /**
+   * Create assessment (Insurer only)
+   */
+  createAssessment: async (data: { farmId: string; assessorId: string }): Promise<Assessment> => {
+    return apiClient.post<Assessment>("/assessments", data);
+  },
+
+  /**
    * Get list of assigned farmers with their farms
    */
   getAssignedFarmers: async (): Promise<FarmerWithFarms[]> => {

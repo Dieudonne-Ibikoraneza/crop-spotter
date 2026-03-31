@@ -25,6 +25,7 @@ const InsurerLayout = () => {
 
   const navigation = [
     { name: "Dashboard", href: "/insurer/dashboard", icon: Home },
+    { name: "Requests", href: "/insurer/requests", icon: Leaf },
     { name: "Claims", href: "/insurer/claims", icon: FileWarning },
     { name: "Policies", href: "/insurer/policies", icon: ShieldCheck },
     { name: "Assessors", href: "/insurer/assessors", icon: Users },

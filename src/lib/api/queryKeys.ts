@@ -16,6 +16,7 @@ export const usersKeys = {
   details: () => ["users", "detail"] as const,
   detail: (id: string) => ["users", "detail", id] as const,
   profile: () => ["users", "profile"] as const,
+  assessors: ["users", "assessors"] as const,
 } as const;
 
 // Farms Query Keys
@@ -59,6 +60,7 @@ export const claimsKeys = {
     ["claims", "list", params] as const,
   details: () => ["claims", "detail"] as const,
   detail: (id: string) => ["claims", "detail", id] as const,
+  assessor: ["claims", "assessor"] as const,
 } as const;
 
 // Monitoring Query Keys
@@ -84,8 +86,15 @@ export const farmerKeys = {
   policies: ["farmer", "policies"] as const,
   claims: ["farmer", "claims"] as const,
   alerts: ["monitoring", "alerts"] as const,
-  farmAlerts: (farmId: string) => ["monitoring", "farm", farmId, "alerts"] as const,
+  farmAlerts: (farmId: string) =>
+    ["monitoring", "farm", farmId, "alerts"] as const,
   insuranceRequests: ["farmer", "insurance-requests"] as const,
+} as const;
+
+// Insurer Query Keys
+export const insurerKeys = {
+  dashboard: () => ["insurer", "dashboard"] as const,
+  reports: () => ["insurer", "reports"] as const,
 } as const;
 
 // Combined query keys export
@@ -98,6 +107,8 @@ export const queryKeys = {
   claims: claimsKeys,
   monitoring: monitoringKeys,
   admin: adminKeys,
+  farmer: farmerKeys,
+  insurer: insurerKeys,
 } as const;
 
 export type QueryKey = typeof queryKeys;

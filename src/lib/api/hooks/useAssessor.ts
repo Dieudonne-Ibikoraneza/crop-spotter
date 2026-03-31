@@ -1,8 +1,36 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { assessorService, farmService, Assessment } from "../services/assessor";
-import { assessmentsKeys, farmsKeys } from "../queryKeys";
+import { assessmentsKeys, farmsKeys, farmerKeys } from "../queryKeys";
 import { FarmerWithFarms, Farm } from "../types";
 import { authService } from "../services/auth";
+import farmerService from "../services/farmer";
+
+/**
+ * Hook to get insurance requests (Insurer sees all, Farmer sees their own)
+ */
+export function useInsuranceRequests() {
+  return useQuery({
+    queryKey: farmerKeys.insuranceRequests,
+    queryFn: () => farmerService.getInsuranceRequests(),
+    enabled: authService.isAuthenticated(),
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+/**
+ * Hook to create an assessment (Insurer only)
+ */
+export function useCreateAssessment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { farmId: string; assessorId: string }) =>
+      assessorService.createAssessment(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: assessmentsKeys.all });
+      queryClient.invalidateQueries({ queryKey: farmerKeys.insuranceRequests });
+    },
+  });
+}
 
 /**
  * Hook to get list of assigned farmers with their farms
