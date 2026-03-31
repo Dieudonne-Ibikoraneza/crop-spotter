@@ -315,11 +315,11 @@ const RiskAssessment = () => {
         <TabsContent value="overview" className="mt-6">
           <OverviewTab
             analysisType="drone"
+            fieldId={field.id}
             assessmentId={assessmentData?._id}
             status={assessmentData?.status || "IN_PROGRESS"}
             initialNotes={assessmentData?.comprehensiveNotes}
             dronePdfs={assessmentData?.droneAnalysisPdfs || []}
-            weatherData={{}}
             farmDetails={{
               name: field.name,
               cropType: field.crop,

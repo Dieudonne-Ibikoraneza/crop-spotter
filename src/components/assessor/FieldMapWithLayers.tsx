@@ -221,9 +221,24 @@ export const FieldMapWithLayers = ({
       };
     }
 
-    const coords = boundary.coordinates[0];
-    const lats = coords.map((coord) => coord[1]);
-    const lngs = coords.map((coord) => coord[0]);
+    const outerRing =
+      boundary.type === "MultiPolygon"
+        ? boundary.coordinates[0]?.[0]
+        : boundary.type === "Polygon"
+          ? boundary.coordinates[0]
+          : null;
+    if (!outerRing?.length) {
+      const defaultCenter = center || [-1.9565, 30.0615];
+      const map = L.map(mapContainerRef.current!).setView(defaultCenter, 15, { animate: false });
+      setMapInstance(map);
+      return () => {
+        map.off();
+        map.remove();
+        setMapInstance(null);
+      };
+    }
+    const lats = outerRing.map((coord: number[]) => coord[1]);
+    const lngs = outerRing.map((coord: number[]) => coord[0]);
     const viewCenter = center || [
       (Math.min(...lats) + Math.max(...lats)) / 2,
       (Math.min(...lngs) + Math.max(...lngs)) / 2,

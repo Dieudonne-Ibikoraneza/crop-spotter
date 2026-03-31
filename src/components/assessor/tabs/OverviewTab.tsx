@@ -4,8 +4,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useComprehensiveNotes } from "@/hooks/useComprehensiveNotes";
-import { calculateOverallRisk, RiskAssessment } from "@/utils/riskCalculation";
+import {
+  calculateOverallRisk,
+  type RiskAssessment,
+  type WeatherData,
+} from "@/utils/riskCalculation";
 import { ComprehensiveReportGenerator } from "@/utils/reportGenerator";
+import { apiClient } from "@/lib/api/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,11 +41,11 @@ interface OverviewTabProps {
   cropHealth?: string;
   recommendation?: string;
   analysisType: "drone" | "satellite";
+  fieldId: string;
   assessmentId?: string;
   status?: string;
   initialNotes?: string;
   dronePdfs?: Array<{ pdfType: string; droneAnalysisData?: unknown }>;
-  weatherData?: unknown;
   farmDetails?: {
     name: string;
     cropType: string;
@@ -54,16 +61,19 @@ export const OverviewTab = ({
   cropHealth,
   recommendation,
   analysisType,
+  fieldId,
   assessmentId,
   status = "IN_PROGRESS",
   initialNotes,
   dronePdfs = [],
-  weatherData,
   farmDetails,
 }: OverviewTabProps) => {
+  const queryClient = useQueryClient();
   const [riskAssessment, setRiskAssessment] = useState<RiskAssessment | null>(
     null,
   );
+  const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
+  const [wxLoading, setWxLoading] = useState(false);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [isDownloadingReport, setIsDownloadingReport] = useState(false);
   const {
@@ -80,10 +90,98 @@ export const OverviewTab = ({
     initialNotes,
   });
 
+  useEffect(() => {
+    let cancelled = false;
+    async function loadWeather() {
+      if (!fieldId) return;
+      setWxLoading(true);
+      try {
+        const today = new Date();
+        const end = new Date(today);
+        end.setDate(today.getDate() + 7);
+        const start = new Date(today);
+        start.setDate(today.getDate() - 30);
+
+        const dateStart = start.toISOString().split("T")[0];
+        const dateEnd = today.toISOString().split("T")[0];
+        const forecastStart = today.toISOString().split("T")[0];
+        const forecastEnd = end.toISOString().split("T")[0];
+
+        const [acc, forecast] = await Promise.all([
+          apiClient.get<{
+            field_id: string;
+            date_start: string;
+            date_end: string;
+            total_rainfall: number;
+            avg_temperature: number;
+            avg_humidity: number;
+            avg_wind_speed: number;
+            days_with_rain: number;
+          }>(
+            `/farms/${fieldId}/weather/accumulated?dateStart=${dateStart}&dateEnd=${dateEnd}`,
+          ),
+          apiClient.get<
+            Array<{
+              dt: number;
+              main: { temp: number; temp_min: number; temp_max: number; humidity: number };
+            }>
+          >(
+            `/farms/${fieldId}/weather/forecast?dateStart=${forecastStart}&dateEnd=${forecastEnd}`,
+          ),
+        ]);
+
+        const totalRain = Number(acc?.total_rainfall ?? 0);
+        const avgTemp = Number(acc?.avg_temperature ?? 0);
+        const days = 30;
+        const avgDaily = days > 0 ? totalRain / days : 0;
+
+        const droughtRiskStr =
+          avgDaily < 1 ? "High" : avgDaily < 2 ? "Moderate" : "Low";
+        const floodRiskStr =
+          avgDaily > 5 ? "High" : avgDaily > 3 ? "Moderate" : "Low";
+
+        const maxForecastK = Array.isArray(forecast)
+          ? Math.max(
+              ...forecast
+                .map((p) => p?.main?.temp_max)
+                .filter((v): v is number => typeof v === "number"),
+            )
+          : NaN;
+        const maxForecastC = Number.isFinite(maxForecastK) ? maxForecastK - 273.15 : NaN;
+
+        const maxTempForStress = Number.isFinite(maxForecastC)
+          ? Math.max(avgTemp, maxForecastC)
+          : avgTemp;
+
+        const heatStressStr =
+          maxTempForStress > 30 ? "High" : maxTempForStress > 25 ? "Moderate" : "Low";
+
+        const wx: WeatherData = {
+          temperature: avgTemp,
+          humidity: Number(acc?.avg_humidity ?? undefined),
+          rainfall: totalRain,
+          droughtRisk: droughtRiskStr,
+          floodRisk: floodRiskStr,
+          heatStress: heatStressStr,
+        };
+
+        if (!cancelled) setWeatherData(wx);
+      } catch {
+        if (!cancelled) setWeatherData(null);
+      } finally {
+        if (!cancelled) setWxLoading(false);
+      }
+    }
+    loadWeather();
+    return () => {
+      cancelled = true;
+    };
+  }, [fieldId]);
+
   // Calculate risk assessment when data changes
   useEffect(() => {
     if (dronePdfs.length > 0 || weatherData) {
-      const assessment = calculateOverallRisk(dronePdfs, weatherData as any);
+      const assessment = calculateOverallRisk(dronePdfs as any, weatherData ?? undefined);
       setRiskAssessment(assessment);
     }
   }, [dronePdfs, weatherData]);
@@ -104,7 +202,23 @@ export const OverviewTab = ({
       }
 
       // Generate the backend report
-      await generateReport();
+      const report = await generateReport();
+
+      // Refresh assessment + related lists so status/attachments/notes update immediately in UI
+      await Promise.allSettled([
+        queryClient.invalidateQueries({ queryKey: ["assessment", fieldId] }),
+        queryClient.invalidateQueries({ queryKey: ["assessment", assessmentId] }),
+        queryClient.invalidateQueries({ queryKey: ["assessments"] }),
+        queryClient.invalidateQueries({ queryKey: ["assignedFarmers"] }),
+      ]);
+      await Promise.allSettled([
+        queryClient.refetchQueries({ queryKey: ["assessment", fieldId] }),
+        queryClient.refetchQueries({ queryKey: ["assignedFarmers"] }),
+      ]);
+
+      if (report) {
+        toast.success("Assessment submitted. Data refreshed.");
+      }
     } finally {
       setIsGeneratingReport(false);
     }
@@ -311,48 +425,10 @@ export const OverviewTab = ({
               )}
             </>
           ) : (
-            // Fallback to hardcoded values if no risk assessment
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                  <span className="font-medium">Field Status</span>
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-success"></span>
-                    <span className="font-semibold">
-                      {fieldStatus || "Healthy"}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                  <span className="font-medium">Weather Risk</span>
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-success"></span>
-                    <span className="font-semibold">
-                      {weatherRisk || "Low (1.5/5)"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                  <span className="font-medium">Crop Health</span>
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-success"></span>
-                    <span className="font-semibold">
-                      {cropHealth || "82.4% (from drone)"}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                  <span className="font-medium">Recommendation</span>
-                  <span className="font-semibold">
-                    {recommendation || "Continue monitoring"}
-                  </span>
-                </div>
-              </div>
+            <div className="text-sm text-muted-foreground">
+              {wxLoading
+                ? "Loading risk inputs…"
+                : "No risk assessment available yet (missing weather and/or drone analysis data)."}
             </div>
           )}
 

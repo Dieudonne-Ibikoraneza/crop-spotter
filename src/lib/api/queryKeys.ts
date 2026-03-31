@@ -76,6 +76,18 @@ export const adminKeys = {
   claimsStatistics: ["admin", "claims", "statistics"] as const,
 } as const;
 
+// Farmer Query Keys
+export const farmerKeys = {
+  stats: ["farmer", "stats"] as const,
+  farms: ["farmer", "farms"] as const,
+  farmDetail: (id: string) => ["farmer", "farms", "detail", id] as const,
+  policies: ["farmer", "policies"] as const,
+  claims: ["farmer", "claims"] as const,
+  alerts: ["monitoring", "alerts"] as const,
+  farmAlerts: (farmId: string) => ["monitoring", "farm", farmId, "alerts"] as const,
+  insuranceRequests: ["farmer", "insurance-requests"] as const,
+} as const;
+
 // Combined query keys export
 export const queryKeys = {
   auth: authKeys,

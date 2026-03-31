@@ -13,6 +13,15 @@ import CropMonitoring from "./pages/assessor/CropMonitoring";
 import LossAssessment from "./pages/assessor/LossAssessment";
 import FieldDetail from "./pages/assessor/FieldDetail";
 import FieldProcessing from "./pages/assessor/FieldProcessing";
+import FarmerLayout from "./components/layouts/FarmerLayout";
+import FarmerDashboard from "./pages/farmer/Dashboard";
+import FarmerFarms from "./pages/farmer/Farms";
+import FarmerFarmDetail from "./pages/farmer/FarmDetail";
+import FarmerClaims from "./pages/farmer/Claims";
+import FarmerClaimDetail from "./pages/farmer/ClaimDetail";
+import FarmerInsurance from "./pages/farmer/Insurance";
+import FarmerHealthReports from "./pages/farmer/HealthReports";
+import ProtectedRoute from "./components/auth/ProtectedRoute";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -48,6 +57,24 @@ const App = () => (
             <Route path="loss-assessment/:farmerId/:fieldId" element={<LossAssessment />} />
             <Route path="field/:id" element={<FieldDetail />} />
             <Route path="field-processing" element={<FieldProcessing />} />
+          </Route>
+          
+          {/* Farmer Portal */}
+          <Route 
+            path="/farmer" 
+            element={
+              <ProtectedRoute allowedRole="FARMER">
+                <FarmerLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="dashboard" element={<FarmerDashboard />} />
+            <Route path="farms/:id" element={<FarmerFarmDetail />} />
+            <Route path="farms" element={<FarmerFarms />} />
+            <Route path="insurance" element={<FarmerInsurance />} />
+            <Route path="claims" element={<FarmerClaims />} />
+            <Route path="claims/:id" element={<FarmerClaimDetail />} />
+            <Route path="health" element={<FarmerHealthReports />} />
           </Route>
 
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
