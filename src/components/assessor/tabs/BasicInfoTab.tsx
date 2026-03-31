@@ -18,6 +18,7 @@ interface BasicInfoTabProps {
     coordinates: number[][][] | number[][][][];
   } | null;
   locationCoords?: number[];
+  showActions?: boolean;
 }
 
 export const BasicInfoTab = ({
@@ -31,6 +32,7 @@ export const BasicInfoTab = ({
   sowingDate,
   boundary,
   locationCoords,
+  showActions = true,
 }: BasicInfoTabProps) => {
   // Format Field ID like in Dashboard
   const formattedFieldId = fieldId
@@ -97,10 +99,12 @@ export const BasicInfoTab = ({
                 <p className="font-medium">{location}</p>
               </div>
             </div>
-            <div className="flex gap-2 pt-4">
-              <Button variant="outline">Edit Info</Button>
-              <Button variant="outline">View History</Button>
-            </div>
+            {showActions && (
+              <div className="flex gap-2 pt-4">
+                <Button variant="outline">Edit Info</Button>
+                <Button variant="outline">View History</Button>
+              </div>
+            )}
           </div>
           <div className="h-[400px] rounded-lg overflow-hidden border">
             <FieldMapWithLayers

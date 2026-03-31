@@ -5,6 +5,7 @@ import { authService } from "../services/auth";
 export const claimsKeys = {
   all: ["claims"] as const,
   assessor: ["claims", "assessor"] as const,
+  insurer: ["claims", "insurer"] as const,
   detail: (id: string) => ["claims", "detail", id] as const,
 };
 
@@ -15,6 +16,18 @@ export function useAssessorClaims() {
   return useQuery<Claim[], Error>({
     queryKey: claimsKeys.assessor,
     queryFn: () => claimsService.getAssessorClaims(),
+    enabled: authService.isAuthenticated(),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+/**
+ * Hook to get all claims for the current insurer
+ */
+export function useInsurerClaims() {
+  return useQuery<Claim[], Error>({
+    queryKey: claimsKeys.insurer,
+    queryFn: () => claimsService.getInsurerClaims(),
     enabled: authService.isAuthenticated(),
     staleTime: 5 * 60 * 1000,
   });

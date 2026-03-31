@@ -18,6 +18,7 @@ export { authService } from "./services/auth";
 export { assessorService, farmService } from "./services/assessor";
 export { cropMonitoringService } from "./services/cropMonitoring";
 export { policiesService } from "./services/policies";
+export { insurerService } from "./services/insurer";
 
 // Hooks
 export {

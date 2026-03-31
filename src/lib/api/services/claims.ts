@@ -22,10 +22,30 @@ export interface ClaimAssessment {
 
 export interface Claim {
   _id: string;
-  policyId: string | { _id: string; policyNumber?: string; status?: string; coverageLevel?: string; premiumAmount?: number };
-  farmerId: string | { _id: string; firstName?: string; lastName?: string; email?: string };
-  farmId: string | { _id: string; name?: string; cropType?: string; area?: number; locationName?: string };
-  assessorId?: string | { _id: string; firstName?: string; lastName?: string; email?: string };
+  policyId:
+    | string
+    | {
+        _id: string;
+        policyNumber?: string;
+        status?: string;
+        coverageLevel?: string;
+        premiumAmount?: number;
+      };
+  farmerId:
+    | string
+    | { _id: string; firstName?: string; lastName?: string; email?: string };
+  farmId:
+    | string
+    | {
+        _id: string;
+        name?: string;
+        cropType?: string;
+        area?: number;
+        locationName?: string;
+      };
+  assessorId?:
+    | string
+    | { _id: string; firstName?: string; lastName?: string; email?: string };
   assessmentReportId?: string | ClaimAssessment;
   lossEventType: string;
   lossDescription?: string;
@@ -43,8 +63,12 @@ const CLAIMS_ENDPOINTS = {
   assessorClaims: "/claims",
   updateAssessment: (claimId: string) => `/claims/${claimId}/assessment`,
   submitAssessment: (claimId: string) => `/claims/${claimId}/submit-assessment`,
+  assignAssessor: (claimId: string) => `/claims/${claimId}/assign`,
+  approveClaim: (claimId: string) => `/claims/${claimId}/approve`,
+  rejectClaim: (claimId: string) => `/claims/${claimId}/reject`,
   uploadDronePdf: (claimId: string) => `/claims/${claimId}/upload-drone-pdf`,
-  deletePdf: (claimId: string, pdfType: string) => `/claims/${claimId}/pdfs/${pdfType}`,
+  deletePdf: (claimId: string, pdfType: string) =>
+    `/claims/${claimId}/pdfs/${pdfType}`,
   getPdfs: (claimId: string) => `/claims/${claimId}/pdfs`,
   getDamageAnalysis: (claimId: string) => `/claims/${claimId}/analysis`,
 };
@@ -52,40 +76,86 @@ const CLAIMS_ENDPOINTS = {
 export const claimsService = {
   /** Get all claims for the current assessor */
   getAssessorClaims: async (): Promise<Claim[]> => {
-    const response = await apiClient.get<Claim[]>(CLAIMS_ENDPOINTS.assessorClaims);
+    const response = await apiClient.get<Claim[]>(
+      CLAIMS_ENDPOINTS.assessorClaims,
+    );
     return Array.isArray(response) ? response : (response as any).data || [];
+  },
+
+  /** Get all claims for the current insurer */
+  getInsurerClaims: async (): Promise<Claim[]> => {
+    const response = await apiClient.get<Claim[]>("/claims");
+    return Array.isArray(response) ? response : (response as any).data || [];
+  },
+
+  /** Assign an assessor to a claim (Insurer only) */
+  assignAssessor: async (
+    claimId: string,
+    assessorId: string,
+  ): Promise<Claim> => {
+    return apiClient.put<Claim>(CLAIMS_ENDPOINTS.assignAssessor(claimId), {
+      assessorId,
+    });
+  },
+
+  /** Approve a claim (Insurer only) */
+  approveClaim: async (
+    claimId: string,
+    payoutAmount: number,
+  ): Promise<Claim> => {
+    return apiClient.put<Claim>(CLAIMS_ENDPOINTS.approveClaim(claimId), {
+      payoutAmount,
+    });
+  },
+
+  /** Reject a claim (Insurer only) */
+  rejectClaim: async (
+    claimId: string,
+    rejectionReason: string,
+  ): Promise<Claim> => {
+    return apiClient.put<Claim>(CLAIMS_ENDPOINTS.rejectClaim(claimId), {
+      rejectionReason,
+    });
   },
 
   /** Get a single claim by ID */
   getClaim: async (id: string): Promise<Claim> => {
     const response = await apiClient.get<Claim>(CLAIMS_ENDPOINTS.get(id));
-    return (response as any).data && !(response as any)._id ? (response as any).data : response;
+    return (response as any).data && !(response as any)._id
+      ? (response as any).data
+      : response;
   },
 
   /** Update claim assessment data */
   updateAssessment: async (
     claimId: string,
-    data: Partial<ClaimAssessment>
+    data: Partial<ClaimAssessment>,
   ): Promise<ClaimAssessment> => {
-    return apiClient.put<ClaimAssessment>(CLAIMS_ENDPOINTS.updateAssessment(claimId), data);
+    return apiClient.put<ClaimAssessment>(
+      CLAIMS_ENDPOINTS.updateAssessment(claimId),
+      data,
+    );
   },
 
   /** Submit the final claim assessment */
   submitAssessment: async (claimId: string): Promise<ClaimAssessment> => {
-    return apiClient.post<ClaimAssessment>(CLAIMS_ENDPOINTS.submitAssessment(claimId), {});
+    return apiClient.post<ClaimAssessment>(
+      CLAIMS_ENDPOINTS.submitAssessment(claimId),
+      {},
+    );
   },
 
   /** Upload drone analysis PDF for a claim */
   uploadDronePdf: async (
     claimId: string,
     pdfType: string,
-    file: File
+    file: File,
   ): Promise<any> => {
     const formData = new FormData();
     formData.append("file", file);
     return apiClient.upload<any>(
       `${CLAIMS_ENDPOINTS.uploadDronePdf(claimId)}?pdfType=${pdfType}`,
-      formData
+      formData,
     );
   },
 
@@ -101,8 +171,12 @@ export const claimsService = {
 
   /** Get assessment details for a claim by its assessment ID */
   getAssessmentById: async (assessmentId: string): Promise<ClaimAssessment> => {
-    const response = await apiClient.get<ClaimAssessment>(`/assessments/${assessmentId}`);
-    return (response as any).data && !(response as any)._id ? (response as any).data : response;
+    const response = await apiClient.get<ClaimAssessment>(
+      `/assessments/${assessmentId}`,
+    );
+    return (response as any).data && !(response as any)._id
+      ? (response as any).data
+      : response;
   },
 
   /** Get automated damage analysis (NDVI before/after) for a claim */
