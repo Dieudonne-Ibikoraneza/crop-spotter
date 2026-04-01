@@ -59,6 +59,8 @@ interface DroneAnalysisTabProps {
   assessmentId?: string;
   status?: string;
   initialNotes?: string;
+  /** Admin view: hide uploads, manual checks, and destructive actions */
+  readOnly?: boolean;
 }
 
 interface StressLevel {
@@ -90,6 +92,7 @@ export const DroneAnalysisTab = ({
   assessmentId,
   status = "IN_PROGRESS",
   initialNotes,
+  readOnly = false,
 }: DroneAnalysisTabProps) => {
   const [dataSource, setDataSource] = useState<"drone" | "manual">("drone");
   const [selectedPdfType, setSelectedPdfType] =
@@ -100,6 +103,10 @@ export const DroneAnalysisTab = ({
   const [manualWeed, setManualWeed] = useState([7.3]);
   const [manualPest, setManualPest] = useState([4.4]);
   const isCompleted = status === "SUBMITTED" || status === "APPROVED" || status === "COMPLETED";
+
+  useEffect(() => {
+    if (readOnly) setDataSource("drone");
+  }, [readOnly]);
 
   // State to store data for each PDF type separately
   const [plantHealthData, setPlantHealthData] =
@@ -601,33 +608,36 @@ export const DroneAnalysisTab = ({
   return (
     <div className="space-y-6">
       {/* Data Source Selector */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Data Source</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Tabs
-            value={dataSource}
-            onValueChange={(v) => setDataSource(v as "drone" | "manual")}
-          >
-            <TabsList className="grid w-full grid-cols-2 max-w-md">
-              <TabsTrigger value="drone" className="gap-2">
-                <Satellite className="h-4 w-4" />
-                Drone Upload
-              </TabsTrigger>
-              <TabsTrigger value="manual" className="gap-2">
-                <UserCheck className="h-4 w-4" />
-                Manual Check
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </CardContent>
-      </Card>
+      {!readOnly && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Data Source</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Tabs
+              value={dataSource}
+              onValueChange={(v) => setDataSource(v as "drone" | "manual")}
+            >
+              <TabsList className="grid w-full grid-cols-2 max-w-md">
+                <TabsTrigger value="drone" className="gap-2">
+                  <Satellite className="h-4 w-4" />
+                  Drone Upload
+                </TabsTrigger>
+                <TabsTrigger value="manual" className="gap-2">
+                  <UserCheck className="h-4 w-4" />
+                  Manual Check
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </CardContent>
+        </Card>
+      )}
 
       {/* PATH 1: DRONE UPLOAD */}
       {dataSource === "drone" && (
         <>
           {/* PDF Type Selector */}
+          {!readOnly && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -658,8 +668,10 @@ export const DroneAnalysisTab = ({
               </div>
             </CardContent>
           </Card>
+          )}
 
           {/* PDF Report Upload */}
+          {!readOnly && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -815,6 +827,35 @@ export const DroneAnalysisTab = ({
               )}
             </CardContent>
           </Card>
+          )}
+
+          {readOnly && displayData && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Report summary (view only)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <p className="text-sm font-medium text-success mb-2">
+                    ✓ Report parsed
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Survey Date: {displayData.report_info.survey_date} | Crop:{" "}
+                    {displayData.report_info.crop} | Area:{" "}
+                    {displayData.report_info.field_area_ha} ha
+                  </p>
+                </div>
+                {displayData.report_info.survey_date && (
+                  <p className="text-sm text-muted-foreground">
+                    Flight date: {displayData.report_info.survey_date}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Parsed/Drone Metrics */}
           {displayData ? (

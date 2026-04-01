@@ -128,6 +128,8 @@ interface WeatherAnalysisTabProps {
   location: string;
   assessmentId?: string;
   initialNotes?: string;
+  /** When true, hides retry/actions (e.g. admin view-only). Data still loads on mount. */
+  readOnly?: boolean;
 }
 
 export const WeatherAnalysisTab = ({
@@ -137,6 +139,7 @@ export const WeatherAnalysisTab = ({
   location,
   assessmentId,
   initialNotes,
+  readOnly = false,
 }: WeatherAnalysisTabProps) => {
   const [loading, setLoading] = useState(false);
   const [forecastData, setForecastData] = useState<ForecastResponse | null>(
@@ -476,10 +479,12 @@ export const WeatherAnalysisTab = ({
         <Card>
           <CardContent className="text-center py-8">
             <p className="text-destructive">{error}</p>
-            <Button onClick={fetchWeatherData} className="mt-4">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Retry
-            </Button>
+            {!readOnly && (
+              <Button onClick={fetchWeatherData} className="mt-4">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Retry
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}

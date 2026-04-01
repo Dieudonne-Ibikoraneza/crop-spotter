@@ -53,6 +53,8 @@ interface OverviewTabProps {
     location: string;
     farmerName: string;
   };
+  /** Admin / read-only: no saving or submit to insurer */
+  readOnly?: boolean;
 }
 
 export const OverviewTab = ({
@@ -67,6 +69,7 @@ export const OverviewTab = ({
   initialNotes,
   dronePdfs = [],
   farmDetails,
+  readOnly = false,
 }: OverviewTabProps) => {
   const queryClient = useQueryClient();
   const [riskAssessment, setRiskAssessment] = useState<RiskAssessment | null>(
@@ -450,7 +453,7 @@ export const OverviewTab = ({
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             Comprehensive Assessment Notes
-            {lastSaved && (
+            {!readOnly && lastSaved && (
               <span className="text-sm font-normal text-muted-foreground">
                 Last saved: {lastSaved.toLocaleTimeString()}
               </span>
@@ -463,56 +466,61 @@ export const OverviewTab = ({
             onChange={(e) => setComprehensiveNotes(e.target.value)}
             placeholder="Write comprehensive feedback about the field assessment..."
             className="min-h-[200px]"
-            disabled={isCompleted}
+            disabled={isCompleted || readOnly}
+            readOnly={readOnly}
           />
           <div className="flex items-center justify-between">
             <div className="flex gap-2">
-              <Button
-                onClick={saveNotes}
-                disabled={isSaving || !hasChanges || isCompleted}
-                className="flex items-center gap-2"
-              >
-                {isSaving ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4" />
-                )}
-                {isSaving ? "Saving..." : "Save Feedback"}
-              </Button>
-
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
+              {!readOnly && (
+                <>
                   <Button
-                    variant="outline"
-                    disabled={!canGenerateReport || isSaving || isGeneratingReport || isCompleted}
-                    className="flex items-center gap-2 border-primary/50 hover:border-primary"
+                    onClick={saveNotes}
+                    disabled={isSaving || !hasChanges || isCompleted}
+                    className="flex items-center gap-2"
                   >
-                    {isGeneratingReport ? (
+                    {isSaving ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <CheckCircle className="h-4 w-4" />
+                      <Save className="h-4 w-4" />
                     )}
-                    {isGeneratingReport ? "Submitting..." : "Complete & Submit to Insurer"}
+                    {isSaving ? "Saving..." : "Save Feedback"}
                   </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                   <AlertDialogHeader>
-                    <AlertDialogTitle>Finalize Risk Assessment?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will generate the final report for <strong>{farmDetails?.name}</strong> and submit it to the insurer. This action cannot be undone and you will not be able to edit the assessment further.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction 
-                      onClick={handleGenerateEnhancedReport}
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      Complete & Submit
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        disabled={!canGenerateReport || isSaving || isGeneratingReport || isCompleted}
+                        className="flex items-center gap-2 border-primary/50 hover:border-primary"
+                      >
+                        {isGeneratingReport ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <CheckCircle className="h-4 w-4" />
+                        )}
+                        {isGeneratingReport ? "Submitting..." : "Complete & Submit to Insurer"}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Finalize Risk Assessment?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will generate the final report for <strong>{farmDetails?.name}</strong> and submit it to the insurer. This action cannot be undone and you will not be able to edit the assessment further.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleGenerateEnhancedReport}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          Complete & Submit
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </>
+              )}
               {riskAssessment && (
                 <Button
                   variant="outline"
@@ -529,7 +537,7 @@ export const OverviewTab = ({
                 </Button>
               )}
             </div>
-            {hasChanges && (
+            {!readOnly && hasChanges && (
               <span className="text-sm text-muted-foreground">
                 Unsaved changes
               </span>

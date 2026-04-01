@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
@@ -29,6 +29,15 @@ import InsurerPolicies from "./pages/insurer/Policies";
 import InsurerAssessors from "./pages/insurer/Assessors";
 import InsurerReports from "./pages/insurer/Reports";
 import InsuranceRequests from "./pages/insurer/InsuranceRequests";
+import AdminLayout from "./components/layouts/AdminLayout";
+import AdminDashboard from "./pages/admin/Dashboard";
+import AdminUsers from "./pages/admin/Users";
+import AdminAssessments from "./pages/admin/Assessments";
+import AdminRiskAssessment from "./pages/admin/AdminRiskAssessment";
+import AdminPolicies from "./pages/admin/AdminPolicies";
+import AdminClaims from "./pages/admin/AdminClaims";
+import AdminCropMonitoring from "./pages/admin/AdminCropMonitoring";
+import AdminCropMonitoringDetail from "./pages/admin/AdminCropMonitoringDetail";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 
 const queryClient = new QueryClient({
@@ -116,6 +125,38 @@ const App = () => (
             <Route path="policies" element={<InsurerPolicies />} />
             <Route path="assessors" element={<InsurerAssessors />} />
             <Route path="reports" element={<InsurerReports />} />
+          </Route>
+
+          {/* Admin console (mock UI) */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute allowedRole="ADMIN">
+                <AdminLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<AdminDashboard />} />
+            <Route path="assessments" element={<AdminAssessments />} />
+            <Route path="risk-assessments" element={<AdminRiskAssessment />} />
+            <Route
+              path="risk-assessments/:farmerId"
+              element={<AdminRiskAssessment />}
+            />
+            <Route
+              path="risk-assessments/:farmerId/:fieldId"
+              element={<AdminRiskAssessment />}
+            />
+            <Route path="users" element={<AdminUsers />} />
+            <Route path="policies" element={<AdminPolicies />} />
+            <Route path="claims" element={<AdminClaims />} />
+            <Route
+              path="crop-monitoring/policy/:policyId"
+              element={<AdminCropMonitoringDetail />}
+            />
+            <Route path="crop-monitoring" element={<AdminCropMonitoring />} />
+            <Route path="pending-farms" element={<Navigate to="assessments" replace />} />
           </Route>
 
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

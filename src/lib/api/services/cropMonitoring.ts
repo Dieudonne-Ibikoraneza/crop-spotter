@@ -32,6 +32,11 @@ export const cropMonitoringService = {
     return apiClient.get<CropMonitoringRecord[]>("/crop-monitoring");
   },
 
+  /** All cycles across the platform (Admin only) */
+  listAllAdmin: async (): Promise<CropMonitoringRecord[]> => {
+    return apiClient.get<CropMonitoringRecord[]>("/crop-monitoring/records/all");
+  },
+
   /** Get all monitoring records for a specific policy */
   getByPolicy: async (policyId: string): Promise<CropMonitoringRecord[]> => {
     return apiClient.get<CropMonitoringRecord[]>(

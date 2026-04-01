@@ -74,6 +74,12 @@ const CLAIMS_ENDPOINTS = {
 };
 
 export const claimsService = {
+  /** All claims (ADMIN role) or role-scoped list */
+  getAdminClaims: async (): Promise<Claim[]> => {
+    const response = await apiClient.get<Claim[]>(CLAIMS_ENDPOINTS.list);
+    return Array.isArray(response) ? response : (response as { data?: Claim[] }).data || [];
+  },
+
   /** Get all claims for the current assessor */
   getAssessorClaims: async (): Promise<Claim[]> => {
     const response = await apiClient.get<Claim[]>(
