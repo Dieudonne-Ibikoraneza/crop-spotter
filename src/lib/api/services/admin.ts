@@ -34,6 +34,41 @@ export interface AssignAssessorPayload {
   insurerId?: string;
 }
 
+/** GET /admin/health */
+export interface AdminSystemHealth {
+  checkedAt: string;
+  overall: "healthy" | "degraded" | "unhealthy";
+  database: {
+    status: "ok" | "error";
+    latencyMs?: number;
+    detail?: string;
+  };
+  agromonitoring: {
+    status: "ok" | "error";
+    latencyMs?: number;
+    detail?: string;
+  };
+  eosdaFields: {
+    status: "ok" | "error";
+    latencyMs?: number;
+    fieldCount?: number;
+    detail?: string;
+  };
+  storage: {
+    status: "ok" | "error";
+    uploadsPath: string;
+    usedBytes?: number;
+    usedLabel?: string;
+    detail?: string;
+  };
+  process: {
+    heapUsedMb: number;
+    heapTotalMb: number;
+    rssMb: number;
+    externalMb: number;
+  };
+}
+
 /** GET /admin/statistics */
 export interface AdminSystemStatistics {
   overview: {
@@ -54,6 +89,10 @@ export interface AdminSystemStatistics {
 export const adminService = {
   getSystemStatistics: async (): Promise<AdminSystemStatistics> => {
     return apiClient.get<AdminSystemStatistics>("/admin/statistics");
+  },
+
+  getSystemHealth: async (): Promise<AdminSystemHealth> => {
+    return apiClient.get<AdminSystemHealth>("/admin/health");
   },
 
   /** All policies with populated refs (Admin only) */

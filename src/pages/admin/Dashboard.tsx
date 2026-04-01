@@ -12,9 +12,14 @@ import {
   ClipboardList,
   Loader2,
   Leaf,
-  Activity,
-  Server,
   HeartPulse,
+  Database,
+  Cloud,
+  Satellite,
+  HardDrive,
+  Cpu,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +30,7 @@ import {
   useAdminStatistics,
   usePendingFarms,
   useAdminRecentClaims,
+  useAdminSystemHealth,
 } from "@/lib/api/hooks/useAdmin";
 import type { AdminSystemStatistics } from "@/lib/api/services/admin";
 import type { Claim } from "@/lib/api/services/claims";
@@ -89,6 +95,49 @@ function StatCard({
   );
 }
 
+function HealthRow({
+  icon: Icon,
+  label,
+  ok,
+  meta,
+  detail,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  ok: boolean;
+  meta?: string;
+  detail?: string;
+}) {
+  return (
+    <div className="flex gap-3 rounded-lg border border-border/70 bg-card/80 p-3 text-sm">
+      <Icon
+        className={cn(
+          "h-5 w-5 shrink-0 mt-0.5",
+          ok ? "text-emerald-600" : "text-destructive",
+        )}
+      />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-2">
+          <span className="font-medium leading-tight">{label}</span>
+          {ok ? (
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+          ) : (
+            <XCircle className="h-4 w-4 text-destructive shrink-0" />
+          )}
+        </div>
+        {meta ? (
+          <p className="text-xs text-muted-foreground mt-1">{meta}</p>
+        ) : null}
+        {detail && !ok ? (
+          <p className="text-xs text-destructive/90 mt-1 break-words">
+            {detail}
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 const AdminDashboard = () => {
   const { data: pendingFarms, isLoading: pendingLoading } = usePendingFarms();
   const {
@@ -101,24 +150,28 @@ const AdminDashboard = () => {
     isLoading: claimsLoading,
     isError: claimsError,
   } = useAdminRecentClaims(6);
+  const {
+    data: health,
+    isLoading: healthLoading,
+    isError: healthError,
+  } = useAdminSystemHealth();
 
   const pendingCount = pendingFarms?.length ?? 0;
   const ov = stats?.overview;
-
-  const apiOk = !statsError && !claimsError;
-  const healthScore =
-    statsLoading || claimsLoading ? null : apiOk ? 100 : 38;
-  const healthLabel =
-    statsLoading || claimsLoading ? "Checking…" : apiOk ? "Connected" : "Degraded";
 
   return (
     <div className="p-6 md:p-8 space-y-8 max-w-6xl mx-auto animate-in fade-in duration-500">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Admin dashboard</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight">
+            Admin dashboard
+          </h1>
           <p className="text-muted-foreground mt-1">
-            Live metrics from <code className="text-xs bg-muted px-1.5 py-0.5 rounded">/admin/statistics</code>, pending
-            farm queue, and latest claims.
+            Live metrics from{" "}
+            <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
+              /admin/statistics
+            </code>
+            , pending farm queue, and latest claims.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -180,28 +233,37 @@ const AdminDashboard = () => {
           <div className="rounded-lg border border-border/60 bg-card/50 px-3 py-2 flex items-center gap-2">
             <Sprout className="h-4 w-4 text-emerald-600 shrink-0" />
             <span>
-              Farms: <strong className="text-foreground">{stats.overview.totalFarms}</strong>
+              Farms:{" "}
+              <strong className="text-foreground">
+                {stats.overview.totalFarms}
+              </strong>
             </span>
           </div>
           <div className="rounded-lg border border-border/60 bg-card/50 px-3 py-2 flex items-center gap-2">
             <ClipboardList className="h-4 w-4 text-primary shrink-0" />
             <span>
               Assessments:{" "}
-              <strong className="text-foreground">{stats.overview.totalAssessments}</strong>
+              <strong className="text-foreground">
+                {stats.overview.totalAssessments}
+              </strong>
             </span>
           </div>
           <div className="rounded-lg border border-border/60 bg-card/50 px-3 py-2 flex items-center gap-2">
             <FileWarning className="h-4 w-4 shrink-0" />
             <span>
               Claims (all):{" "}
-              <strong className="text-foreground">{stats.overview.totalClaims}</strong>
+              <strong className="text-foreground">
+                {stats.overview.totalClaims}
+              </strong>
             </span>
           </div>
           <div className="rounded-lg border border-border/60 bg-card/50 px-3 py-2 flex items-center gap-2">
             <Building2 className="h-4 w-4 shrink-0" />
             <span>
               Policies:{" "}
-              <strong className="text-foreground">{stats.overview.totalPolicies}</strong>
+              <strong className="text-foreground">
+                {stats.overview.totalPolicies}
+              </strong>
             </span>
           </div>
         </div>
@@ -211,7 +273,9 @@ const AdminDashboard = () => {
         <Card>
           <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-lg">Recent claims</CardTitle>
-            <span className="text-xs text-muted-foreground">Latest by filed date</span>
+            <span className="text-xs text-muted-foreground">
+              Latest by filed date
+            </span>
           </CardHeader>
           <CardContent className="space-y-3">
             {claimsLoading ? (
@@ -234,7 +298,9 @@ const AdminDashboard = () => {
                   className="rounded-lg border border-border/60 p-3 bg-card flex flex-col gap-1.5"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-medium">{c.lossEventType || "Claim"}</span>
+                    <span className="font-medium">
+                      {c.lossEventType || "Claim"}
+                    </span>
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className="text-xs font-normal">
                         {c.status}
@@ -258,7 +324,11 @@ const AdminDashboard = () => {
             <CardTitle className="text-lg">Quick actions</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            <Button asChild variant="outline" className="justify-between h-auto py-3">
+            <Button
+              asChild
+              variant="outline"
+              className="justify-between h-auto py-3"
+            >
               <Link to="/admin/assessments">
                 <span className="flex items-center gap-2">
                   <Tractor className="h-4 w-4" />
@@ -267,7 +337,11 @@ const AdminDashboard = () => {
                 <ArrowRight className="h-4 w-4 shrink-0" />
               </Link>
             </Button>
-            <Button asChild variant="outline" className="justify-between h-auto py-3">
+            <Button
+              asChild
+              variant="outline"
+              className="justify-between h-auto py-3"
+            >
               <Link to="/admin/policies">
                 <span className="flex items-center gap-2">
                   <ClipboardList className="h-4 w-4" />
@@ -276,7 +350,11 @@ const AdminDashboard = () => {
                 <ArrowRight className="h-4 w-4 shrink-0" />
               </Link>
             </Button>
-            <Button asChild variant="outline" className="justify-between h-auto py-3">
+            <Button
+              asChild
+              variant="outline"
+              className="justify-between h-auto py-3"
+            >
               <Link to="/admin/claims">
                 <span className="flex items-center gap-2">
                   <FileWarning className="h-4 w-4" />
@@ -285,7 +363,11 @@ const AdminDashboard = () => {
                 <ArrowRight className="h-4 w-4 shrink-0" />
               </Link>
             </Button>
-            <Button asChild variant="outline" className="justify-between h-auto py-3">
+            <Button
+              asChild
+              variant="outline"
+              className="justify-between h-auto py-3"
+            >
               <Link to="/admin/crop-monitoring">
                 <span className="flex items-center gap-2">
                   <Leaf className="h-4 w-4" />
@@ -294,7 +376,11 @@ const AdminDashboard = () => {
                 <ArrowRight className="h-4 w-4 shrink-0" />
               </Link>
             </Button>
-            <Button asChild variant="outline" className="justify-between h-auto py-3">
+            <Button
+              asChild
+              variant="outline"
+              className="justify-between h-auto py-3"
+            >
               <Link to="/admin/users">
                 <span className="flex items-center gap-2">
                   <ShieldCheck className="h-4 w-4" />
@@ -314,37 +400,167 @@ const AdminDashboard = () => {
             System health
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Derived from whether core admin APIs respond. Not a substitute for infra monitoring.
+            Live probes from{" "}
+            <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
+              /admin/health
+            </code>{" "}
+            (database, AGROmonitoring weather, EOSDA field API, uploads, Node
+            heap). Complement with infra monitoring in production.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-                <Activity className="h-6 w-6 text-emerald-600" />
-              </div>
-              <div>
-                <p className="font-semibold">API data plane</p>
-                <p className="text-sm text-muted-foreground">
-                  Statistics &amp; claims loaded {statsLoading || claimsLoading ? "…" : apiOk ? "successfully" : "with errors"}
-                </p>
-              </div>
+          {healthLoading ? (
+            <div className="flex items-center gap-2 text-muted-foreground py-4">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              Checking services…
             </div>
-            <Badge
-              variant={apiOk ? "secondary" : "destructive"}
-              className="text-sm px-3 py-1 gap-1.5"
-            >
-              <Server className="h-3.5 w-3.5" />
-              {healthLabel}
-            </Badge>
-          </div>
-          <div className="space-y-2">
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Overall readiness</span>
-              <span>{healthScore != null ? `${healthScore}%` : "—"}</span>
-            </div>
-            <Progress value={healthScore ?? 0} className="h-2" />
-          </div>
+          ) : healthError || !health ? (
+            <p className="text-sm text-destructive py-2">
+              Could not load system health. Ensure the API is running and you
+              are signed in as admin.
+            </p>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                    Overall
+                  </p>
+                  <p className="font-semibold capitalize">{health.overall}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Checked {format(new Date(health.checkedAt), "PPpp")}
+                  </p>
+                </div>
+                <Badge
+                  variant={
+                    health.overall === "healthy"
+                      ? "secondary"
+                      : health.overall === "degraded"
+                        ? "outline"
+                        : "destructive"
+                  }
+                  className="text-sm"
+                >
+                  {health.overall === "healthy"
+                    ? "All probes OK"
+                    : health.overall}
+                </Badge>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                <HealthRow
+                  icon={Database}
+                  label="Database (MongoDB)"
+                  ok={health.database.status === "ok"}
+                  meta={
+                    health.database.latencyMs != null
+                      ? `${health.database.latencyMs} ms ping`
+                      : undefined
+                  }
+                  detail={health.database.detail}
+                />
+                <HealthRow
+                  icon={Cloud}
+                  label="AGROmonitoring (weather API)"
+                  ok={health.agromonitoring.status === "ok"}
+                  meta={
+                    health.agromonitoring.latencyMs != null
+                      ? `${health.agromonitoring.latencyMs} ms`
+                      : undefined
+                  }
+                  detail={health.agromonitoring.detail}
+                />
+                <HealthRow
+                  icon={Satellite}
+                  label="EOSDA / field registry (AGRO fields)"
+                  ok={health.eosdaFields.status === "ok"}
+                  meta={
+                    health.eosdaFields.fieldCount != null
+                      ? `${health.eosdaFields.fieldCount} remote fields`
+                      : health.eosdaFields.latencyMs != null
+                        ? `${health.eosdaFields.latencyMs} ms`
+                        : undefined
+                  }
+                  detail={health.eosdaFields.detail}
+                />
+                <HealthRow
+                  icon={HardDrive}
+                  label="Local storage (uploads)"
+                  ok={health.storage.status === "ok"}
+                  meta={health.storage.usedLabel ?? undefined}
+                  detail={health.storage.detail}
+                />
+              </div>
+
+              <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Cpu className="h-4 w-4 text-muted-foreground" />
+                  Node.js process memory
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Heap used</p>
+                    <p className="font-mono tabular-nums">
+                      {health.process.heapUsedMb} MB
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Heap total</p>
+                    <p className="font-mono tabular-nums">
+                      {health.process.heapTotalMb} MB
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">RSS</p>
+                    <p className="font-mono tabular-nums">
+                      {health.process.rssMb} MB
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">External</p>
+                    <p className="font-mono tabular-nums">
+                      {health.process.externalMb} MB
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Heap utilization</span>
+                    <span>
+                      {health.process.heapTotalMb > 0
+                        ? `${Math.min(100, Math.round((health.process.heapUsedMb / health.process.heapTotalMb) * 100))}%`
+                        : "—"}
+                    </span>
+                  </div>
+                  <Progress
+                    value={
+                      health.process.heapTotalMb > 0
+                        ? Math.min(
+                            100,
+                            (health.process.heapUsedMb /
+                              health.process.heapTotalMb) *
+                              100,
+                          )
+                        : 0
+                    }
+                    className="h-2"
+                  />
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground border-t pt-3">
+                Dashboard data load: statistics &amp; claims{" "}
+                {!statsError && !claimsError ? (
+                  <span className="text-emerald-700 dark:text-emerald-400">
+                    OK
+                  </span>
+                ) : (
+                  <span className="text-destructive">degraded</span>
+                )}
+                .
+              </p>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

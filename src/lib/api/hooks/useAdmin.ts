@@ -9,6 +9,7 @@ import { toast } from "sonner";
 
 export const adminKeys = {
   statistics: ["admin", "statistics"] as const,
+  health: ["admin", "health"] as const,
   recentClaims: (limit: number) => ["admin", "recent-claims", limit] as const,
   pendingFarms: ["admin", "pending-farms"] as const,
   usersDirectory: (page: number, size: number) =>
@@ -24,6 +25,17 @@ export function useAdminStatistics() {
     queryFn: () => adminService.getSystemStatistics(),
     enabled: authService.isAuthenticated(),
     staleTime: 60 * 1000,
+  });
+}
+
+/** DB, AGROmonitoring, EOSDA field API, uploads, Node heap */
+export function useAdminSystemHealth() {
+  return useQuery({
+    queryKey: adminKeys.health,
+    queryFn: () => adminService.getSystemHealth(),
+    enabled: authService.isAuthenticated(),
+    staleTime: 30 * 1000,
+    refetchInterval: 60 * 1000,
   });
 }
 
