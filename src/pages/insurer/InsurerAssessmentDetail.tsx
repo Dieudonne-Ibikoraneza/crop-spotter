@@ -6,7 +6,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   Calendar,
-  User,
   MapPin,
   Loader2,
   FileText,
@@ -16,7 +15,6 @@ import {
   Droplets,
   Activity,
   ArrowRight,
-  Info,
   ClipboardList,
   CheckCircle2,
   XCircle,
@@ -24,6 +22,9 @@ import {
   ImageIcon,
   Tractor,
   ExternalLink,
+  ChevronRight,
+  Mail,
+  Briefcase,
 } from "lucide-react";
 import {
   Card,
@@ -31,7 +32,6 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
-  CardFooter,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,13 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -67,6 +74,7 @@ import { toast } from "sonner";
 import {
   useAssessmentDetail,
   useApproveAssessment,
+  useFarm,
   useRejectAssessment,
 } from "@/lib/api/hooks/useAssessor";
 import { useIssuePolicy } from "@/lib/api/hooks/usePolicies";
@@ -74,11 +82,87 @@ import { useFarmWeather } from "@/lib/api/hooks/useFarmer";
 import { farmService } from "@/lib/api/services/assessor";
 import type { Assessment } from "@/lib/api/services/assessor";
 import { assessmentsKeys, farmsKeys } from "@/lib/api/queryKeys";
+import type { UserProfile } from "@/lib/api/services/users";
 import { DroneAnalysisView } from "@/components/assessor/DroneAnalysisView";
 import { BasicInfoTab } from "@/components/assessor/tabs/BasicInfoTab";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { calculateOverallRisk } from "@/utils/riskCalculation";
+import {
+  dailyForecastPoints,
+  openWeatherTempToCelsius,
+  unwrapWeather,
+} from "@/utils/weatherDisplay";
+
+function embStr(v: unknown): string | undefined {
+  if (v == null) return undefined;
+  const s = String(v).trim();
+  return s || undefined;
+}
+
+function embeddedToUserProfile(embedded: Record<string, unknown>): UserProfile {
+  const id = embStr(embedded._id) ?? embStr(embedded.id) ?? "";
+  return {
+    id,
+    firstName: embStr(embedded.firstName) ?? "",
+    lastName: embStr(embedded.lastName) ?? "",
+    email: embStr(embedded.email) ?? "",
+    phoneNumber: embStr(embedded.phoneNumber) ?? "",
+    role: embStr(embedded.role) ?? "",
+    active: embedded.active !== false,
+    nationalId: embStr(embedded.nationalId),
+    province: embStr(embedded.province),
+    district: embStr(embedded.district),
+    sector: embStr(embedded.sector),
+    cell: embStr(embedded.cell),
+    village: embStr(embedded.village),
+    sex: embStr(embedded.sex),
+    createdAt: embStr(embedded.createdAt) ?? "",
+  };
+}
+
+function ProfileFields({ profile }: { profile: UserProfile | null }) {
+  if (!profile) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No person details were populated on this assessment (only a user id may be present).
+      </p>
+    );
+  }
+  const p = profile;
+  const rows: { label: string; value: string | undefined }[] = [
+    { label: "Email", value: p.email || undefined },
+    { label: "Phone", value: p.phoneNumber || undefined },
+    { label: "National ID", value: p.nationalId },
+    { label: "Province", value: p.province },
+    { label: "District", value: p.district },
+    { label: "Sector", value: p.sector },
+    { label: "Cell", value: p.cell },
+    { label: "Village", value: p.village },
+    { label: "Sex", value: p.sex },
+    { label: "Role", value: p.role || undefined },
+    { label: "Status", value: p.active === false ? "Inactive" : p.active ? "Active" : undefined },
+  ];
+  if (p.createdAt) {
+    rows.push({ label: "Record since", value: format(new Date(p.createdAt), "PPP") });
+  }
+  const shown = rows.filter((r) => r.value);
+  if (shown.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">No additional fields beyond name and contact on this assessment.</p>
+    );
+  }
+  return (
+    <div className="space-y-3 text-sm">
+      {shown.map((r) => (
+        <div key={r.label} className="flex justify-between gap-4 border-b border-border/60 pb-2 last:border-0">
+          <span className="text-muted-foreground shrink-0">{r.label}</span>
+          <span className="font-medium text-right break-words">{r.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function getSeasonFromSowingDate(sowingDate?: string): string {
   if (!sowingDate) return "Season A";
@@ -148,6 +232,10 @@ const InsurerAssessmentDetail = () => {
 
   const farmId = assessment ? refId(assessment.farmId) : "";
 
+  const [assessorSheetOpen, setAssessorSheetOpen] = useState(false);
+
+  const { data: farmRecord } = useFarm(farmId || undefined);
+
   const { data: fullFarm, isLoading: farmDialogLoading } = useQuery({
     queryKey: farmsKeys.detail(farmId),
     queryFn: () => farmService.getFarm(farmId),
@@ -162,6 +250,20 @@ const InsurerAssessmentDetail = () => {
     today,
     sevenDaysLater,
   );
+
+  const forecastDays = useMemo(() => {
+    const points = unwrapWeather(weatherData);
+    return dailyForecastPoints(points);
+  }, [weatherData]);
+
+  const farmerNameShort = useMemo(() => {
+    const f = assessment?.farmerId;
+    if (f && typeof f === "object") {
+      const n = [f.firstName, f.lastName].filter(Boolean).join(" ").trim();
+      if (n) return n;
+    }
+    return farmRecord?.farmerName?.trim() || undefined;
+  }, [assessment?.farmerId, farmRecord?.farmerName]);
 
   const pdfReports = useMemo(
     () => (assessment ? normalizeReports(assessment) : []),
@@ -192,7 +294,7 @@ const InsurerAssessmentDetail = () => {
     assessment.status !== "POLICY_ISSUED" &&
     assessment.status !== "REJECTED" &&
     assessment.status !== "IN_PROGRESS" &&
-    ["APPROVED", "SUBMITTED", "COMPLETED"].includes(assessment.status);
+    assessment.status === "APPROVED";
 
   const checklist = useMemo(() => {
     if (!assessment) return [];
@@ -233,7 +335,6 @@ const InsurerAssessmentDetail = () => {
   }
 
   const farm = typeof assessment.farmId === "object" ? assessment.farmId : null;
-  const farmer = typeof assessment.farmerId === "object" ? assessment.farmerId : null;
   const assessor = typeof assessment.assessorId === "object" ? assessment.assessorId : null;
 
   const displayRiskScore =
@@ -252,7 +353,7 @@ const InsurerAssessmentDetail = () => {
         startDate: new Date(startDate).toISOString(),
         endDate: new Date(endDate).toISOString(),
       });
-      toast.success("Policy issued successfully");
+      toast.success("Policy issued — pending farmer acceptance before coverage is active.");
       setIsIssueModalOpen(false);
       await queryClient.invalidateQueries({ queryKey: assessmentsKeys.detail(id) });
       await queryClient.invalidateQueries({ queryKey: assessmentsKeys.all });
@@ -287,11 +388,13 @@ const InsurerAssessmentDetail = () => {
     setIsReportDialogOpen(true);
   };
 
-  const farmerNameForFarm = farmer
-    ? [farmer.firstName, farmer.lastName].filter(Boolean).join(" ").trim()
-    : fullFarm?.farmerName || "—";
+  const farmerNameForFarm = farmerNameShort || fullFarm?.farmerName || "—";
 
   const farmIdForMap = fullFarm?.id ?? (fullFarm as { _id?: string } | undefined)?._id ?? farmId;
+
+  const assessorProfileEmbedded = assessor
+    ? embeddedToUserProfile(assessor as unknown as Record<string, unknown>)
+    : null;
 
   return (
     <div className="p-6 md:p-8 space-y-8 max-w-6xl mx-auto animate-in fade-in duration-500">
@@ -512,7 +615,7 @@ const InsurerAssessmentDetail = () => {
                     <CloudRain className="h-5 w-5 text-blue-500" />
                     Farm weather forecast
                   </CardTitle>
-                  <CardDescription>Next 7 days at the farm location</CardDescription>
+                  <CardDescription>Up to 7 days, one reading per day (around local midday).</CardDescription>
                 </div>
                 <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
                   Live data
@@ -524,23 +627,18 @@ const InsurerAssessmentDetail = () => {
                 <div className="flex h-32 items-center justify-center">
                   <Loader2 className="h-6 w-6 animate-spin text-primary" />
                 </div>
-              ) : !weatherData || weatherData.length === 0 ? (
+              ) : forecastDays.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground bg-muted/20 rounded-lg">
                   No weather data available for this location.
                 </div>
               ) : (
                 <ScrollArea className="w-full whitespace-nowrap rounded-md">
                   <div className="flex w-max space-x-4 p-1">
-                    {weatherData.map((day: Record<string, unknown>, idx: number) => {
-                      const d = day as {
-                        dt: number;
-                        weather: { icon?: string; description?: string }[];
-                        main: { temp: number; humidity: number };
-                        wind: { speed: number };
-                      };
+                    {forecastDays.map((d, idx) => {
+                      const tempC = openWeatherTempToCelsius(d.main.temp);
                       return (
                         <div
-                          key={idx}
+                          key={`${d.dt}-${idx}`}
                           className="w-[140px] p-4 rounded-xl border bg-card hover:bg-muted/50 transition-colors flex flex-col items-center gap-3"
                         >
                           <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
@@ -554,7 +652,7 @@ const InsurerAssessmentDetail = () => {
                             />
                           </div>
                           <div className="text-center">
-                            <p className="text-lg font-black">{Math.round(d.main.temp)}°C</p>
+                            <p className="text-lg font-black">{Math.round(tempC)}°C</p>
                             <p className="text-[10px] font-medium text-muted-foreground capitalize truncate max-w-[120px]">
                               {d.weather[0]?.description}
                             </p>
@@ -566,7 +664,7 @@ const InsurerAssessmentDetail = () => {
                             </div>
                             <div className="flex items-center gap-1 text-muted-foreground justify-end">
                               <Wind className="h-3 w-3" />
-                              {Math.round(d.wind.speed)}m/s
+                              {Math.round(d.wind.speed * 10) / 10} m/s
                             </div>
                           </div>
                         </div>
@@ -660,37 +758,47 @@ const InsurerAssessmentDetail = () => {
         </div>
 
         <div className="space-y-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                <User className="h-4 w-4" />
-                Farmer information
-              </CardTitle>
+          <Card
+            role="button"
+            tabIndex={0}
+            className="cursor-pointer transition-colors hover:bg-muted/30 hover:border-primary/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={() => setAssessorSheetOpen(true)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setAssessorSheetOpen(true);
+              }
+            }}
+          >
+            <CardHeader className="pb-2">
+              <div className="flex items-start justify-between gap-2">
+                <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                  <Briefcase className="h-4 w-4" />
+                  Assessor
+                </CardTitle>
+                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden />
+              </div>
+              <CardDescription className="text-xs">Tap for assessor details from this assessment</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary">
-                  {farmer?.firstName?.[0]}
-                  {farmer?.lastName?.[0]}
+                <div className="h-10 w-10 rounded-full bg-amber-500/15 flex items-center justify-center font-bold text-amber-900 dark:text-amber-200 text-sm">
+                  {assessor?.firstName?.[0] || "?"}
+                  {assessor?.lastName?.[0] || ""}
                 </div>
-                <div>
-                  <p className="font-bold">
-                    {farmer?.firstName} {farmer?.lastName}
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold truncate">
+                    {[assessor?.firstName, assessor?.lastName].filter(Boolean).join(" ").trim() || "Assessor"}
                   </p>
-                  <p className="text-xs text-muted-foreground">{farmer?.phoneNumber}</p>
+                  <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                    <Mail className="h-3 w-3 shrink-0" />
+                    {assessor?.email || "Email not listed"}
+                  </p>
                 </div>
               </div>
-              <Separator />
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Province</span>
-                  <span className="font-medium">{farmer?.province || "N/A"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">District</span>
-                  <span className="font-medium">{farmer?.district || "N/A"}</span>
-                </div>
-              </div>
+              <Badge variant="secondary" className="text-[10px] font-normal">
+                Assigned to this assessment
+              </Badge>
             </CardContent>
           </Card>
 
@@ -738,30 +846,64 @@ const InsurerAssessmentDetail = () => {
                 </div>
               </div>
             </CardContent>
-            <CardFooter className="bg-muted/30 pt-4">
-              <div className="w-full flex items-center gap-2 text-[10px] text-muted-foreground">
-                <Info className="h-3 w-3" />
-                Assessor: {assessor?.firstName} {assessor?.lastName}
-                {assessor?.email ? ` · ${assessor.email}` : ""}
-              </div>
-            </CardFooter>
           </Card>
         </div>
       </div>
 
-      <Dialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen}>
-        <DialogContent className="max-w-4xl h-[90vh] p-0 flex flex-col gap-0 border-none shadow-2xl">
-          <DialogHeader className="p-6 bg-primary text-primary-foreground">
-            <div className="flex items-center justify-between">
+      <Sheet open={assessorSheetOpen} onOpenChange={setAssessorSheetOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2 pr-8">
+              <Briefcase className="h-5 w-5 text-primary" />
+              Assessor profile
+            </SheetTitle>
+            <SheetDescription>Assessor as embedded on this assessment.</SheetDescription>
+          </SheetHeader>
+          <div className="mt-6 space-y-6">
+            <div className="flex items-center gap-3">
+              <div className="h-14 w-14 rounded-full bg-amber-500/15 flex items-center justify-center font-bold text-amber-900 dark:text-amber-200 text-lg">
+                {(assessorProfileEmbedded?.firstName?.[0] || "?").toUpperCase()}
+                {(assessorProfileEmbedded?.lastName?.[0] || "").toUpperCase()}
+              </div>
               <div>
-                <DialogTitle className="text-2xl font-black">Report analysis</DialogTitle>
-                <DialogDescription className="text-primary-foreground/80 font-medium">
-                  {selectedReport?.pdfType} — extracted data
-                </DialogDescription>
+                <p className="text-lg font-bold">
+                  {[assessorProfileEmbedded?.firstName, assessorProfileEmbedded?.lastName].filter(Boolean).join(" ") ||
+                    "—"}
+                </p>
+                {assessorProfileEmbedded?.email ? (
+                  <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+                    <Mail className="h-3.5 w-3.5" />
+                    {assessorProfileEmbedded.email}
+                  </p>
+                ) : null}
               </div>
             </div>
+
+            <div>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                Details from assessment
+              </h4>
+              <ProfileFields profile={assessorProfileEmbedded} />
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Dialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen}>
+        <DialogContent className="max-w-4xl h-[90vh] p-0 flex flex-col">
+          <DialogHeader className="p-6 pb-2 border-b bg-muted/5 shrink-0">
+            <DialogTitle className="text-2xl font-bold flex items-center gap-3 capitalize">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Activity className="h-5 w-5 text-primary" />
+              </div>
+              {String(selectedReport?.pdfType || "Report").replace(/_/g, " ")} Details
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              Analysis data extracted from uploaded drone report
+            </p>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto p-8 bg-background">
+
+          <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
             {selectedReport && (
               <DroneAnalysisView
                 data={selectedReport.droneAnalysisData}
@@ -769,11 +911,12 @@ const InsurerAssessmentDetail = () => {
               />
             )}
           </div>
-          <DialogFooter className="p-4 bg-muted border-t">
+
+          <div className="p-4 border-t bg-muted/30 flex justify-end shrink-0">
             <Button variant="outline" onClick={() => setIsReportDialogOpen(false)}>
-              Close review
+              Close Report
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -827,7 +970,8 @@ const InsurerAssessmentDetail = () => {
           <DialogHeader>
             <DialogTitle>Issue insurance policy</DialogTitle>
             <DialogDescription>
-              Finalize coverage for this assessment. This creates an active policy.
+              Only approved assessments can be bound. This creates a policy in pending status until the farmer accepts
+              it in their portal; coverage becomes active after they acknowledge.
             </DialogDescription>
           </DialogHeader>
 

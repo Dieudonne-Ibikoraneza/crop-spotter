@@ -34,6 +34,21 @@ export const farmerService = {
     return apiClient.get<Policy[]>("/policies");
   },
 
+  getPolicyById: async (id: string): Promise<Policy> => {
+    return apiClient.get<Policy>(`/policies/${id}`);
+  },
+
+  farmerAcknowledgePolicy: async (policyId: string): Promise<Policy> => {
+    return apiClient.post<Policy>(`/policies/${policyId}/farmer-acknowledge`, {});
+  },
+
+  farmerRejectPolicy: async (
+    policyId: string,
+    body: { reason: string },
+  ): Promise<Policy> => {
+    return apiClient.post<Policy>(`/policies/${policyId}/farmer-reject`, body);
+  },
+
   /**
    * Get all claims filed by the current farmer
    */
