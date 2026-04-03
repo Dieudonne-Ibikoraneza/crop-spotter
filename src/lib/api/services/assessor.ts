@@ -33,10 +33,28 @@ export interface Assessment {
       };
   farmerId?:
     | string
-    | { _id: string; firstName?: string; lastName?: string; phoneNumber?: string; province?: string; district?: string };
+    | {
+        _id: string;
+        firstName?: string;
+        lastName?: string;
+        phoneNumber?: string;
+        email?: string;
+        nationalId?: string;
+        province?: string;
+        district?: string;
+        sector?: string;
+        cell?: string;
+        village?: string;
+      };
   assessorId:
     | string
-    | { _id: string; email: string; firstName: string; lastName: string };
+    | {
+        _id: string;
+        email?: string;
+        firstName?: string;
+        lastName?: string;
+        phoneNumber?: string;
+      };
   insurerId?: string;
   status: string;
   riskScore?: number;

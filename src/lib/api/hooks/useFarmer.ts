@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { farmerService } from "../services/farmer";
-import { farmerKeys } from "../queryKeys";
+import { farmerKeys, policiesKeys } from "../queryKeys";
 import {
   Farm,
   PaginatedResponse,
@@ -74,6 +74,40 @@ export function useFarmerPolicies() {
     queryFn: () => farmerService.getOwnPolicies(),
     enabled: authService.isAuthenticated(),
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useFarmerPolicy(policyId: string | undefined) {
+  return useQuery<Policy, Error>({
+    queryKey: [...farmerKeys.policies, "detail", policyId ?? ""],
+    queryFn: () => farmerService.getPolicyById(policyId!),
+    enabled: !!policyId && authService.isAuthenticated(),
+    staleTime: 60 * 1000,
+  });
+}
+
+export function useFarmerAcknowledgePolicy() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (policyId: string) => farmerService.farmerAcknowledgePolicy(policyId),
+    onSuccess: (_data, policyId) => {
+      queryClient.invalidateQueries({ queryKey: farmerKeys.policies });
+      queryClient.invalidateQueries({ queryKey: policiesKeys.detail(policyId) });
+      queryClient.invalidateQueries({ queryKey: policiesKeys.list() });
+    },
+  });
+}
+
+export function useFarmerRejectPolicy() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ policyId, reason }: { policyId: string; reason: string }) =>
+      farmerService.farmerRejectPolicy(policyId, { reason }),
+    onSuccess: (_data, { policyId }) => {
+      queryClient.invalidateQueries({ queryKey: farmerKeys.policies });
+      queryClient.invalidateQueries({ queryKey: policiesKeys.detail(policyId) });
+      queryClient.invalidateQueries({ queryKey: policiesKeys.list() });
+    },
   });
 }
 
