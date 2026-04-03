@@ -53,9 +53,21 @@ const InsurerPolicies = () => {
     farmId: string;
     farmer: any;
   } | null>(null);
+  const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
+  const [selectedAssessmentId, setSelectedAssessmentId] = useState("");
+  const [coverageLevel, setCoverageLevel] = useState("STANDARD");
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    return d.toISOString().slice(0, 16);
+  });
+  const [endDate, setEndDate] = useState(() => {
+    const d = addYears(new Date(), 1);
+    return d.toISOString().slice(0, 16);
+  });
 
   const { data: policiesData, isLoading, error } = useMyPolicies();
   const { data: assessmentsData, isLoading: isAssessmentsLoading } = useAssessments();
+  const issuePolicyMutation = useIssuePolicy();
 
   // Helper function to calculate season from sowing date (Rwanda specific)
   const getSeasonFromSowingDate = (sowingDate?: string): string => {
@@ -83,17 +95,10 @@ const InsurerPolicies = () => {
     enabled: !!activeFarmId && isFarmModalOpen,
   });
 
-  // Only assessments that are COMPLETED/SUBMITTED and don't have a policy yet
+  /** Backend only allows issuing policies for APPROVED assessments. */
   const completedAssessments = useMemo(() => {
     if (!assessmentsData) return [];
-    // The backend might return assessments that already have policies
-    // But we should filter for COMPLETED/SUBMITTED status
-    return assessmentsData.filter(
-      (a) =>
-        a.status === "COMPLETED" ||
-        a.status === "SUBMITTED" ||
-        a.status === "APPROVED",
-    );
+    return assessmentsData.filter((a) => a.status === "APPROVED");
   }, [assessmentsData]);
 
   const handleIssuePolicy = async () => {
@@ -109,7 +114,7 @@ const InsurerPolicies = () => {
         startDate: new Date(startDate).toISOString(),
         endDate: new Date(endDate).toISOString(),
       });
-      toast.success("Policy issued successfully");
+      toast.success("Policy issued — pending farmer acceptance before coverage is active.");
       setIsIssueModalOpen(false);
       // Reset form
       setSelectedAssessmentId("");
@@ -183,7 +188,8 @@ const InsurerPolicies = () => {
               <DialogHeader>
                 <DialogTitle>Issue New Policy</DialogTitle>
                 <DialogDescription>
-                  Create a new insurance policy for a completed farm assessment.
+                  Choose an approved assessment. The policy stays pending until the farmer accepts it in their
+                  portal.
                 </DialogDescription>
               </DialogHeader>
 
@@ -195,7 +201,7 @@ const InsurerPolicies = () => {
                     onValueChange={setSelectedAssessmentId}
                   >
                     <SelectTrigger id="assessment">
-                      <SelectValue placeholder="Select a completed assessment" />
+                      <SelectValue placeholder="Select an approved assessment" />
                     </SelectTrigger>
                     <SelectContent>
                       {isAssessmentsLoading ? (
@@ -204,7 +210,7 @@ const InsurerPolicies = () => {
                         </div>
                       ) : completedAssessments.length === 0 ? (
                         <div className="p-2 text-center text-sm text-muted-foreground">
-                          No completed assessments found.
+                          No approved assessments found.
                         </div>
                       ) : (
                         completedAssessments.map((a: any) => (
@@ -357,10 +363,20 @@ const InsurerPolicies = () => {
                       <td className="py-3">
                         <Badge
                           variant={
-                            p.status === "ACTIVE" ? "default" : "secondary"
+                            p.status === "ACTIVE"
+                              ? "default"
+                              : p.status === "PENDING_ACCEPTANCE"
+                                ? "outline"
+                                : p.status === "DECLINED"
+                                  ? "destructive"
+                                  : "secondary"
                           }
                         >
-                          {p.status}
+                          {p.status === "PENDING_ACCEPTANCE"
+                            ? "Pending farmer"
+                            : p.status === "DECLINED"
+                              ? "Declined by farmer"
+                              : p.status}
                         </Badge>
                       </td>
                     </tr>
@@ -400,10 +416,16 @@ const InsurerPolicies = () => {
                     variant={
                       selectedPolicy.status === "ACTIVE"
                         ? "default"
-                        : "secondary"
+                        : selectedPolicy.status === "DECLINED"
+                          ? "destructive"
+                          : "secondary"
                     }
                   >
-                    {selectedPolicy.status}
+                    {selectedPolicy.status === "PENDING_ACCEPTANCE"
+                      ? "Pending farmer"
+                      : selectedPolicy.status === "DECLINED"
+                        ? "Declined by farmer"
+                        : selectedPolicy.status}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between">
@@ -414,6 +436,28 @@ const InsurerPolicies = () => {
                       : "---"}
                   </span>
                 </div>
+                {selectedPolicy.status === "DECLINED" && (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Declined at</span>
+                      <span className="font-medium">
+                        {selectedPolicy.farmerRejectedAt
+                          ? format(new Date(selectedPolicy.farmerRejectedAt as string), "PPP p")
+                          : "---"}
+                      </span>
+                    </div>
+                    {selectedPolicy.farmerRejectionReason && (
+                      <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
+                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                          Farmer&apos;s reason
+                        </span>
+                        <p className="mt-1 whitespace-pre-wrap">
+                          {String(selectedPolicy.farmerRejectionReason)}
+                        </p>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
 
               <Separator />

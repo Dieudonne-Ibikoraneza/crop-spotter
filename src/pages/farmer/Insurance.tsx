@@ -47,6 +47,9 @@ const FarmerInsurance = () => {
   }
 
   const activePolicies = policies.filter((p: Policy) => String(p.status).toUpperCase() === "ACTIVE");
+  const pendingAcceptance = policies.filter(
+    (p: Policy) => String(p.status).toUpperCase() === "PENDING_ACCEPTANCE",
+  );
   const pendingClaims = claims.filter((c: Claim) =>
     ["FILED", "IN_PROGRESS", "UNDER_REVIEW", "SUBMITTED"].includes(String(c.status).toUpperCase()),
   );
@@ -57,7 +60,7 @@ const FarmerInsurance = () => {
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight">Insurance</h1>
           <p className="text-muted-foreground mt-1">
-            Policies, coverage status, and insurance requests.
+            Policies and requests. New policies stay pending until you accept them in the portal.
           </p>
         </div>
         <Button asChild variant="outline" className="gap-2">
@@ -67,6 +70,19 @@ const FarmerInsurance = () => {
           </Link>
         </Button>
       </div>
+
+      {pendingAcceptance.length > 0 && (
+        <Card className="border-amber-500/40 bg-amber-50/40 dark:bg-amber-950/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Awaiting your acceptance ({pendingAcceptance.length})</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            You have {pendingAcceptance.length} polic
+            {pendingAcceptance.length === 1 ? "y" : "ies"} from your insurer. Open each one to review and accept
+            before coverage becomes active.
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2">
@@ -99,7 +115,19 @@ const FarmerInsurance = () => {
                               {p.coverageLevel && <span>Coverage: {String(p.coverageLevel)}</span>}
                             </div>
                           </div>
-                          <Badge variant="secondary">{p.status}</Badge>
+                          <Badge
+                            variant={
+                              String(p.status).toUpperCase() === "ACTIVE"
+                                ? "default"
+                                : String(p.status).toUpperCase() === "PENDING_ACCEPTANCE"
+                                  ? "outline"
+                                  : String(p.status).toUpperCase() === "DECLINED"
+                                    ? "destructive"
+                                    : "secondary"
+                            }
+                          >
+                            {String(p.status).toUpperCase() === "DECLINED" ? "Declined" : p.status}
+                          </Badge>
                         </div>
                         <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                           {p.startDate && <span>Start {format(new Date(p.startDate), "PP")}</span>}
@@ -108,15 +136,23 @@ const FarmerInsurance = () => {
                             <span>Premium {(p as any).premiumAmount.toLocaleString()}</span>
                           )}
                         </div>
-                        {farmId && (
-                          <div className="mt-3">
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <Button asChild size="sm" className="gap-2">
+                            <Link to={`/farmer/policies/${p._id}`}>
+                              {String(p.status).toUpperCase() === "PENDING_ACCEPTANCE"
+                                ? "Review and accept"
+                                : "View policy"}
+                              <ArrowRight className="h-4 w-4" />
+                            </Link>
+                          </Button>
+                          {farmId && (
                             <Button asChild size="sm" variant="outline" className="gap-2">
                               <Link to={`/farmer/farms/${farmId}`}>
                                 Open farm <ArrowRight className="h-4 w-4" />
                               </Link>
                             </Button>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </li>
                     );
                   })}
