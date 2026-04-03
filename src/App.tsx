@@ -20,6 +20,7 @@ import FarmerFarmDetail from "./pages/farmer/FarmDetail";
 import FarmerClaims from "./pages/farmer/Claims";
 import FarmerClaimDetail from "./pages/farmer/ClaimDetail";
 import FarmerInsurance from "./pages/farmer/Insurance";
+import FarmerPolicyDetail from "./pages/farmer/PolicyDetail";
 import FarmerHealthReports from "./pages/farmer/HealthReports";
 import InsurerLayout from "./components/layouts/InsurerLayout";
 import InsurerDashboard from "./pages/insurer/Dashboard";
@@ -106,6 +107,7 @@ const App = () => (
             <Route path="farms/:id" element={<FarmerFarmDetail />} />
             <Route path="farms" element={<FarmerFarms />} />
             <Route path="insurance" element={<FarmerInsurance />} />
+            <Route path="policies/:id" element={<FarmerPolicyDetail />} />
             <Route path="claims" element={<FarmerClaims />} />
             <Route path="claims/:id" element={<FarmerClaimDetail />} />
             <Route path="health" element={<FarmerHealthReports />} />

@@ -4,7 +4,8 @@ import { cn } from "@/lib/utils";
 type StatusType = "healthy" | "moderate" | "stress" | "active" | "pending" | "approved" | "rejected" | "submitted";
 
 interface StatusBadgeProps {
-  status: StatusType;
+  /** API may send values outside the narrow union; unknown values still render with a sensible fallback. */
+  status: StatusType | string;
   label?: string;
 }
 

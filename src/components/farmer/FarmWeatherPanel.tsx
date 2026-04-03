@@ -1,23 +1,12 @@
-import { format } from "date-fns";
 import { Droplets, MapPin } from "lucide-react";
 import { useFarmWeather } from "@/lib/api/hooks/useFarmer";
 import type { WeatherForecastDataPoint } from "@/lib/api/types";
+import {
+  dailyForecastPoints,
+  openWeatherTempToCelsius,
+  unwrapWeather,
+} from "@/utils/weatherDisplay";
 
-function unwrapWeather(raw: unknown): WeatherForecastDataPoint[] {
-  if (!raw) return [];
-  if (Array.isArray(raw)) return raw as WeatherForecastDataPoint[];
-  if (
-    typeof raw === "object" &&
-    raw !== null &&
-    "data" in raw &&
-    Array.isArray((raw as { data: unknown }).data)
-  ) {
-    return (raw as { data: WeatherForecastDataPoint[] }).data;
-  }
-  return [];
-}
-
-/** One point per calendar day, up to 7 days (first reading each day). */
 function closestPointToDate(
   points: WeatherForecastDataPoint[],
   target: Date,
@@ -34,38 +23,6 @@ function closestPointToDate(
     }
   }
   return best;
-}
-
-/** One representative point per day, preferring local midday (around 12:00). */
-function dailyForecastPoints(points: WeatherForecastDataPoint[]): WeatherForecastDataPoint[] {
-  const byDay = new Map<string, WeatherForecastDataPoint[]>();
-  for (const p of points) {
-    const key = format(new Date(p.dt * 1000), "yyyy-MM-dd");
-    const arr = byDay.get(key);
-    if (arr) arr.push(p);
-    else byDay.set(key, [p]);
-  }
-
-  const days = Array.from(byDay.keys()).sort();
-  const out: WeatherForecastDataPoint[] = [];
-  for (const day of days) {
-    const pts = byDay.get(day) ?? [];
-    if (pts.length === 0) continue;
-
-    let best = pts[0];
-    let bestScore = Math.abs(new Date(pts[0].dt * 1000).getHours() - 12);
-    for (let i = 1; i < pts.length; i++) {
-      const score = Math.abs(new Date(pts[i].dt * 1000).getHours() - 12);
-      if (score < bestScore) {
-        best = pts[i];
-        bestScore = score;
-      }
-    }
-
-    out.push(best);
-    if (out.length >= 7) break;
-  }
-  return out;
 }
 
 const AbstractWeatherPattern = () => (
@@ -134,7 +91,7 @@ export function FarmWeatherPanel({
 
   const points = unwrapWeather(weatherRaw);
   const current = closestPointToDate(points, new Date());
-  const temp = current ? Math.round(current.main.temp - 273.15) : "--";
+  const temp = current ? Math.round(openWeatherTempToCelsius(current.main.temp)) : "--";
   const desc =
     current && current.weather && current.weather[0]
       ? current.weather[0].main
@@ -215,7 +172,7 @@ export function FarmWeatherPanel({
                       className="h-6 w-6 mx-auto mb-0.5 opacity-90 invert brightness-200"
                     />
                     <div className="text-xs sm:text-sm font-black">
-                      {Math.round(d.main.temp - 273.15)}°
+                      {Math.round(openWeatherTempToCelsius(d.main.temp))}°
                     </div>
                   </div>
                 );
