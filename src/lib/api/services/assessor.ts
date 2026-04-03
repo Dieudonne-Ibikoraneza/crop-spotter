@@ -22,13 +22,28 @@ export interface Assessment {
   _id: string; // API returns _id, not id
   farmId:
     | string
-    | { _id: string; name: string; cropType: string; eosdaFieldId: string };
+    | {
+        _id: string;
+        name?: string;
+        cropType?: string;
+        eosdaFieldId?: string;
+        area?: number;
+        locationName?: string;
+        sowingDate?: string;
+      };
+  farmerId?:
+    | string
+    | { _id: string; firstName?: string; lastName?: string; phoneNumber?: string; province?: string; district?: string };
   assessorId:
     | string
     | { _id: string; email: string; firstName: string; lastName: string };
   insurerId?: string;
   status: string;
   riskScore?: number;
+  /** Some APIs use snake_case */
+  risk_score?: number;
+  assessmentNumber?: string;
+  notes?: string;
   createdAt: string;
   updatedAt: string;
   observations?: string[];
@@ -43,6 +58,12 @@ export interface Assessment {
     extractedData?: any;
     droneAnalysisData?: any;
     uploadedAt: string;
+  }>;
+  /** Legacy or alternate API shape for insurer UI */
+  reports?: Array<{
+    pdfType?: string;
+    extractedAt?: string;
+    droneAnalysisData?: any;
   }>;
 }
 

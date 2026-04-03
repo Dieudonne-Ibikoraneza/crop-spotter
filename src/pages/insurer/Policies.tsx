@@ -47,26 +47,15 @@ import { BasicInfoTab } from "@/components/assessor/tabs/BasicInfoTab";
 
 const InsurerPolicies = () => {
   const [q, setQ] = useState("");
-  const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
   const [selectedPolicy, setSelectedPolicy] = useState<any>(null);
   const [isFarmModalOpen, setIsFarmModalOpen] = useState(false);
   const [activeFarmContext, setActiveFarmContext] = useState<{
     farmId: string;
     farmer: any;
   } | null>(null);
-  const [selectedAssessmentId, setSelectedAssessmentId] = useState<string>("");
-  const [coverageLevel, setCoverageLevel] = useState<string>("STANDARD");
-  const [startDate, setStartDate] = useState<string>(
-    format(new Date(), "yyyy-MM-dd'T'HH:mm"),
-  );
-  const [endDate, setEndDate] = useState<string>(
-    format(addYears(new Date(), 1), "yyyy-MM-dd'T'HH:mm"),
-  );
 
   const { data: policiesData, isLoading, error } = useMyPolicies();
-  const { data: assessmentsData, isLoading: isAssessmentsLoading } =
-    useAssessments();
-  const issuePolicyMutation = useIssuePolicy();
+  const { data: assessmentsData, isLoading: isAssessmentsLoading } = useAssessments();
 
   // Helper function to calculate season from sowing date (Rwanda specific)
   const getSeasonFromSowingDate = (sowingDate?: string): string => {

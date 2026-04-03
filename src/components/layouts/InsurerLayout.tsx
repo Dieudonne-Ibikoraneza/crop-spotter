@@ -5,6 +5,7 @@ import {
   ShieldCheck,
   FileWarning,
   Users,
+  ClipboardList,
   BarChart3,
   Leaf,
   User,
@@ -28,6 +29,7 @@ const InsurerLayout = () => {
     { name: "Requests", href: "/insurer/requests", icon: Leaf },
     { name: "Claims", href: "/insurer/claims", icon: FileWarning },
     { name: "Policies", href: "/insurer/policies", icon: ShieldCheck },
+    { name: "Assessments", href: "/insurer/assessments", icon: ClipboardList },
     { name: "Assessors", href: "/insurer/assessors", icon: Users },
     { name: "Reports", href: "/insurer/reports", icon: BarChart3 },
   ];
@@ -50,7 +52,10 @@ const InsurerLayout = () => {
         <div className="p-4 border-b border-sidebar-border flex items-center justify-between">
           <Link
             to="/insurer/dashboard"
-            className={cn("flex items-center gap-2", collapsed && "justify-center")}
+            className={cn(
+              "flex items-center gap-2",
+              collapsed && "justify-center",
+            )}
           >
             <Leaf className="h-8 w-8 text-primary shrink-0" />
             {!collapsed && (
@@ -84,7 +89,11 @@ const InsurerLayout = () => {
             const Icon = item.icon;
             const active = isActive(item.href);
             return (
-              <Link key={item.name} to={item.href} className="relative block group">
+              <Link
+                key={item.name}
+                to={item.href}
+                className="relative block group"
+              >
                 {active && (
                   <div className="absolute left-0 top-1 bottom-1 w-1 bg-primary rounded-r" />
                 )}
@@ -107,14 +116,21 @@ const InsurerLayout = () => {
                         : "text-muted-foreground group-hover:text-sidebar-foreground",
                     )}
                   />
-                  {!collapsed && <span className="font-medium">{item.name}</span>}
+                  {!collapsed && (
+                    <span className="font-medium">{item.name}</span>
+                  )}
                 </Button>
               </Link>
             );
           })}
         </nav>
 
-        <div className={cn("p-4 border-t border-sidebar-border", collapsed && "p-2")}>
+        <div
+          className={cn(
+            "p-4 border-t border-sidebar-border",
+            collapsed && "p-2",
+          )}
+        >
           {!collapsed && (
             <div className="flex items-center gap-3 mb-3 p-2 rounded-lg bg-muted/50">
               <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0 border border-primary/10">
@@ -168,4 +184,3 @@ const InsurerLayout = () => {
 };
 
 export default InsurerLayout;
-

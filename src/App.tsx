@@ -27,6 +27,8 @@ import InsurerClaims from "./pages/insurer/Claims";
 import InsurerClaimDetail from "./pages/insurer/InsurerClaimDetail";
 import InsurerPolicies from "./pages/insurer/Policies";
 import InsurerAssessors from "./pages/insurer/Assessors";
+import InsurerAssessments from "./pages/insurer/Assessments";
+import InsurerAssessmentDetail from "./pages/insurer/InsurerAssessmentDetail";
 import InsurerReports from "./pages/insurer/Reports";
 import InsuranceRequests from "./pages/insurer/InsuranceRequests";
 import AdminLayout from "./components/layouts/AdminLayout";
@@ -124,6 +126,11 @@ const App = () => (
             <Route path="claims/:id" element={<InsurerClaimDetail />} />
             <Route path="policies" element={<InsurerPolicies />} />
             <Route path="assessors" element={<InsurerAssessors />} />
+            <Route path="assessments" element={<InsurerAssessments />} />
+            <Route
+              path="assessments/:id"
+              element={<InsurerAssessmentDetail />}
+            />
             <Route path="reports" element={<InsurerReports />} />
           </Route>
 
@@ -156,7 +163,10 @@ const App = () => (
               element={<AdminCropMonitoringDetail />}
             />
             <Route path="crop-monitoring" element={<AdminCropMonitoring />} />
-            <Route path="pending-farms" element={<Navigate to="assessments" replace />} />
+            <Route
+              path="pending-farms"
+              element={<Navigate to="assessments" replace />}
+            />
           </Route>
 
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

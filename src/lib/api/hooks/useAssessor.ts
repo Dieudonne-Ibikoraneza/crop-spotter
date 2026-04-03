@@ -73,5 +73,46 @@ export function useAssessments() {
   });
 }
 
+/**
+ * Hook to get a single assessment by ID
+ */
+export function useAssessmentDetail(id: string | undefined) {
+  return useQuery<Assessment, Error>({
+    queryKey: assessmentsKeys.detail(id || ""),
+    queryFn: () => assessorService.getAssessment(id!),
+    enabled: !!id && authService.isAuthenticated(),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: 1,
+  });
+}
+
+/**
+ * Approve assessment (insurer)
+ */
+export function useApproveAssessment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (assessmentId: string) => assessorService.approveAssessment(assessmentId),
+    onSuccess: (_, assessmentId) => {
+      queryClient.invalidateQueries({ queryKey: assessmentsKeys.all });
+      queryClient.invalidateQueries({ queryKey: assessmentsKeys.detail(assessmentId) });
+    },
+  });
+}
+
+/**
+ * Reject assessment (insurer)
+ */
+export function useRejectAssessment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (assessmentId: string) => assessorService.rejectAssessment(assessmentId),
+    onSuccess: (_, assessmentId) => {
+      queryClient.invalidateQueries({ queryKey: assessmentsKeys.all });
+      queryClient.invalidateQueries({ queryKey: assessmentsKeys.detail(assessmentId) });
+    },
+  });
+}
+
 // Re-export for convenience
 export { assessorService, farmService };
