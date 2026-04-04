@@ -45,8 +45,16 @@ import { useQuery } from "@tanstack/react-query";
 import { farmService } from "@/lib/api/services/assessor";
 import { BasicInfoTab } from "@/components/assessor/tabs/BasicInfoTab";
 
+type InsurerPolicyFilter =
+  | "all"
+  | "pending_farmer"
+  | "declined"
+  | "active"
+  | "other";
+
 const InsurerPolicies = () => {
   const [q, setQ] = useState("");
+  const [statusFilter, setStatusFilter] = useState<InsurerPolicyFilter>("all");
   const [selectedPolicy, setSelectedPolicy] = useState<any>(null);
   const [isFarmModalOpen, setIsFarmModalOpen] = useState(false);
   const [activeFarmContext, setActiveFarmContext] = useState<{
@@ -126,9 +134,27 @@ const InsurerPolicies = () => {
 
   const rows = useMemo(() => {
     if (!policiesData) return [];
+    let list = policiesData;
+    if (statusFilter !== "all") {
+      list = list.filter((p: { status?: string }) => {
+        const s = String(p.status ?? "").toUpperCase();
+        switch (statusFilter) {
+          case "pending_farmer":
+            return s === "PENDING_ACCEPTANCE";
+          case "declined":
+            return s === "DECLINED";
+          case "active":
+            return s === "ACTIVE";
+          case "other":
+            return !["PENDING_ACCEPTANCE", "DECLINED", "ACTIVE"].includes(s);
+          default:
+            return true;
+        }
+      });
+    }
     const query = q.trim().toLowerCase();
-    if (!query) return policiesData;
-    return policiesData.filter((p: any) => {
+    if (!query) return list;
+    return list.filter((p: any) => {
       const farmName = typeof p.farmId === "object" ? p.farmId?.name || "" : "";
       const farmerName =
         typeof p.farmerId === "object"
@@ -139,7 +165,7 @@ const InsurerPolicies = () => {
         .toLowerCase()
         .includes(query);
     });
-  }, [q, policiesData]);
+  }, [q, policiesData, statusFilter]);
 
   if (isLoading) {
     return (
@@ -163,11 +189,11 @@ const InsurerPolicies = () => {
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight">Policies</h1>
           <p className="text-muted-foreground mt-1">
-            Coverage and premium overview for active live policies.
+            Track pending acceptance, active coverage, and declined offers. Use the filter to focus the table.
           </p>
         </div>
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-[300px]">
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          <div className="relative flex-1 min-w-[200px] sm:w-[260px]">
             <Search className="h-4 w-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
             <Input
               value={q}
@@ -176,6 +202,21 @@ const InsurerPolicies = () => {
               className="pl-9"
             />
           </div>
+          <Select
+            value={statusFilter}
+            onValueChange={(v) => setStatusFilter(v as InsurerPolicyFilter)}
+          >
+            <SelectTrigger className="w-full sm:w-[200px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="pending_farmer">Pending farmer</SelectItem>
+              <SelectItem value="declined">Declined</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="other">Expired / cancelled</SelectItem>
+            </SelectContent>
+          </Select>
 
           <Dialog open={isIssueModalOpen} onOpenChange={setIsIssueModalOpen}>
             <DialogTrigger asChild>

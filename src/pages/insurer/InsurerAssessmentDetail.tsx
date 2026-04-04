@@ -77,7 +77,8 @@ import {
   useFarm,
   useRejectAssessment,
 } from "@/lib/api/hooks/useAssessor";
-import { useIssuePolicy } from "@/lib/api/hooks/usePolicies";
+import { useIssuePolicy, useMyPolicies } from "@/lib/api/hooks/usePolicies";
+import { policyBlocksNewIssueForAssessment } from "@/lib/api/services/policies";
 import { useFarmWeather } from "@/lib/api/hooks/useFarmer";
 import { farmService } from "@/lib/api/services/assessor";
 import type { Assessment } from "@/lib/api/services/assessor";
@@ -212,6 +213,7 @@ const InsurerAssessmentDetail = () => {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const { data: assessment, isLoading, error } = useAssessmentDetail(id);
+  const { data: insurerPolicies } = useMyPolicies();
   const issuePolicyMutation = useIssuePolicy();
   const approveMutation = useApproveAssessment();
   const rejectMutation = useRejectAssessment();
@@ -289,20 +291,27 @@ const InsurerAssessmentDetail = () => {
     assessment &&
     (assessment.status === "SUBMITTED" || assessment.status === "COMPLETED");
 
+  const policyForThisAssessment = useMemo(() => {
+    if (!insurerPolicies || !id) return undefined;
+    return insurerPolicies.find((p) => refId(p.assessmentId) === id);
+  }, [insurerPolicies, id]);
+
+  const blockingPolicyForIssue =
+    policyForThisAssessment && policyBlocksNewIssueForAssessment(policyForThisAssessment.status)
+      ? policyForThisAssessment
+      : undefined;
+
   const canIssuePolicy =
-    assessment &&
-    assessment.status !== "POLICY_ISSUED" &&
-    assessment.status !== "REJECTED" &&
-    assessment.status !== "IN_PROGRESS" &&
-    assessment.status === "APPROVED";
+    !!assessment &&
+    assessment.status === "APPROVED" &&
+    !blockingPolicyForIssue;
 
   const checklist = useMemo(() => {
     if (!assessment) return [];
     const submitted =
       assessment.status === "SUBMITTED" ||
       assessment.status === "COMPLETED" ||
-      assessment.status === "APPROVED" ||
-      assessment.status === "POLICY_ISSUED";
+      assessment.status === "APPROVED";
     return [
       { label: "Assessment submitted by assessor", ok: submitted },
       { label: "Drone / PDF analyses attached", ok: pdfReports.length > 0 },
@@ -314,9 +323,13 @@ const InsurerAssessmentDetail = () => {
           assessment.risk_score != null ||
           computedRisk != null,
       },
-      { label: "Insurer approval", ok: assessment.status === "APPROVED" || assessment.status === "POLICY_ISSUED" },
+      { label: "Insurer approval", ok: assessment.status === "APPROVED" },
+      {
+        label: "Policy offer on file (pending farmer or active)",
+        ok: !!blockingPolicyForIssue,
+      },
     ];
-  }, [assessment, pdfReports.length, computedRisk]);
+  }, [assessment, pdfReports.length, computedRisk, blockingPolicyForIssue]);
 
   if (isLoading) {
     return (
@@ -454,6 +467,19 @@ const InsurerAssessmentDetail = () => {
             </Button>
           )}
         </div>
+        {assessment.status === "APPROVED" && blockingPolicyForIssue && (
+          <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">Policy already on file: </span>
+            {blockingPolicyForIssue.policyNumber}
+            <span className="mx-1">—</span>
+            {String(blockingPolicyForIssue.status).toUpperCase() === "PENDING_ACCEPTANCE"
+              ? "Awaiting farmer acceptance."
+              : "Active coverage."}{" "}
+            <Link to="/insurer/policies" className="text-primary font-medium underline-offset-4 hover:underline">
+              Open policies
+            </Link>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

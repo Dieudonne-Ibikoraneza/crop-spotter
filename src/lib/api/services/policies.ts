@@ -30,6 +30,12 @@ export interface CreatePolicyRequest {
   endDate: string;
 }
 
+/** Pending farmer acceptance or already active — insurer should not issue another for the same assessment. */
+export function policyBlocksNewIssueForAssessment(status: string | undefined): boolean {
+  const s = String(status ?? "").toUpperCase();
+  return s === "PENDING_ACCEPTANCE" || s === "ACTIVE";
+}
+
 export const policiesService = {
   listMyPolicies: async (): Promise<Policy[]> => {
     return apiClient.get<Policy[]>("/policies");

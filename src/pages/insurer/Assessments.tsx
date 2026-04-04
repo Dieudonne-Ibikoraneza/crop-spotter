@@ -26,14 +26,12 @@ const InsurerAssessments = () => {
     if (!assessments) return [];
     const query = q.trim().toLowerCase();
     
-    // Filter for only SUBMITTED, COMPLETED, or APPROVED assessments
-    // as those are the ones insurers care about for policy issuance
+    // Submitted → approved pipeline (backend has no POLICY_ISSUED on assessments; policies are separate)
     const relevantAssessments = assessments.filter(
-      (a: any) => 
-        a.status === "SUBMITTED" || 
-        a.status === "COMPLETED" || 
-        a.status === "APPROVED" ||
-        a.status === "POLICY_ISSUED"
+      (a: any) =>
+        a.status === "SUBMITTED" ||
+        a.status === "COMPLETED" ||
+        a.status === "APPROVED",
     );
 
     if (!query) return relevantAssessments;

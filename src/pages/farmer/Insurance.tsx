@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useMemo } from "react";
 import { format } from "date-fns";
 import { ShieldCheck, FileText, ArrowRight, Hash } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +22,67 @@ function refId(ref: unknown): string {
   return String(ref);
 }
 
+function PolicyRow({
+  p,
+  farmNameById,
+}: {
+  p: Policy;
+  farmNameById: Map<string, string>;
+}) {
+  const farmId = refId(p.farmId);
+  const farmName = farmNameById.get(farmId);
+  const statusU = String(p.status).toUpperCase();
+  const premium =
+    typeof p.premiumAmount === "number" ? p.premiumAmount.toLocaleString() : null;
+
+  return (
+    <li className="rounded-lg border border-border/60 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="font-semibold truncate">{p.policyNumber}</div>
+          <div className="text-xs text-muted-foreground mt-1 flex flex-wrap gap-2">
+            {farmName && <span className="truncate">Farm: {farmName}</span>}
+            {p.coverageLevel && <span>Coverage: {String(p.coverageLevel)}</span>}
+          </div>
+        </div>
+        <Badge
+          variant={
+            statusU === "ACTIVE"
+              ? "default"
+              : statusU === "PENDING_ACCEPTANCE"
+                ? "outline"
+                : statusU === "DECLINED"
+                  ? "destructive"
+                  : "secondary"
+          }
+        >
+          {statusU === "DECLINED" ? "Declined" : p.status}
+        </Badge>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        {p.startDate && <span>Start {format(new Date(p.startDate), "PP")}</span>}
+        {p.endDate && <span>End {format(new Date(p.endDate), "PP")}</span>}
+        {premium != null && <span>Premium {premium}</span>}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button asChild size="sm" className="gap-2">
+          <Link to={`/farmer/policies/${p._id}`}>
+            {statusU === "PENDING_ACCEPTANCE" ? "Review and accept" : "View policy"}
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </Button>
+        {farmId && (
+          <Button asChild size="sm" variant="outline" className="gap-2">
+            <Link to={`/farmer/farms/${farmId}`}>
+              Open farm <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+        )}
+      </div>
+    </li>
+  );
+}
+
 const FarmerInsurance = () => {
   const { data: farmsData } = useFarmerFarms();
   const { data: policies = [], isLoading: polLoading, error: polError } = useFarmerPolicies();
@@ -29,6 +91,43 @@ const FarmerInsurance = () => {
 
   const farms = farmsData?.items ?? [];
   const farmNameById = new Map(farms.map((f: Farm) => [f.id, f.name?.trim() || "Farm"]));
+
+  const activePolicies = useMemo(
+    () => policies.filter((p: Policy) => String(p.status).toUpperCase() === "ACTIVE"),
+    [policies],
+  );
+
+  const policyGroups = useMemo(() => {
+    const sortByIssued = (arr: Policy[]) =>
+      arr.slice().sort((a, b) => {
+        const ta = a.issuedAt ? new Date(a.issuedAt).getTime() : 0;
+        const tb = b.issuedAt ? new Date(b.issuedAt).getTime() : 0;
+        return tb - ta;
+      });
+    const pending = policies.filter(
+      (p: Policy) => String(p.status).toUpperCase() === "PENDING_ACCEPTANCE",
+    );
+    const declined = policies.filter(
+      (p: Policy) => String(p.status).toUpperCase() === "DECLINED",
+    );
+    const other = policies.filter((p: Policy) => {
+      const s = String(p.status).toUpperCase();
+      return s !== "PENDING_ACCEPTANCE" && s !== "DECLINED";
+    });
+    return {
+      pending: sortByIssued(pending),
+      declined: sortByIssued(declined),
+      other: sortByIssued(other),
+    };
+  }, [policies]);
+
+  const pendingClaims = useMemo(
+    () =>
+      claims.filter((c: Claim) =>
+        ["FILED", "IN_PROGRESS", "UNDER_REVIEW", "SUBMITTED"].includes(String(c.status).toUpperCase()),
+      ),
+    [claims],
+  );
 
   if (polLoading) {
     return (
@@ -45,14 +144,6 @@ const FarmerInsurance = () => {
       </div>
     );
   }
-
-  const activePolicies = policies.filter((p: Policy) => String(p.status).toUpperCase() === "ACTIVE");
-  const pendingAcceptance = policies.filter(
-    (p: Policy) => String(p.status).toUpperCase() === "PENDING_ACCEPTANCE",
-  );
-  const pendingClaims = claims.filter((c: Claim) =>
-    ["FILED", "IN_PROGRESS", "UNDER_REVIEW", "SUBMITTED"].includes(String(c.status).toUpperCase()),
-  );
 
   return (
     <div className="p-6 md:p-8 space-y-8 max-w-6xl mx-auto animate-in fade-in duration-500">
@@ -71,15 +162,28 @@ const FarmerInsurance = () => {
         </Button>
       </div>
 
-      {pendingAcceptance.length > 0 && (
+      {policyGroups.pending.length > 0 && (
         <Card className="border-amber-500/40 bg-amber-50/40 dark:bg-amber-950/20">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Awaiting your acceptance ({pendingAcceptance.length})</CardTitle>
+            <CardTitle className="text-base">
+              Awaiting your acceptance ({policyGroups.pending.length})
+            </CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            You have {pendingAcceptance.length} polic
-            {pendingAcceptance.length === 1 ? "y" : "ies"} from your insurer. Open each one to review and accept
-            before coverage becomes active.
+            You have {policyGroups.pending.length} polic
+            {policyGroups.pending.length === 1 ? "y" : "ies"} from your insurer. Open each one to review, accept,
+            or decline before coverage becomes active.
+          </CardContent>
+        </Card>
+      )}
+
+      {policyGroups.declined.length > 0 && (
+        <Card className="border-border/80 bg-muted/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-medium">Declined offers ({policyGroups.declined.length})</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            These policies were not accepted. You can review the reason you gave on each policy page.
           </CardContent>
         </Card>
       )}
@@ -98,65 +202,38 @@ const FarmerInsurance = () => {
                 No policies yet. Once your farm is insured, your policy will appear here.
               </div>
             ) : (
-              <ul className="space-y-3">
-                {policies
-                  .slice()
-                  .sort((a, b) => (a.issuedAt && b.issuedAt ? new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime() : 0))
-                  .map((p: Policy) => {
-                    const farmId = refId(p.farmId);
-                    const farmName = farmNameById.get(farmId);
-                    return (
-                      <li key={p._id} className="rounded-lg border border-border/60 p-4">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="font-semibold truncate">{p.policyNumber}</div>
-                            <div className="text-xs text-muted-foreground mt-1 flex flex-wrap gap-2">
-                              {farmName && <span className="truncate">Farm: {farmName}</span>}
-                              {p.coverageLevel && <span>Coverage: {String(p.coverageLevel)}</span>}
-                            </div>
-                          </div>
-                          <Badge
-                            variant={
-                              String(p.status).toUpperCase() === "ACTIVE"
-                                ? "default"
-                                : String(p.status).toUpperCase() === "PENDING_ACCEPTANCE"
-                                  ? "outline"
-                                  : String(p.status).toUpperCase() === "DECLINED"
-                                    ? "destructive"
-                                    : "secondary"
-                            }
-                          >
-                            {String(p.status).toUpperCase() === "DECLINED" ? "Declined" : p.status}
-                          </Badge>
-                        </div>
-                        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                          {p.startDate && <span>Start {format(new Date(p.startDate), "PP")}</span>}
-                          {p.endDate && <span>End {format(new Date(p.endDate), "PP")}</span>}
-                          {typeof (p as any).premiumAmount === "number" && (
-                            <span>Premium {(p as any).premiumAmount.toLocaleString()}</span>
-                          )}
-                        </div>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <Button asChild size="sm" className="gap-2">
-                            <Link to={`/farmer/policies/${p._id}`}>
-                              {String(p.status).toUpperCase() === "PENDING_ACCEPTANCE"
-                                ? "Review and accept"
-                                : "View policy"}
-                              <ArrowRight className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                          {farmId && (
-                            <Button asChild size="sm" variant="outline" className="gap-2">
-                              <Link to={`/farmer/farms/${farmId}`}>
-                                Open farm <ArrowRight className="h-4 w-4" />
-                              </Link>
-                            </Button>
-                          )}
-                        </div>
-                      </li>
-                    );
-                  })}
-              </ul>
+              <div className="space-y-8">
+                {policyGroups.pending.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground mb-3">Needs your response</h3>
+                    <ul className="space-y-3">
+                      {policyGroups.pending.map((p) => (
+                        <PolicyRow key={p._id} p={p} farmNameById={farmNameById} />
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {policyGroups.declined.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-muted-foreground mb-3">Declined</h3>
+                    <ul className="space-y-3">
+                      {policyGroups.declined.map((p) => (
+                        <PolicyRow key={p._id} p={p} farmNameById={farmNameById} />
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {policyGroups.other.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-muted-foreground mb-3">Active and other</h3>
+                    <ul className="space-y-3">
+                      {policyGroups.other.map((p) => (
+                        <PolicyRow key={p._id} p={p} farmNameById={farmNameById} />
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>
