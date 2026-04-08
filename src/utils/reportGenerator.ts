@@ -4,6 +4,8 @@ import {
   DroneAnalysisData,
   WeatherData,
 } from "./riskCalculation";
+import { formatReportTypeLabel } from "@/lib/crops";
+import { analysisLevelHectares, fieldAreaHectares } from "./droneAreaDisplay";
 
 export interface ReportData {
   assessmentId: string;
@@ -602,10 +604,13 @@ export class ComprehensiveReportGenerator {
     doc.text(title, M + 5, y + 6.8);
 
     // Meta row
+    const fieldHa = data.field
+      ? fieldAreaHectares(data.field as Record<string, unknown>)
+      : null;
     const meta = [
       `Crop: ${data.field?.crop ?? "N/A"}`,
       `Stage: ${data.field?.growing_stage ?? "N/A"}`,
-      `Area: ${data.field?.area_hectares ?? "N/A"} ha`,
+      `Area: ${fieldHa != null ? `${fieldHa.toFixed(2)} ha` : "N/A"}`,
     ].join("   \u00B7   ");
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
@@ -650,7 +655,8 @@ export class ComprehensiveReportGenerator {
       doc.text(`${pct.toFixed(2)}%`, BAR_X + BAR_W + 3, bY + 3);
 
       doc.setFont("helvetica", "normal");
-      const ha = level.area_hectares ? `${level.area_hectares} ha` : "\u2014";
+      const haVal = analysisLevelHectares(level as Record<string, unknown>);
+      const ha = haVal > 0 ? `${haVal.toFixed(2)} ha` : "\u2014";
       doc.text(ha, M + CW - 3, bY + 3, { align: "right" });
     });
 
@@ -831,12 +837,7 @@ export class ComprehensiveReportGenerator {
       y += 12;
     } else {
       for (const pdf of validDrones) {
-        const title =
-          pdf.pdfType === "plant_health"
-            ? "Plant Health Analysis"
-            : pdf.pdfType === "flowering"
-              ? "Flowering Analysis"
-              : `Analysis (${pdf.pdfType})`;
+        const title = `${formatReportTypeLabel(pdf.pdfType)} Analysis`;
 
         if (this.needsBreak(y, 60)) {
           doc.addPage();

@@ -27,6 +27,7 @@ export function useCreateAssessment() {
       assessorService.createAssessment(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: assessmentsKeys.all });
+      queryClient.invalidateQueries({ queryKey: assessmentsKeys.assignedFarmers });
       queryClient.invalidateQueries({ queryKey: farmerKeys.insuranceRequests });
     },
   });

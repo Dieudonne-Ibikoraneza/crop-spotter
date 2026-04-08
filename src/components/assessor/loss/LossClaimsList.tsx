@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/ui/data-table";
 import { MapPin, Calendar, Sprout, ArrowRight } from "lucide-react";
+import { formatBackendEnumLabel } from "@/lib/crops";
 import { Claim } from "@/lib/api/services/claims";
 import { useNavigate } from "react-router-dom";
 
@@ -46,7 +47,7 @@ export const LossClaimsList = ({ claims, farmers, title }: LossClaimsListProps) 
       label: "Event Type",
       render: (claim: Claim) => (
         <Badge variant="outline" className="bg-destructive/5 text-destructive border-destructive/20 text-[10px]">
-          {claim.lossEventType}
+          {formatBackendEnumLabel(claim.lossEventType)}
         </Badge>
       ),
     },

@@ -14,8 +14,7 @@ const ASSESSOR_ENDPOINTS = {
   rejectAssessment: (id: string) => `/assessments/${id}/reject`,
 } as const;
 
-// PDF Types
-export type PdfType = "plant_health" | "flowering";
+export type PdfType = string;
 
 // Assessment types
 export interface Assessment {
@@ -71,7 +70,7 @@ export interface Assessment {
   comprehensiveNotes?: string;
   droneAnalysisPdfs?: Array<{
     _id: string;
-    pdfType: PdfType;
+    pdfType: PdfType | string;
     pdfUrl: string;
     extractedData?: any;
     droneAnalysisData?: any;
@@ -111,6 +110,8 @@ const FARMS_ENDPOINTS = {
   getFarm: (id: string) => `/farms/${id}`,
   uploadKml: (id: string) => `/farms/${id}/upload-kml`,
   getAssessmentByFarm: (farmId: string) => `/assessments/farm/${farmId}`,
+  ndviTimeSeries: (id: string, dateStart: string, dateEnd: string) =>
+    `/farms/${id}/indices/ndvi?dateStart=${encodeURIComponent(dateStart)}&dateEnd=${encodeURIComponent(dateEnd)}`,
 } as const;
 
 /**
@@ -172,19 +173,17 @@ export const assessorService = {
   /**
    * Upload drone analysis PDF
    * @param assessmentId - The assessment ID
-   * @param pdfType - Type of PDF (plant_health or flowering)
    * @param file - The PDF file
    */
   uploadDronePdf: async (
     assessmentId: string,
-    pdfType: PdfType,
     file: File,
   ): Promise<{ success: boolean; pdfInfo: PdfInfo }> => {
     const formData = new FormData();
     formData.append("file", file);
 
     return apiClient.upload<{ success: boolean; pdfInfo: PdfInfo }>(
-      `${ASSESSOR_ENDPOINTS.uploadDronePdf(assessmentId)}?pdfType=${pdfType}`,
+      ASSESSOR_ENDPOINTS.uploadDronePdf(assessmentId),
       formData,
     );
   },
@@ -269,6 +268,17 @@ export const farmService = {
     formData.append("name", name);
 
     return apiClient.upload<Farm>(FARMS_ENDPOINTS.uploadKml(farmId), formData);
+  },
+
+  /** EOSDA NDVI time series for the farm (requires eosdaFieldId / geometry on backend). */
+  getNdviTimeSeries: async (
+    farmId: string,
+    dateStart: string,
+    dateEnd: string,
+  ): Promise<unknown> => {
+    return apiClient.get<unknown>(
+      FARMS_ENDPOINTS.ndviTimeSeries(farmId, dateStart, dateEnd),
+    );
   },
 };
 

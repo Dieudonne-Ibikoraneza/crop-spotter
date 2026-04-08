@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useFarmerClaim } from "@/lib/api/hooks/useFarmer";
+import { formatBackendEnumLabel, formatCropTypeLabel } from "@/lib/crops";
 
 function refId(ref: unknown): string {
   if (ref == null) return "";
@@ -76,7 +77,7 @@ const FarmerClaimDetail = () => {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
-            {claim.lossEventType}
+            {formatBackendEnumLabel(claim.lossEventType)}
           </h1>
           <Badge variant="outline">{claim.status}</Badge>
         </div>
@@ -98,7 +99,9 @@ const FarmerClaimDetail = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="flex items-center justify-between gap-3 rounded-md border border-border/60 bg-muted/20 px-3 py-2">
                 <span className="text-muted-foreground">Event</span>
-                <span className="font-medium">{claim.lossEventType}</span>
+                <span className="font-medium">
+                  {formatBackendEnumLabel(claim.lossEventType)}
+                </span>
               </div>
               <div className="flex items-center justify-between gap-3 rounded-md border border-border/60 bg-muted/20 px-3 py-2">
                 <span className="text-muted-foreground">Status</span>
@@ -161,7 +164,7 @@ const FarmerClaimDetail = () => {
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-muted-foreground">Crop</span>
                   <span className="font-medium text-right">
-                    {claim.farmId.cropType || "—"}
+                    {formatCropTypeLabel(claim.farmId.cropType)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-3">

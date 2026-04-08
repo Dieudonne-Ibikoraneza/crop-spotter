@@ -33,6 +33,7 @@ import {
   useAdminSystemHealth,
 } from "@/lib/api/hooks/useAdmin";
 import type { AdminSystemStatistics } from "@/lib/api/services/admin";
+import { formatBackendEnumLabel } from "@/lib/crops";
 import type { Claim } from "@/lib/api/services/claims";
 import { cn } from "@/lib/utils";
 
@@ -299,7 +300,9 @@ const AdminDashboard = () => {
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="font-medium">
-                      {c.lossEventType || "Claim"}
+                      {c.lossEventType
+                        ? formatBackendEnumLabel(c.lossEventType)
+                        : "Claim"}
                     </span>
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className="text-xs font-normal">

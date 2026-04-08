@@ -25,7 +25,9 @@ import {
   ChevronRight,
   Mail,
   Briefcase,
+  Download,
 } from "lucide-react";
+import { generateDroneDataPDF } from "@/utils/dronePdfGenerator";
 import {
   Card,
   CardContent,
@@ -94,6 +96,7 @@ import {
   openWeatherTempToCelsius,
   unwrapWeather,
 } from "@/utils/weatherDisplay";
+import { formatReportTypeLabel } from "@/lib/crops";
 
 function embStr(v: unknown): string | undefined {
   if (v == null) return undefined;
@@ -223,6 +226,7 @@ const InsurerAssessmentDetail = () => {
   const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
   const [isFarmDialogOpen, setIsFarmDialogOpen] = useState(false);
   const [rejectConfirmOpen, setRejectConfirmOpen] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const [coverageLevel, setCoverageLevel] = useState<string>("STANDARD");
   const [startDate, setStartDate] = useState<string>(
@@ -276,9 +280,7 @@ const InsurerAssessmentDetail = () => {
     if (!pdfReports.length) return null;
     try {
       const forCalc = pdfReports.map((r) => ({
-        pdfType: (String(r.pdfType).toLowerCase().includes("flower")
-          ? "flowering"
-          : "plant_health") as "plant_health" | "flowering",
+        pdfType: r.pdfType || "report",
         droneAnalysisData: r.droneAnalysisData as object,
       }));
       return calculateOverallRisk(forCalc, undefined);
@@ -729,7 +731,9 @@ const InsurerAssessmentDetail = () => {
                         <FileText className="h-6 w-6 text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-bold truncate">{report.pdfType || "Analysis report"}</p>
+                        <p className="font-bold truncate">
+                          {formatReportTypeLabel(report.pdfType)}
+                        </p>
                         <p className="text-xs text-muted-foreground">
                           {report.extractedAt
                             ? `Extracted ${format(new Date(report.extractedAt), "PPP")}`
@@ -922,7 +926,7 @@ const InsurerAssessmentDetail = () => {
               <div className="p-2 bg-primary/10 rounded-lg">
                 <Activity className="h-5 w-5 text-primary" />
               </div>
-              {String(selectedReport?.pdfType || "Report").replace(/_/g, " ")} Details
+              {formatReportTypeLabel(selectedReport?.pdfType)} Details
             </DialogTitle>
             <p className="text-sm text-muted-foreground mt-1">
               Analysis data extracted from uploaded drone report
@@ -938,7 +942,34 @@ const InsurerAssessmentDetail = () => {
             )}
           </div>
 
-          <div className="p-4 border-t bg-muted/30 flex justify-end shrink-0">
+          <div className="p-4 border-t bg-muted/30 flex justify-end items-center gap-3 shrink-0">
+            <Button
+              variant="default"
+              className="gap-2 bg-primary hover:bg-primary/90"
+              disabled={isDownloading || !selectedReport}
+              onClick={async () => {
+                if (!selectedReport) return;
+                setIsDownloading(true);
+                try {
+                  await generateDroneDataPDF(
+                    selectedReport.droneAnalysisData as any,
+                    formatReportTypeLabel(selectedReport.pdfType),
+                  );
+                  toast.success("Report downloaded successfully");
+                } catch (error) {
+                  toast.error("Failed to generate PDF report");
+                } finally {
+                  setIsDownloading(false);
+                }
+              }}
+            >
+              {isDownloading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              Download Report
+            </Button>
             <Button variant="outline" onClick={() => setIsReportDialogOpen(false)}>
               Close Report
             </Button>

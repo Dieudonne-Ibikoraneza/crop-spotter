@@ -30,6 +30,7 @@ import {
 import type { InsuranceRequest, MonitoringRecord } from "@/lib/api/types";
 import type { Policy } from "@/lib/api/services/policies";
 import type { Claim } from "@/lib/api/services/claims";
+import { formatBackendEnumLabel, formatCropTypeLabel } from "@/lib/crops";
 
 function refId(ref: unknown): string {
   if (ref == null) return "";
@@ -124,7 +125,7 @@ const FarmerFarmDetail = () => {
             {farm.cropType && (
               <span className="flex items-center gap-1">
                 <Sprout className="h-3.5 w-3.5" />
-                {farm.cropType}
+                {formatCropTypeLabel(farm.cropType)}
               </span>
             )}
             {farm.locationName && (
@@ -286,7 +287,9 @@ const FarmerFarmDetail = () => {
                     key={refId(c)}
                     className="rounded-lg border border-border/60 p-3 text-sm"
                   >
-                    <div className="font-medium">{c.lossEventType}</div>
+                    <div className="font-medium">
+                      {formatBackendEnumLabel(c.lossEventType)}
+                    </div>
                     <div className="text-muted-foreground mt-1 line-clamp-2">
                       {c.lossDescription}
                     </div>

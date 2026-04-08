@@ -18,6 +18,7 @@ import { policiesService } from "@/lib/api/services/policies";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
+import { formatCropTypeLabel, getRequiredMonitoringCycles } from "@/lib/crops";
 
 interface Farmer {
   id: string;
@@ -83,7 +84,13 @@ const CropMonitoring = () => {
   const farmers = farmersData || [];
 
   // Get current farmer and field
-  const farmer = useMemo(() => farmerId ? (farmersData || []).find((f: any) => (f._id || f.id) === farmerId) : null, [farmersData, farmerId]);
+  const farmer = useMemo(
+    () =>
+      farmerId
+        ? (farmersData || []).find((f: any) => (f._id || f.id) === farmerId)
+        : null,
+    [farmersData, farmerId],
+  );
 
   // Helper function to calculate season from sowing date
   const getSeasonFromSowingDate = (sowingDate?: string): string => {
@@ -125,16 +132,28 @@ const CropMonitoring = () => {
             status: farm.status || "active",
             boundary: farm.boundary || null,
             coordinates: farm.location?.coordinates || null,
+            sowingDate: farm.sowingDate,
           })) || [],
       ),
     [farmersData],
   );
 
-  const field = useMemo(() => fieldId ? fields.find((f) => f.id === fieldId) : null, [fields, fieldId]);
+  const field = useMemo(
+    () => (fieldId ? fields.find((f) => f.id === fieldId) : null),
+    [fields, fieldId],
+  );
+  const totalRecommendedCycles = useMemo(
+    () => (field ? getRequiredMonitoringCycles(field.crop) : 0),
+    [field],
+  );
 
-  const activePolicies = useMemo(() => (policies || []).filter(
-    (p: any) => p?.status === "ACTIVE" || p?.status === "active",
-  ), [policies]);
+  const activePolicies = useMemo(
+    () =>
+      (policies || []).filter(
+        (p: any) => p?.status === "ACTIVE" || p?.status === "active",
+      ),
+    [policies],
+  );
 
   const policyByFarmId = useMemo(() => {
     const map = new Map<string, any>();
@@ -145,19 +164,22 @@ const CropMonitoring = () => {
     return map;
   }, [activePolicies]);
 
-  const fieldPolicy = useMemo(() => field?.id ? policyByFarmId.get(String(field.id)) : null, [field, policyByFarmId]);
+  const fieldPolicy = useMemo(
+    () => (field?.id ? policyByFarmId.get(String(field.id)) : null),
+    [field, policyByFarmId],
+  );
 
   // Fetch monitoring cycles for the specific policy
-  const {
-    data: cycles,
-    isLoading: cyclesLoading,
-  } = useQuery({
+  const { data: cycles, isLoading: cyclesLoading } = useQuery({
     queryKey: ["crop-monitoring-policy", fieldPolicy?._id],
     queryFn: () => cropMonitoringService.getByPolicy(fieldPolicy!._id),
     enabled: !!fieldPolicy?._id,
   });
 
-  const activeCycle = useMemo(() => (cycles || []).find((c) => c.status === "IN_PROGRESS"), [cycles]);
+  const activeCycle = useMemo(
+    () => (cycles || []).find((c) => c.status === "IN_PROGRESS"),
+    [cycles],
+  );
 
   // Unified loading state like in Loss Assessment
   const isGlobalLoading =
@@ -171,7 +193,9 @@ const CropMonitoring = () => {
     mutationFn: () => cropMonitoringService.startCycle(fieldPolicy!._id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["crop-monitoring"] });
-      queryClient.invalidateQueries({ queryKey: ["crop-monitoring-policy", fieldPolicy?._id] });
+      queryClient.invalidateQueries({
+        queryKey: ["crop-monitoring-policy", fieldPolicy?._id],
+      });
       toast({
         title: "Monitoring Started",
         description: "A new monitoring cycle has been started successfully.",
@@ -203,12 +227,19 @@ const CropMonitoring = () => {
 
   const farmerColumns = [
     { key: "id", label: "Farmer ID", render: (f: any) => f._id || f.id },
-    { key: "name", label: "Farmer Name", render: (f: any) => `${f.firstName || ""} ${f.lastName || ""}`.trim() || f.email || "-" },
+    {
+      key: "name",
+      label: "Farmer Name",
+      render: (f: any) =>
+        `${f.firstName || ""} ${f.lastName || ""}`.trim() || f.email || "-",
+    },
     {
       key: "location",
       label: "Location",
       render: (f: any) => {
-        const loc = [f.province, f.district, f.sector].filter(Boolean).join(", ");
+        const loc = [f.province, f.district, f.sector]
+          .filter(Boolean)
+          .join(", ");
         return (
           <div className="flex items-center gap-2">
             <MapPin className="h-4 w-4 text-muted-foreground" />
@@ -217,7 +248,11 @@ const CropMonitoring = () => {
         );
       },
     },
-    { key: "fields", label: "Total Fields", render: (f: any) => f.farms?.length || 0 },
+    {
+      key: "fields",
+      label: "Total Fields",
+      render: (f: any) => f.farms?.length || 0,
+    },
     {
       key: "actions",
       label: "Actions",
@@ -237,37 +272,64 @@ const CropMonitoring = () => {
   ];
 
   const policyColumns = [
-    { key: "policyNumber", label: "Policy Number", render: (p: any) => p.policyNumber || "N/A" },
-    { key: "farmName", label: "Field", render: (p: any) => {
-        const farmIdStr = typeof p.farmId === 'object' ? p.farmId._id : p.farmId;
-        const f = fields.find((field) => String(field.id) === String(farmIdStr));
-        return f ? (f.name || f.crop) : "Unknown Field";
-      }
+    {
+      key: "policyNumber",
+      label: "Policy Number",
+      render: (p: any) => p.policyNumber || "N/A",
     },
-    { key: "farmerName", label: "Farmer", render: (p: any) => {
-        const farmIdStr = typeof p.farmId === 'object' ? p.farmId._id : p.farmId;
-        const f = fields.find((field) => String(field.id) === String(farmIdStr));
+    {
+      key: "farmName",
+      label: "Field",
+      render: (p: any) => {
+        const farmIdStr =
+          typeof p.farmId === "object" ? p.farmId._id : p.farmId;
+        const f = fields.find(
+          (field) => String(field.id) === String(farmIdStr),
+        );
+        return f ? f.name || f.crop : "Unknown Field";
+      },
+    },
+    {
+      key: "farmerName",
+      label: "Farmer",
+      render: (p: any) => {
+        const farmIdStr =
+          typeof p.farmId === "object" ? p.farmId._id : p.farmId;
+        const f = fields.find(
+          (field) => String(field.id) === String(farmIdStr),
+        );
         return f ? f.farmerName : "Unknown";
-      }
+      },
     },
-    { key: "status", label: "Status", render: (p: any) => <StatusBadge status={p.status} /> },
-    { key: "actions", label: "Actions", render: (p: any) => {
-        const farmIdStr = typeof p.farmId === 'object' ? p.farmId._id : p.farmId;
-        const f = fields.find((field) => String(field.id) === String(farmIdStr));
+    {
+      key: "status",
+      label: "Status",
+      render: (p: any) => <StatusBadge status={p.status} />,
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (p: any) => {
+        const farmIdStr =
+          typeof p.farmId === "object" ? p.farmId._id : p.farmId;
+        const f = fields.find(
+          (field) => String(field.id) === String(farmIdStr),
+        );
         return (
           <Button
             size="sm"
             variant="outline"
             onClick={(e) => {
               e.stopPropagation();
-              if (f) navigate(`/assessor/crop-monitoring/${f.farmerId}/${f.id}`);
+              if (f)
+                navigate(`/assessor/crop-monitoring/${f.farmerId}/${f.id}`);
             }}
             disabled={!f}
           >
             Monitor Field
           </Button>
         );
-      }
+      },
     },
   ];
 
@@ -280,7 +342,7 @@ const CropMonitoring = () => {
       render: (f: Field) => (
         <div className="flex items-center gap-2">
           <Sprout className="h-4 w-4 text-primary" />
-          {f.crop}
+          {formatCropTypeLabel(f.crop)}
         </div>
       ),
     },
@@ -303,9 +365,7 @@ const CropMonitoring = () => {
           size="sm"
           variant="outline"
           onClick={() =>
-            navigate(
-              `/assessor/crop-monitoring/${f.farmerId}/${f.id}`,
-            )
+            navigate(`/assessor/crop-monitoring/${f.farmerId}/${f.id}`)
           }
         >
           View Details
@@ -390,9 +450,15 @@ const CropMonitoring = () => {
               data={activePolicies || []}
               columns={policyColumns}
               onRowClick={(policy: any) => {
-                const farmIdStr = typeof policy.farmId === 'object' ? policy.farmId._id : policy.farmId;
-                const f = fields.find((field) => String(field.id) === String(farmIdStr));
-                if (f) navigate(`/assessor/crop-monitoring/${f.farmerId}/${f.id}`);
+                const farmIdStr =
+                  typeof policy.farmId === "object"
+                    ? policy.farmId._id
+                    : policy.farmId;
+                const f = fields.find(
+                  (field) => String(field.id) === String(farmIdStr),
+                );
+                if (f)
+                  navigate(`/assessor/crop-monitoring/${f.farmerId}/${f.id}`);
               }}
             />
           </TabsContent>
@@ -454,11 +520,15 @@ const CropMonitoring = () => {
               FIELD DETAIL: {formatFieldId(field.id)}
             </h1>
             <p className="text-muted-foreground">
-              {field.farmerName} - {field.crop} | Area: {field.area} ha | Season: {field.season}
+              {field.farmerName} - {formatCropTypeLabel(field.crop)} | Area:{" "}
+              {field.area} ha | Season: {field.season}
             </p>
           </div>
           {fieldPolicy && (
-            <Badge variant="outline" className="text-sm px-4 py-1.5 border-green-200 bg-green-50 text-green-700">
+            <Badge
+              variant="outline"
+              className="text-sm px-4 py-1.5 border-green-200 bg-green-50 text-green-700"
+            >
               Active Policy: {fieldPolicy.policyNumber}
             </Badge>
           )}
@@ -495,6 +565,8 @@ const CropMonitoring = () => {
                 locationCoords={field.coordinates || undefined}
                 cycles={cycles || []}
                 activeCycle={activeCycle}
+                totalRecommendedCycles={totalRecommendedCycles}
+                sowingDate={field.sowingDate}
                 onStartCycle={() => startMutation.mutate()}
                 isStartingCycle={startMutation.isPending}
               />

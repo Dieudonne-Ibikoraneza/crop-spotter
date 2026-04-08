@@ -1,5 +1,10 @@
 // Risk calculation utilities for crop assessment
 
+/** Avoid float artifacts in UI (e.g. 30.870000000000005). */
+export function formatRiskPercent(value: number, decimals = 1): string {
+  return `${Number(value.toFixed(decimals))}%`;
+}
+
 export interface RiskAssessment {
   score: number;
   level: 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL';
@@ -26,6 +31,17 @@ export interface DroneAnalysisData {
     growing_stage?: string;
     area_hectares?: number;
   };
+  /** API may send `analysis` or `weed_analysis` for stress levels */
+  analysis?: {
+    total_area_hectares?: number;
+    total_area_percent?: number;
+    levels?: Array<{
+      level: string;
+      severity: string;
+      percentage: number;
+      area_hectares: number;
+    }>;
+  };
   weed_analysis?: {
     total_area_hectares?: number;
     total_area_percent?: number;
@@ -36,6 +52,10 @@ export interface DroneAnalysisData {
       area_hectares: number;
     }>;
   };
+}
+
+function analysisLevels(data: DroneAnalysisData | undefined) {
+  return data?.analysis?.levels ?? data?.weed_analysis?.levels;
 }
 
 export interface WeatherData {
@@ -69,11 +89,11 @@ const SEVERITY_RISK: Record<string, number> = {
 };
 
 export const calculateCropHealthRisk = (droneData: DroneAnalysisData): number => {
-  const weedAnalysis = droneData?.weed_analysis;
-  if (!weedAnalysis?.levels) return 50; // Default medium risk
+  const levels = analysisLevels(droneData);
+  if (!levels?.length) return 50; // Default medium risk
 
   // Calculate stress percentage from high/moderate severity levels
-  const stressLevels = weedAnalysis.levels.filter(level => 
+  const stressLevels = levels.filter(level => 
     level.severity === 'high' || level.severity === 'moderate'
   );
   
@@ -100,12 +120,12 @@ export const calculateGrowthStageRisk = (growingStage?: string): number => {
 };
 
 export const calculateFloweringRisk = (floweringData: DroneAnalysisData): number => {
-  const weedAnalysis = floweringData?.weed_analysis;
-  if (!weedAnalysis?.levels) return 0;
+  const levels = analysisLevels(floweringData);
+  if (!levels?.length) return 0;
 
   // Check for uneven flowering (risk factor)
-  const fullFlowering = weedAnalysis.levels.find(l => l.level === 'Full Flowering');
-  const noFlowering = weedAnalysis.levels.find(l => l.level === 'No Flowering');
+  const fullFlowering = levels.find(l => l.level === 'Full Flowering');
+  const noFlowering = levels.find(l => l.level === 'No Flowering');
   
   if (fullFlowering && noFlowering) {
     // Uneven flowering indicates stress
@@ -202,12 +222,38 @@ export const generateRecommendations = (riskAssessment: RiskAssessment): string[
   return recommendations;
 };
 
+function pickPrimaryPlantPdf(
+  dronePdfs: Array<{ pdfType: string; droneAnalysisData?: DroneAnalysisData }>,
+) {
+  const withData = dronePdfs.filter((p) => p.droneAnalysisData);
+  if (withData.length === 0) return undefined;
+  const legacy = withData.find(
+    (p) => p.pdfType === "plant_health" || p.pdfType === "drone_analysis",
+  );
+  if (legacy) return legacy;
+  const nonFlowering = withData.find((p) => !/flowering/i.test(p.pdfType));
+  return nonFlowering ?? withData[0];
+}
+
+function pickFloweringPdf(
+  dronePdfs: Array<{ pdfType: string; droneAnalysisData?: DroneAnalysisData }>,
+  primary: { pdfType: string; droneAnalysisData?: DroneAnalysisData } | undefined,
+) {
+  const withData = dronePdfs.filter((p) => p.droneAnalysisData);
+  const byType = withData.find((p) => /flowering/i.test(p.pdfType));
+  if (byType) return byType;
+  if (primary && withData.length > 1) {
+    return withData.find((p) => p.pdfType !== primary.pdfType);
+  }
+  return undefined;
+}
+
 export const calculateOverallRisk = (
   dronePdfs: Array<{ pdfType: string; droneAnalysisData?: DroneAnalysisData }>,
   weatherData?: WeatherData
 ): RiskAssessment => {
-  const plantHealthData = dronePdfs.find(pdf => pdf.pdfType === 'plant_health');
-  const floweringData = dronePdfs.find(pdf => pdf.pdfType === 'flowering');
+  const plantHealthData = pickPrimaryPlantPdf(dronePdfs);
+  const floweringData = pickFloweringPdf(dronePdfs, plantHealthData);
   
   // Calculate component risks
   const cropHealthRisk = calculateCropHealthRisk(plantHealthData?.droneAnalysisData || {});
@@ -247,7 +293,7 @@ export const calculateOverallRisk = (
     recommendations: [],
     fieldStatus,
     weatherRisk: `${weatherRisk}/100`,
-    cropHealth: `${100 - cropHealthRisk}%` // Invert for "health" percentage
+    cropHealth: formatRiskPercent(100 - cropHealthRisk, 2),
   });
   
   return {
@@ -257,6 +303,6 @@ export const calculateOverallRisk = (
     recommendations,
     fieldStatus,
     weatherRisk: `${weatherRisk}/100`,
-    cropHealth: `${100 - cropHealthRisk}%`
+    cropHealth: formatRiskPercent(100 - cropHealthRisk, 2),
   };
 };

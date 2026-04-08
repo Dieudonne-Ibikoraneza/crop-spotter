@@ -43,8 +43,9 @@ interface MonitoringTabProps {
 }
 
 /** Extract the raw _id string from a possibly-populated Mongo reference */
-const resolveId = (val: string | { _id: string; [k: string]: unknown }): string =>
-  typeof val === "object" && val?._id ? val._id : String(val);
+const resolveId = (
+  val: string | { _id: string; [k: string]: unknown },
+): string => (typeof val === "object" && val?._id ? val._id : String(val));
 
 const getPhotoUrl = (url: string) => {
   if (url.startsWith("http") || url.startsWith("data:")) return url;
@@ -78,9 +79,9 @@ export const MonitoringTab = ({ policyId, fieldName }: MonitoringTabProps) => {
   });
 
   // Find the active (IN_PROGRESS) cycle  — there can be at most one
-  const activeCycle = (cycles || []).find(
-    (c) => c.status === "IN_PROGRESS",
-  ) as CropMonitoringRecord | undefined;
+  const activeCycle = (cycles || []).find((c) => c.status === "IN_PROGRESS") as
+    | CropMonitoringRecord
+    | undefined;
 
   const completedCycles = (cycles || []).filter(
     (c) => c.status === "COMPLETED",
@@ -107,7 +108,10 @@ export const MonitoringTab = ({ policyId, fieldName }: MonitoringTabProps) => {
         queryKey: ["crop-monitoring-policy", policyId],
       });
       queryClient.invalidateQueries({ queryKey: ["crop-monitoring"] });
-      toast({ title: "Saved", description: "Monitoring data updated successfully." });
+      toast({
+        title: "Saved",
+        description: "Monitoring data updated successfully.",
+      });
     },
     onError: (err: any) => {
       toast({
@@ -145,7 +149,9 @@ export const MonitoringTab = ({ policyId, fieldName }: MonitoringTabProps) => {
     mutationFn: () => cropMonitoringService.startCycle(policyId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["crop-monitoring"] });
-      queryClient.invalidateQueries({ queryKey: ["crop-monitoring-policy", policyId] });
+      queryClient.invalidateQueries({
+        queryKey: ["crop-monitoring-policy", policyId],
+      });
       toast({
         title: "Monitoring Started",
         description: "A new monitoring cycle has been started successfully.",
@@ -200,8 +206,7 @@ export const MonitoringTab = ({ policyId, fieldName }: MonitoringTabProps) => {
     setPhotoUrls((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const canGenerateReport =
-    observations.length > 0 && notes.trim().length > 0;
+  const canGenerateReport = observations.length > 0 && notes.trim().length > 0;
 
   // ---------- weather helpers ----------
   const renderWeatherSummary = (weatherData: unknown) => {
@@ -224,10 +229,8 @@ export const MonitoringTab = ({ policyId, fieldName }: MonitoringTabProps) => {
             : "N/A";
           const humidity = entry.main?.humidity ?? "N/A";
           const windSpeed = entry.wind?.speed ?? "N/A";
-          const rain =
-            entry.rain?.["3h"] || entry.rain?.["1h"] || 0;
-          const desc =
-            entry.weather?.[0]?.description || "N/A";
+          const rain = entry.rain?.["3h"] || entry.rain?.["1h"] || 0;
+          const desc = entry.weather?.[0]?.description || "N/A";
           const dt = entry.dt
             ? new Date(entry.dt * 1000).toLocaleDateString("en-US", {
                 month: "short",
@@ -303,7 +306,9 @@ export const MonitoringTab = ({ policyId, fieldName }: MonitoringTabProps) => {
           </CardTitle>
           <Button
             className="bg-green-600 hover:bg-green-700"
-            disabled={cycles.length >= 2 || !!activeCycle || startMutation.isPending}
+            disabled={
+              cycles.length >= 2 || !!activeCycle || startMutation.isPending
+            }
             onClick={() => startMutation.mutate()}
           >
             {startMutation.isPending ? "Starting..." : "Start Monitoring Cycle"}
@@ -314,7 +319,9 @@ export const MonitoringTab = ({ policyId, fieldName }: MonitoringTabProps) => {
             <div className="text-center py-6 text-muted-foreground">
               <Clock className="h-10 w-10 mx-auto mb-3 opacity-50" />
               <p>No Monitoring Cycles</p>
-              <p className="text-sm">Click "Start Monitoring Cycle" to begin.</p>
+              <p className="text-sm">
+                Click "Start Monitoring Cycle" to begin.
+              </p>
             </div>
           )}
           <div className="flex gap-4 flex-wrap">
@@ -455,8 +462,10 @@ export const MonitoringTab = ({ policyId, fieldName }: MonitoringTabProps) => {
                       alt={`Photo ${idx + 1}`}
                       className="w-full h-full object-cover"
                       onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                        (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                        (e.target as HTMLImageElement).style.display = "none";
+                        (
+                          e.target as HTMLImageElement
+                        ).nextElementSibling?.classList.remove("hidden");
                       }}
                     />
                     <div className="hidden w-full h-full flex items-center justify-center absolute inset-0 bg-muted">
@@ -526,7 +535,9 @@ export const MonitoringTab = ({ policyId, fieldName }: MonitoringTabProps) => {
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Generate Monitoring Report?</AlertDialogTitle>
+                  <AlertDialogTitle>
+                    Generate Monitoring Report?
+                  </AlertDialogTitle>
                   <AlertDialogDescription>
                     This will finalize the monitoring cycle for{" "}
                     <strong>{fieldName}</strong> and notify the insurer. You
@@ -601,7 +612,10 @@ export const MonitoringTab = ({ policyId, fieldName }: MonitoringTabProps) => {
                 <p className="text-muted-foreground mb-1">Observations</p>
                 <div className="flex flex-col gap-2 mt-2">
                   {cycle.observations.map((obs, idx) => (
-                    <div key={idx} className="flex items-start gap-3 text-sm text-foreground">
+                    <div
+                      key={idx}
+                      className="flex items-start gap-3 text-sm text-foreground"
+                    >
                       <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary/60 shrink-0" />
                       <span className="leading-relaxed">{obs}</span>
                     </div>
@@ -632,8 +646,10 @@ export const MonitoringTab = ({ policyId, fieldName }: MonitoringTabProps) => {
                         alt={`Observation ${idx + 1}`}
                         className="w-full h-full object-cover"
                         onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = 'none';
-                          (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                          (e.target as HTMLImageElement).style.display = "none";
+                          (
+                            e.target as HTMLImageElement
+                          ).nextElementSibling?.classList.remove("hidden");
                         }}
                       />
                       <div className="hidden w-full h-full flex items-center justify-center absolute inset-0 bg-muted">

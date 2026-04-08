@@ -20,29 +20,7 @@ import { Input } from "@/components/ui/input";
 import { useRegisterFarm } from "@/lib/api/hooks/useFarmer";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-
-/** Must match `CropType` in starhawk-backend-agriplatform (farms/enums/crop-type.enum.ts). */
-const CROP_TYPES = [
-  "MAIZE",
-  "BEANS",
-  "RICE",
-  "WHEAT",
-  "SORGHUM",
-  "POTATOES",
-  "CASSAVA",
-  "BANANAS",
-  "COFFEE",
-  "TEA",
-  "OTHER",
-] as const;
-
-function parseCropTypeInput(raw: string): string | null {
-  const compact = raw.trim().toUpperCase().replace(/\s+/g, "_");
-  if ((CROP_TYPES as readonly string[]).includes(compact)) return compact;
-  const firstWord = raw.trim().split(/\s+/)[0]?.toUpperCase() ?? "";
-  if ((CROP_TYPES as readonly string[]).includes(firstWord)) return firstWord;
-  return null;
-}
+import { BACKEND_CROP_TYPES, formatCropTypeLabel, normalizeCropTypeInput } from "@/lib/crops";
 
 function buildRegisterFarmSchema(minSelectable: Date) {
   return z
@@ -57,7 +35,7 @@ function buildRegisterFarmSchema(minSelectable: Date) {
       message: "At least 14 days from today",
       path: ["sowingDate"],
     })
-    .refine((data) => parseCropTypeInput(data.cropType) !== null, {
+    .refine((data) => normalizeCropTypeInput(data.cropType) !== null, {
       message: "Not a supported crop",
       path: ["cropType"],
     });
@@ -84,7 +62,7 @@ export function RegisterFarmForm({ onSuccess, className }: RegisterFarmFormProps
   });
 
   const onSubmit = (values: z.infer<typeof schema>) => {
-    const cropType = parseCropTypeInput(values.cropType);
+    const cropType = normalizeCropTypeInput(values.cropType);
     if (!cropType) return;
     const sowingDate = format(values.sowingDate, "yyyy-MM-dd");
     registerFarm.mutate(
@@ -121,8 +99,18 @@ export function RegisterFarmForm({ onSuccess, className }: RegisterFarmFormProps
             <FormItem>
               <FormLabel>Crop type</FormLabel>
               <FormControl>
-                <Input placeholder="maize, beans, rice…" autoComplete="off" {...field} />
+                <Input
+                  placeholder="e.g. Maize, Beans, Rice"
+                  autoComplete="off"
+                  list="backend-crop-types"
+                  {...field}
+                />
               </FormControl>
+              <datalist id="backend-crop-types">
+                {BACKEND_CROP_TYPES.map((crop) => (
+                  <option key={crop} value={formatCropTypeLabel(crop)} />
+                ))}
+              </datalist>
               <FormMessage />
             </FormItem>
           )}

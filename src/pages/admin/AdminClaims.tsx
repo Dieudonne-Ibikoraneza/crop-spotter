@@ -25,6 +25,7 @@ import { useAdminAllClaims } from "@/lib/api/hooks/useAdmin";
 import type { Claim } from "@/lib/api/services/claims";
 import { AdminFarmDetailDialog } from "@/components/admin/AdminFarmDetailDialog";
 import { displayFarmName, refIdString } from "@/lib/utils/adminDisplay";
+import { formatBackendEnumLabel } from "@/lib/crops";
 
 function farmerName(c: Claim): string {
   const f = c.farmerId;
@@ -129,7 +130,9 @@ const AdminClaims = () => {
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => setSelected(c)}
                   >
-                    <TableCell className="font-medium">{c.lossEventType}</TableCell>
+                    <TableCell className="font-medium">
+                      {formatBackendEnumLabel(c.lossEventType)}
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline">{c.status}</Badge>
                     </TableCell>
@@ -186,7 +189,7 @@ const AdminClaims = () => {
               </div>
               <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Event</span>
-                <span>{selected.lossEventType}</span>
+                <span>{formatBackendEnumLabel(selected.lossEventType)}</span>
               </div>
               <Separator />
               <p className="text-xs font-medium text-muted-foreground">Farmer</p>

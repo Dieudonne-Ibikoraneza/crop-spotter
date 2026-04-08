@@ -27,7 +27,7 @@ import "leaflet/dist/leaflet.css";
 import JSZip from "jszip";
 import shp from "shpjs";
 import { farmService } from "@/lib/api/services/assessor";
-import { assessmentsKeys } from "@/lib/api/queryKeys";
+import { assessmentsKeys, farmsKeys } from "@/lib/api/queryKeys";
 
 interface FieldUploadInterfaceProps {
   fieldId: string | null;
@@ -528,8 +528,12 @@ export const FieldUploadInterface = ({
       // Upload KML to backend
       await farmService.uploadKml(fieldId, fieldName, file);
 
-      // Invalidate queries to refetch fresh data on dashboard
+      // Invalidate queries so dashboard boundary check and field detail refresh
       queryClient.invalidateQueries({ queryKey: assessmentsKeys.all });
+      queryClient.invalidateQueries({ queryKey: assessmentsKeys.assignedFarmers });
+      if (fieldId) {
+        queryClient.invalidateQueries({ queryKey: farmsKeys.detail(fieldId) });
+      }
 
       toast({
         title: "Field Processed Successfully",

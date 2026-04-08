@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sprout, MapPin, Calendar, Info, Clock, CheckCircle2 } from "lucide-react";
 import { FieldMapWithLayers } from "../../FieldMapWithLayers";
 import { Claim } from "@/lib/api/services/claims";
+import { formatBackendEnumLabel, formatCropTypeLabel } from "@/lib/crops";
 
 interface LossBasicInfoTabProps {
   field: any;
@@ -86,7 +87,7 @@ export const LossBasicInfoTab = ({
               <p className="text-sm text-muted-foreground mb-1">Crop Type</p>
               <div className="flex items-center gap-2">
                 <Sprout className="h-4 w-4 text-primary" />
-                <p className="font-medium">{field?.cropType || "N/A"}</p>
+                <p className="font-medium">{formatCropTypeLabel(field?.cropType)}</p>
               </div>
             </div>
             <div>
@@ -115,7 +116,7 @@ export const LossBasicInfoTab = ({
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg">Claim Information</CardTitle>
             <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">
-              {claim.lossEventType}
+              {formatBackendEnumLabel(claim.lossEventType)}
             </Badge>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -127,7 +128,9 @@ export const LossBasicInfoTab = ({
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Loss Event</p>
-                  <p className="font-medium text-lg text-destructive">{claim.lossEventType}</p>
+                  <p className="font-medium text-lg text-destructive">
+                    {formatBackendEnumLabel(claim.lossEventType)}
+                  </p>
                 </div>
               </div>
               <div className="space-y-4">

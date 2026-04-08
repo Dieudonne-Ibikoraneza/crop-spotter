@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sprout, MapPin, Calendar, Clock, CheckCircle2 } from "lucide-react";
 import { FieldMapWithLayers } from "../FieldMapWithLayers";
 import { CropMonitoringRecord } from "@/lib/api/services/cropMonitoring";
+import { formatCropTypeLabel } from "@/lib/crops";
 
 interface MonitoringBasicInfoTabProps {
   fieldId: string;
@@ -20,8 +21,10 @@ interface MonitoringBasicInfoTabProps {
   locationCoords?: number[];
   cycles: CropMonitoringRecord[];
   activeCycle?: CropMonitoringRecord;
+  totalRecommendedCycles?: number;
   onStartCycle: () => void;
   isStartingCycle: boolean;
+  sowingDate?: string;
 }
 
 export const MonitoringBasicInfoTab = ({
@@ -36,9 +39,20 @@ export const MonitoringBasicInfoTab = ({
   locationCoords,
   cycles,
   activeCycle,
+  totalRecommendedCycles,
   onStartCycle,
   isStartingCycle,
+  sowingDate,
 }: MonitoringBasicInfoTabProps) => {
+  const sowingDateObj = new Date(sowingDate || "");
+  const completedCount = cycles.filter(c => c.status === "COMPLETED").length;
+  const fallbackRecommendedDate = new Date(sowingDateObj);
+  fallbackRecommendedDate.setDate(sowingDateObj.getDate() + (completedCount + 1) * 30);
+
+  const recommendedDateStr = fallbackRecommendedDate.toISOString();
+
+  const maxReached = completedCount >= (totalRecommendedCycles || activeCycle?.totalRecommendedCycles || cycles[0]?.totalRecommendedCycles || Number.MAX_SAFE_INTEGER);
+  
   const formattedFieldId = fieldId
     ? `FLD-${fieldId.slice(0, 3).toUpperCase()}`
     : "N/A";
@@ -75,7 +89,7 @@ export const MonitoringBasicInfoTab = ({
               <p className="text-sm text-muted-foreground mb-1">Crop Type</p>
               <div className="flex items-center gap-2">
                 <Sprout className="h-4 w-4 text-primary" />
-                <p className="font-medium">{cropType}</p>
+                <p className="font-medium">{formatCropTypeLabel(cropType)}</p>
               </div>
             </div>
             <div>
@@ -96,6 +110,14 @@ export const MonitoringBasicInfoTab = ({
                 <p className="font-medium">{location}</p>
               </div>
             </div>
+            {recommendedDateStr && !isNaN(new Date(recommendedDateStr).getTime()) && (
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Recommended Next Cycle</p>
+                <p className="font-medium">
+                  {new Date(recommendedDateStr).toLocaleDateString()}
+                </p>
+              </div>
+            )}
           </div>
           <div className="h-[400px] rounded-lg overflow-hidden border">
             <FieldMapWithLayers
@@ -111,19 +133,30 @@ export const MonitoringBasicInfoTab = ({
       {/* Monitoring Cycles Overview */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex justify-between items-center text-xl">
             Monitoring Cycles
-            <Badge variant="outline" className="font-normal">
-              {cycles.length} / 2 cycles
+            <Badge variant="outline" className="font-normal text-xs">
+              {completedCount} / {totalRecommendedCycles || activeCycle?.totalRecommendedCycles || cycles[0]?.totalRecommendedCycles || "?"} Completed
             </Badge>
           </CardTitle>
-          <Button
-            className="bg-green-600 hover:bg-green-700"
-            disabled={cycles.length >= 2 || !!activeCycle || isStartingCycle}
-            onClick={onStartCycle}
-          >
-            {isStartingCycle ? "Starting..." : "Start Monitoring Cycle"}
-          </Button>
+          <div className="flex flex-col items-end gap-1">
+            <Button
+              className="bg-green-600 hover:bg-green-700"
+              disabled={
+                maxReached ||
+                !!activeCycle ||
+                isStartingCycle
+              }
+              onClick={onStartCycle}
+            >
+              {isStartingCycle ? "Starting..." : "Start Monitoring Cycle"}
+            </Button>
+            {!!activeCycle && (
+              <p className="text-[10px] text-blue-600 font-medium">
+                Complete active cycle to start next
+              </p>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {cycles.length === 0 && (

@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { format, subDays } from "date-fns";
 import { Card } from "@/components/ui/card";
 import {
   Select,
@@ -7,34 +9,116 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Layers, Map as MapIcon } from "lucide-react";
+import { Layers, Loader2, Map as MapIcon } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { farmService } from "@/lib/api/services/assessor";
+import {
+  meanOrLatestNdvi,
+  ndviValuesFromSeriesResponse,
+} from "@/lib/ndvi";
 
-// Helper for point-in-polygon check (ray-casting algorithm)
-const isPointInPolygon = (point: number[], vs: number[][]) => {
-  const x = point[0], y = point[1];
+/** Ray-casting point-in-polygon (for synthetic grid cells inside boundary). */
+function isPointInPolygon(point: number[], vs: number[][]) {
+  const x = point[0];
+  const y = point[1];
   let inside = false;
   for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
-    const xi = vs[i][0], yi = vs[i][1];
-    const xj = vs[j][0], yj = vs[j][1];
-    const intersect = ((yi > y) !== (yj > y))
-      && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+    const xi = vs[i][0];
+    const yi = vs[i][1];
+    const xj = vs[j][0];
+    const yj = vs[j][1];
+    const intersect =
+      yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi + 1e-12) + xi;
     if (intersect) inside = !inside;
   }
   return inside;
-};
+}
 
-const isPointInBoundary = (point: number[], boundary: any) => {
-  if (!boundary || !boundary.coordinates) return false;
-  const type = (boundary.type || "Polygon").toLowerCase();
+function isPointInBoundary(point: number[], b: { type?: string; coordinates?: number[][][] }) {
+  if (!b?.coordinates) return false;
+  const type = (b.type || "Polygon").toLowerCase();
   if (type === "polygon") {
-    return isPointInPolygon(point, boundary.coordinates[0]);
-  } else if (type === "multipolygon") {
-    return boundary.coordinates.some((polygon: any) => isPointInPolygon(point, polygon[0]));
+    return isPointInPolygon(point, b.coordinates[0] || []);
+  }
+  if (type === "multipolygon") {
+    return b.coordinates.some((poly: number[][][]) =>
+      isPointInPolygon(point, poly[0] || []),
+    );
   }
   return false;
-};
+}
+
+/** Visual preview grid (same idea as original map) when EOSDA has no series. */
+function buildSyntheticIndexGrid(
+  boundary: NonNullable<FieldMapWithLayersProps["boundary"]>,
+  layer: LayerType,
+): GeoJSON.FeatureCollection {
+  let allPoints: number[][] = [];
+  if (boundary.type === "Polygon") {
+    allPoints = boundary.coordinates[0] || [];
+  } else if (boundary.type === "MultiPolygon") {
+    boundary.coordinates.forEach((poly: number[][][]) => {
+      if (poly[0]) allPoints = [...allPoints, ...poly[0]];
+    });
+  }
+  if (allPoints.length === 0) {
+    return { type: "FeatureCollection", features: [] };
+  }
+
+  const lats = allPoints.map((c) => c[1]);
+  const lngs = allPoints.map((c) => c[0]);
+  const bounds = {
+    south: Math.min(...lats),
+    north: Math.max(...lats),
+    west: Math.min(...lngs),
+    east: Math.max(...lngs),
+  };
+  const latStep = (bounds.north - bounds.south) / 25;
+  const lngStep = (bounds.east - bounds.west) / 25;
+  const phase =
+    layer === "ndvi"
+      ? 0
+      : layer === "msavi"
+        ? 1.1
+        : layer === "evi"
+          ? 2.2
+          : layer === "ndwi"
+            ? 3.3
+            : layer === "weed"
+              ? 4.4
+              : 5.5;
+
+  const features: GeoJSON.Feature[] = [];
+  for (let lat = bounds.south; lat < bounds.north; lat += latStep) {
+    for (let lng = bounds.west; lng < bounds.east; lng += lngStep) {
+      const centerPoint = [lng + lngStep / 2, lat + latStep / 2];
+      if (!isPointInBoundary(centerPoint, boundary)) continue;
+      const baseValue =
+        0.5 +
+        Math.sin(lat * 5000 + phase) * 0.25 +
+        Math.cos(lng * 5000 + phase * 0.7) * 0.2;
+      const value = Math.max(0.1, Math.min(0.9, baseValue));
+      features.push({
+        type: "Feature",
+        properties: { value, source: "preview" },
+        geometry: {
+          type: "Polygon",
+          coordinates: [
+            [
+              [lng, lat],
+              [lng + lngStep, lat],
+              [lng + lngStep, lat + latStep],
+              [lng, lat + latStep],
+              [lng, lat],
+            ],
+          ],
+        },
+      });
+    }
+  }
+  return { type: "FeatureCollection", features };
+}
 
 interface FieldMapWithLayersProps {
   fieldId: string;
@@ -42,12 +126,14 @@ interface FieldMapWithLayersProps {
   boundary: {
     type: string;
     coordinates: number[][][];
-  };
+  } | null;
   center?: [number, number];
 }
 
 type LayerType = "none" | "ndvi" | "msavi" | "evi" | "ndwi" | "weed" | "pest";
 type TerrainType = "osm" | "satellite" | "terrain" | "hybrid";
+
+const VEGETATION_LAYERS: LayerType[] = ["ndvi", "msavi", "evi", "ndwi"];
 
 const terrainOptions: Record<
   TerrainType,
@@ -134,74 +220,59 @@ export const FieldMapWithLayers = ({
   const boundaryLayerRef = useRef<L.GeoJSON | null>(null);
   const indexLayerRef = useRef<L.GeoJSON | null>(null);
 
-  const indexData = useMemo(() => {
-    if (!boundary || !boundary.coordinates) return null;
+  const dateEnd = format(new Date(), "yyyy-MM-dd");
+  const dateStart = format(subDays(new Date(), 30), "yyyy-MM-dd");
+  const fetchVegetation =
+    selectedLayer !== "none" && VEGETATION_LAYERS.includes(selectedLayer);
 
-    let allPoints: number[][] = [];
-    if (boundary.type === "Polygon") {
-      allPoints = boundary.coordinates[0] || [];
-    } else if (boundary.type === "MultiPolygon") {
-      boundary.coordinates.forEach((poly: any) => {
-        if (poly[0]) allPoints = [...allPoints, ...poly[0]];
-      });
+  const { data: ndviSeriesRaw, isLoading: ndviLoading, isError: ndviError } =
+    useQuery({
+      queryKey: ["farm", fieldId, "ndvi-series", dateStart, dateEnd],
+      queryFn: () =>
+        farmService.getNdviTimeSeries(fieldId, dateStart, dateEnd),
+      enabled: !!fieldId && fetchVegetation && !!boundary?.coordinates?.length,
+      staleTime: 5 * 60 * 1000,
+    });
+
+  const liveNdvi = useMemo(() => {
+    if (!ndviSeriesRaw) return null;
+    return meanOrLatestNdvi(ndviValuesFromSeriesResponse(ndviSeriesRaw));
+  }, [ndviSeriesRaw]);
+
+  const hasLiveNdvi =
+    VEGETATION_LAYERS.includes(selectedLayer) &&
+    liveNdvi != null &&
+    !Number.isNaN(liveNdvi);
+
+  /**
+   * Single GeoJSON for the active layer. Prefer EOSDA mean NDVI for vegetation indices;
+   * otherwise same preview grid as before so the map always shows a pattern.
+   */
+  const indexData = useMemo((): GeoJSON.FeatureCollection | null => {
+    if (selectedLayer === "none" || !boundary?.coordinates?.length) {
+      return null;
     }
-
-    if (allPoints.length === 0) return null;
-
-    const lats = allPoints.map((coord) => coord[1]);
-    const lngs = allPoints.map((coord) => coord[0]);
-
-    const bounds = {
-      south: Math.min(...lats),
-      north: Math.max(...lats),
-      west: Math.min(...lngs),
-      east: Math.max(...lngs),
-    };
-
-    const latStep = (bounds.north - bounds.south) / 25;
-    const lngStep = (bounds.east - bounds.west) / 25;
-
-    const data: Record<LayerType, any> = {} as any;
-
-    (Object.keys(layerConfig) as LayerType[])
-      .filter((k) => k !== "none")
-      .forEach((index) => {
-        const features: any[] = [];
-
-        for (let lat = bounds.south; lat < bounds.north; lat += latStep) {
-          for (let lng = bounds.west; lng < bounds.east; lng += lngStep) {
-            const centerPoint = [lng + lngStep / 2, lat + latStep / 2];
-            
-            if (isPointInBoundary(centerPoint, boundary)) {
-              const baseValue =
-                0.5 + Math.sin(lat * 5000) * 0.25 + Math.cos(lng * 5000) * 0.2;
-              const value = Math.max(0.1, Math.min(0.9, baseValue));
-
-              features.push({
-                type: "Feature",
-                properties: { value },
-                geometry: {
-                  type: "Polygon",
-                  coordinates: [
-                    [
-                      [lng, lat],
-                      [lng + lngStep, lat],
-                      [lng + lngStep, lat + latStep],
-                      [lng, lat + latStep],
-                      [lng, lat],
-                    ],
-                  ],
-                },
-              });
-            }
-          }
-        }
-
-        data[index] = { type: "FeatureCollection", features };
-      });
-
-    return data;
-  }, [boundary]);
+    if (hasLiveNdvi) {
+      return {
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            properties: { value: liveNdvi as number, source: "eosda" },
+            geometry: boundary,
+          },
+        ],
+      };
+    }
+    if (
+      VEGETATION_LAYERS.includes(selectedLayer) ||
+      selectedLayer === "weed" ||
+      selectedLayer === "pest"
+    ) {
+      return buildSyntheticIndexGrid(boundary, selectedLayer);
+    }
+    return null;
+  }, [boundary, selectedLayer, liveNdvi, hasLiveNdvi]);
 
   useEffect(() => {
     if (!boundary || !boundary.coordinates || !boundary.coordinates[0]) {
@@ -318,14 +389,11 @@ export const FieldMapWithLayers = ({
       indexLayerRef.current = null;
     }
 
-    if (selectedLayer === "none" || !indexData) return;
-
-    const data = indexData[selectedLayer];
-    if (!data) return;
+    if (selectedLayer === "none" || !indexData?.features?.length) return;
 
     const colors = layerConfig[selectedLayer].colors;
 
-    indexLayerRef.current = L.geoJSON(data, {
+    indexLayerRef.current = L.geoJSON(indexData as GeoJSON.GeoJsonObject, {
       style: (feature) => {
         const value = feature?.properties?.value || 0;
         const colorIndex = Math.min(
@@ -349,10 +417,33 @@ export const FieldMapWithLayers = ({
 
   const currentLayerConfig = layerConfig[selectedLayer];
 
+  const showNdviStatus =
+    fetchVegetation && !!boundary?.coordinates?.length;
+
   return (
     <div className="relative w-full h-full rounded-lg overflow-hidden border border-border">
       {/* Leaflet Map */}
       <div ref={mapContainerRef} className="absolute inset-0 z-0" />
+
+      {showNdviStatus && ndviLoading && (
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-[1001] flex items-center gap-2 rounded-md border bg-card/95 px-3 py-2 text-xs shadow-lg">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Loading EOSDA NDVI…
+        </div>
+      )}
+      {showNdviStatus && !ndviLoading && ndviError && (
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-[1001] max-w-sm rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-100">
+          EOSDA unavailable — showing preview pattern. Check field ID / API.
+        </div>
+      )}
+      {showNdviStatus &&
+        !ndviLoading &&
+        !ndviError &&
+        !hasLiveNdvi && (
+          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-[1001] max-w-sm rounded-md border bg-card/95 px-3 py-2 text-xs text-muted-foreground shadow-lg">
+            No EOSDA NDVI in the last 30 days — preview pattern shown.
+          </div>
+        )}
 
       {/* Top Right - Legend (Always show if a layer is active, independent of controls) */}
       {selectedLayer !== "none" && currentLayerConfig.colors.length > 0 && (

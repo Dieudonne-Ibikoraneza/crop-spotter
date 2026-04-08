@@ -23,6 +23,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAssignedFarmers, useAssessments } from "@/lib/api/hooks/useAssessor";
 import { useAssessorClaims } from "@/lib/api/hooks/useClaims";
+import type { Farm } from "@/lib/api/types";
+
+function farmHasValidBoundary(farm: Pick<Farm, "boundary">): boolean {
+  const b = farm.boundary;
+  if (!b?.coordinates) return false;
+  const rings = b.coordinates;
+  return Array.isArray(rings) && rings.length > 0;
+}
 
 interface Farmer {
   id: string;
@@ -47,6 +55,8 @@ interface Field {
   status: "active" | "moderate" | "healthy" | "pending" | "submitted" | "approved" | "rejected";
   eosdaFieldId?: string;
   location?: FieldLocation | null;
+  /** False until KML / geometry is stored — drives link to field-processing */
+  hasBoundary: boolean;
 }
 
 const Dashboard = () => {
@@ -128,6 +138,7 @@ const Dashboard = () => {
           status: fieldStatus,
           eosdaFieldId: farm.id,
           location: farm.location,
+          hasBoundary: farmHasValidBoundary(farm),
         };
       }),
     ) || [];
@@ -325,12 +336,14 @@ const Dashboard = () => {
             data={fields} 
             columns={fieldColumns}
             onRowClick={(field) => {
-              if (field.id) {
-                if (field.status === "pending") {
-                  navigate(`/assessor/field-processing?fieldId=${field.id}&farmer=${encodeURIComponent(field.farmerName)}&name=${encodeURIComponent(field.crop + ' Field')}`);
-                } else {
-                  navigate(`/assessor/field/${field.id}`);
-                }
+              if (!field.id) return;
+              // After admin assignment, status is often REGISTERED but boundary may still be missing — send to KML flow
+              if (!field.hasBoundary) {
+                navigate(
+                  `/assessor/field-processing?fieldId=${field.id}&farmer=${encodeURIComponent(field.farmerName)}&name=${encodeURIComponent(field.crop + " Field")}`,
+                );
+              } else {
+                navigate(`/assessor/field/${field.id}`);
               }
             }}
           />

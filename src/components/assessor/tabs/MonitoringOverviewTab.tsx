@@ -26,7 +26,10 @@ import {
   Clock,
   Image as ImageIcon,
 } from "lucide-react";
-import { CropMonitoringRecord, cropMonitoringService } from "@/lib/api/services/cropMonitoring";
+import {
+  CropMonitoringRecord,
+  cropMonitoringService,
+} from "@/lib/api/services/cropMonitoring";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -85,9 +88,14 @@ export const MonitoringOverviewTab = ({
         photoUrls,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["crop-monitoring-policy", policyId] });
+      queryClient.invalidateQueries({
+        queryKey: ["crop-monitoring-policy", policyId],
+      });
       queryClient.invalidateQueries({ queryKey: ["crop-monitoring"] });
-      toast({ title: "Saved", description: "Monitoring data updated successfully." });
+      toast({
+        title: "Saved",
+        description: "Monitoring data updated successfully.",
+      });
     },
     onError: (err: any) => {
       toast({
@@ -101,12 +109,15 @@ export const MonitoringOverviewTab = ({
   const reportMutation = useMutation({
     mutationFn: () => cropMonitoringService.generateReport(activeCycle!._id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["crop-monitoring-policy", policyId] });
+      queryClient.invalidateQueries({
+        queryKey: ["crop-monitoring-policy", policyId],
+      });
       queryClient.invalidateQueries({ queryKey: ["crop-monitoring"] });
       setInitialized(false);
       toast({
         title: "Report Generated",
-        description: "The monitoring report has been generated and the insurer has been notified.",
+        description:
+          "The monitoring report has been generated and the insurer has been notified.",
       });
     },
     onError: (err: any) => {
@@ -136,7 +147,10 @@ export const MonitoringOverviewTab = ({
 
     setIsUploading(true);
     try {
-      const result = await cropMonitoringService.uploadPhoto(activeCycle._id, file);
+      const result = await cropMonitoringService.uploadPhoto(
+        activeCycle._id,
+        file,
+      );
       setPhotoUrls((prev) => [...prev, result.url]);
       toast({ title: "Photo uploaded", description: file.name });
     } catch (err: any) {
@@ -155,9 +169,14 @@ export const MonitoringOverviewTab = ({
     setPhotoUrls((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const canGenerateReport = observations.length > 0 && notes.trim().length > 0 && (activeCycle?.droneAnalysisPdfs?.length || 0) > 0;
+  const canGenerateReport =
+    observations.length > 0 &&
+    notes.trim().length > 0 &&
+    (activeCycle?.droneAnalysisPdfs?.length || 0) > 0;
 
-  const completedCycles = (cycles || []).filter((c) => c.status === "COMPLETED");
+  const completedCycles = (cycles || []).filter(
+    (c) => c.status === "COMPLETED",
+  );
 
   return (
     <div className="space-y-6">
@@ -169,7 +188,10 @@ export const MonitoringOverviewTab = ({
               <Clock className="h-5 w-5 text-amber-500" />
               Active Cycle: #{activeCycle.monitoringNumber}
             </h3>
-            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+            <Badge
+              variant="outline"
+              className="bg-amber-50 text-amber-700 border-amber-200"
+            >
               In Progress
             </Badge>
           </div>
@@ -193,7 +215,9 @@ export const MonitoringOverviewTab = ({
                       >
                         <div className="flex items-start gap-3">
                           <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                          <span className="leading-relaxed text-foreground">{obs}</span>
+                          <span className="leading-relaxed text-foreground">
+                            {obs}
+                          </span>
                         </div>
                         <Button
                           variant="ghost"
@@ -219,7 +243,12 @@ export const MonitoringOverviewTab = ({
                         placeholder="Add observation..."
                         onKeyDown={(e) => e.key === "Enter" && addObservation()}
                       />
-                      <Button variant="outline" size="icon" onClick={addObservation} disabled={!newObservation.trim()}>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={addObservation}
+                        disabled={!newObservation.trim()}
+                      >
                         <Plus className="h-4 w-4" />
                       </Button>
                     </div>
@@ -238,8 +267,15 @@ export const MonitoringOverviewTab = ({
                 <CardContent className="space-y-4">
                   <div className="flex flex-wrap gap-3">
                     {photoUrls.map((url, idx) => (
-                      <div key={idx} className="relative group w-24 h-24 rounded-lg border overflow-hidden bg-muted">
-                        <img src={getPhotoUrl(url)} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover" />
+                      <div
+                        key={idx}
+                        className="relative group w-24 h-24 rounded-lg border overflow-hidden bg-muted"
+                      >
+                        <img
+                          src={getPhotoUrl(url)}
+                          alt={`Photo ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                        />
                         <button
                           onClick={() => removePhoto(idx)}
                           className="absolute top-1 right-1 bg-destructive text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -250,9 +286,24 @@ export const MonitoringOverviewTab = ({
                     ))}
                   </div>
                   <div className="flex items-center gap-2">
-                    <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} disabled={isCompleted} />
-                    <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isUploading || isCompleted}>
-                      {isUploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handlePhotoUpload}
+                      disabled={isCompleted}
+                    />
+                    <Button
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading || isCompleted}
+                    >
+                      {isUploading ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Plus className="h-4 w-4 mr-2" />
+                      )}
                       {isUploading ? "Uploading..." : "Add Photo"}
                     </Button>
                   </div>
@@ -277,35 +328,49 @@ export const MonitoringOverviewTab = ({
                     className="min-h-[250px] resize-none"
                     disabled={isCompleted}
                   />
-                  
+
                   {!isCompleted && (
                     <div className="flex flex-col gap-3 pt-4 border-t">
-                      <Button 
-                        onClick={() => updateMutation.mutate()} 
+                      <Button
+                        onClick={() => updateMutation.mutate()}
                         disabled={updateMutation.isPending}
                         className="w-full bg-green-600 hover:bg-green-700"
                       >
-                        {updateMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                        {updateMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Save className="h-4 w-4 mr-2" />
+                        )}
                         Save Progress
                       </Button>
 
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button variant="outline" className="w-full" disabled={!canGenerateReport}>
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            disabled={!canGenerateReport}
+                          >
                             <CheckCircle2 className="h-4 w-4 mr-2" />
                             Complete Cycle & Generate Report
                           </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>Finalize Monitoring Cycle?</AlertDialogTitle>
+                            <AlertDialogTitle>
+                              Finalize Monitoring Cycle?
+                            </AlertDialogTitle>
                             <AlertDialogDescription>
-                              This will generate the final report for Cycle #{activeCycle.monitoringNumber} of <strong>{fieldName}</strong> and notify the insurer. You won't be able to edit this cycle further.
+                              This will generate the final report for Cycle #
+                              {activeCycle.monitoringNumber} of{" "}
+                              <strong>{fieldName}</strong> and notify the
+                              insurer. You won't be able to edit this cycle
+                              further.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction 
+                            <AlertDialogAction
                               onClick={() => reportMutation.mutate()}
                               className="bg-green-600 hover:bg-green-700"
                             >
@@ -317,7 +382,8 @@ export const MonitoringOverviewTab = ({
 
                       {!canGenerateReport && (
                         <p className="text-xs text-muted-foreground text-center">
-                          Add observations, notes, and at least one drone report to finalize.
+                          Add observations, notes, and at least one drone report
+                          to finalize.
                         </p>
                       )}
                     </div>
@@ -340,7 +406,9 @@ export const MonitoringOverviewTab = ({
           <CardContent className="py-12 text-center text-muted-foreground">
             <Plus className="h-10 w-10 mx-auto mb-3 opacity-50" />
             <p>No Active Monitoring Cycle</p>
-            <p className="text-sm">Start a new cycle in the Basic Info tab to begin your assessment.</p>
+            <p className="text-sm">
+              Start a new cycle in the Basic Info tab to begin your assessment.
+            </p>
           </CardContent>
         </Card>
       )}
@@ -358,44 +426,77 @@ export const MonitoringOverviewTab = ({
                       <CheckCircle2 className="h-4 w-4 text-green-600" />
                       Cycle #{cycle.monitoringNumber}
                     </CardTitle>
-                    <Badge className="bg-green-100 text-green-800 border-green-200">Completed</Badge>
+                    <Badge className="bg-green-100 text-green-800 border-green-200">
+                      Completed
+                    </Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="text-sm space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-muted-foreground text-xs uppercase">Date</p>
-                      <p className="font-medium">{new Date(cycle.monitoringDate).toLocaleDateString()}</p>
+                      <p className="text-muted-foreground text-xs uppercase">
+                        Date
+                      </p>
+                      <p className="font-medium">
+                        {new Date(cycle.monitoringDate).toLocaleDateString()}
+                      </p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground text-xs uppercase">Report Generated</p>
-                      <p className="font-medium">{cycle.reportGeneratedAt ? new Date(cycle.reportGeneratedAt).toLocaleDateString() : 'N/A'}</p>
+                      <p className="text-muted-foreground text-xs uppercase">
+                        Report Generated
+                      </p>
+                      <p className="font-medium">
+                        {cycle.reportGeneratedAt
+                          ? new Date(
+                              cycle.reportGeneratedAt,
+                            ).toLocaleDateString()
+                          : "N/A"}
+                      </p>
                     </div>
                   </div>
-                  
+
                   {cycle.observations && (
                     <div>
-                      <p className="text-muted-foreground text-xs uppercase mb-1">Observations</p>
+                      <p className="text-muted-foreground text-xs uppercase mb-1">
+                        Observations
+                      </p>
                       <ul className="list-disc list-inside space-y-1">
-                        {cycle.observations.map((obs, i) => <li key={i} className="text-foreground">{obs}</li>)}
+                        {cycle.observations.map((obs, i) => (
+                          <li key={i} className="text-foreground">
+                            {obs}
+                          </li>
+                        ))}
                       </ul>
                     </div>
                   )}
 
                   {cycle.notes && (
                     <div>
-                      <p className="text-muted-foreground text-xs uppercase mb-1">Notes</p>
-                      <p className="bg-background/50 p-3 rounded border border-border italic text-foreground">{cycle.notes}</p>
+                      <p className="text-muted-foreground text-xs uppercase mb-1">
+                        Notes
+                      </p>
+                      <p className="bg-background/50 p-3 rounded border border-border italic text-foreground">
+                        {cycle.notes}
+                      </p>
                     </div>
                   )}
 
                   {cycle.photoUrls && cycle.photoUrls.length > 0 && (
                     <div>
-                      <p className="text-muted-foreground text-xs uppercase mb-2">Photos</p>
+                      <p className="text-muted-foreground text-xs uppercase mb-2">
+                        Photos
+                      </p>
                       <div className="flex flex-wrap gap-2">
                         {cycle.photoUrls.map((url, i) => (
-                          <div key={i} className="w-16 h-16 rounded border overflow-hidden">
-                            <img src={getPhotoUrl(url)} alt={`Photo ${i}`} className="w-full h-full object-cover" />
+                          <div
+                            key={i}
+                            className="w-16 h-16 rounded border overflow-hidden"
+                          >
+                            <img
+                              src={getPhotoUrl(url)}
+                              alt={`Photo ${i}`}
+                              className="w-full h-full object-cover"
+                            />
                           </div>
                         ))}
                       </div>

@@ -1,3 +1,4 @@
+import { useEffect, useMemo } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,6 +7,14 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { FieldMapWithLayers } from "@/components/assessor/FieldMapWithLayers";
 import { useFarm, useAssessments } from "@/lib/api/hooks/useAssessor";
 import { useAssessorClaims } from "@/lib/api/hooks/useClaims";
+import { useFarmMonitoring } from "@/lib/api/hooks/useFarmer";
+import type { FarmBoundary, MonitoringRecord } from "@/lib/api/types";
+import { latestNdviFromMonitoring } from "@/lib/ndvi";
+
+function boundaryIsPresent(boundary?: FarmBoundary | null): boolean {
+  const coords = boundary?.coordinates;
+  return Array.isArray(coords) && coords.length > 0;
+}
 
 const FieldDetail = () => {
   const { id } = useParams();
@@ -21,6 +30,19 @@ const FieldDetail = () => {
   const { data: farm, isLoading, error } = useFarm(farmId || undefined);
   const { data: assessments } = useAssessments();
   const { data: claimsData } = useAssessorClaims();
+  const { data: monitoringRaw, isLoading: monitoringLoading } = useFarmMonitoring(
+    farmId || "",
+  );
+
+  const monitoringList = useMemo((): MonitoringRecord[] => {
+    if (!monitoringRaw) return [];
+    if (typeof monitoringRaw === "object" && "data" in monitoringRaw && Array.isArray((monitoringRaw as { data: unknown }).data)) {
+      return (monitoringRaw as { data: MonitoringRecord[] }).data;
+    }
+    return Array.isArray(monitoringRaw) ? (monitoringRaw as MonitoringRecord[]) : [];
+  }, [monitoringRaw]);
+
+  const latestMonitoringNdvi = latestNdviFromMonitoring(monitoringList);
 
   // Find existing assessment and claim for this field
   const existingAssessment = assessments?.find(a => {
@@ -181,6 +203,38 @@ const FieldDetail = () => {
 
   const displayField = field || fallbackField;
 
+  const needsBoundaryRedirect =
+    !isLoading && !error && !!farm && !boundaryIsPresent(farm.boundary);
+
+  useEffect(() => {
+    if (!needsBoundaryRedirect || !farm) return;
+    const name =
+      farm.name && farm.name !== farm.cropType
+        ? farm.name
+        : `${farm.cropType || "Field"} Field ${farm.id.substring(0, 6)}`;
+    const farmerLabel =
+      farm.farmerName || `Farmer ${String(farm.farmerId).slice(0, 6)}`;
+    navigate(
+      `/assessor/field-processing?fieldId=${farm.id}&farmer=${encodeURIComponent(farmerLabel)}&name=${encodeURIComponent(name)}`,
+      { replace: true },
+    );
+  }, [needsBoundaryRedirect, farm, navigate]);
+
+  if (needsBoundaryRedirect) {
+    return (
+      <div className="p-8">
+        <Button variant="outline" onClick={() => navigate(-1)} className="mb-4">
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to List
+        </Button>
+        <div className="flex flex-col items-center justify-center gap-3 min-h-[200px] text-muted-foreground">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm">Opening field processing to add boundary…</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-8">
       {/* Header */}
@@ -295,44 +349,42 @@ const FieldDetail = () => {
                 </div>
                 <div className="p-4 bg-muted/50 rounded-lg">
                   <p className="text-sm text-muted-foreground mb-2">
-                    NDVI Health Score
+                    NDVI (monitoring)
                   </p>
                   <p className="text-2xl font-bold text-primary">
-                    {typeof existingAssessment?.riskScore === 'number'
-                      ? `${(1 - existingAssessment.riskScore / 100).toFixed(2)}` 
-                      : field.status === 'healthy' || field.status === 'insured' ? '0.81' : '--'}
+                    {monitoringLoading
+                      ? "…"
+                      : latestMonitoringNdvi != null
+                        ? latestMonitoringNdvi.toFixed(3)
+                        : "—"}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {typeof existingAssessment?.riskScore === 'number' 
-                      ? "Calculated from recent analysis" 
-                      : existingAssessment 
-                        ? "Analysis in progress..." 
-                        : field.status === 'healthy' || field.status === 'insured' 
-                          ? "Historical Baseline" 
-                          : "Awaiting satellite analysis"}
+                    {monitoringLoading
+                      ? "Loading monitoring records…"
+                      : latestMonitoringNdvi != null
+                        ? "Latest value from automated farm monitoring (0–1 scale)"
+                        : "No monitoring NDVI yet — usually appears after an active policy and daily job"}
                   </p>
                 </div>
                 <div className="p-4 bg-muted/50 rounded-lg">
                   <p className="text-sm text-muted-foreground mb-2">
-                    Stress Level
+                    Risk assessment score
                   </p>
                   <p className={`text-2xl font-bold ${
                     typeof existingAssessment?.riskScore === 'number' && existingAssessment.riskScore > 60 ? 'text-destructive' :
                     typeof existingAssessment?.riskScore === 'number' && existingAssessment.riskScore > 30 ? 'text-warning' :
                     'text-green-600'
                   }`}>
-                    {typeof existingAssessment?.riskScore === 'number' 
-                      ? (existingAssessment.riskScore > 60 ? "High" : existingAssessment.riskScore > 30 ? "Moderate" : "Low") 
-                      : (field.status === 'healthy' || field.status === 'insured' ? "Low" : "--")}
+                    {typeof existingAssessment?.riskScore === 'number'
+                      ? `${existingAssessment.riskScore} / 100`
+                      : "—"}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {typeof existingAssessment?.riskScore === 'number' 
-                      ? `Risk Index: ${existingAssessment.riskScore}` 
-                      : existingAssessment 
-                        ? "Score pending analysis" 
-                        : field.status === 'healthy' || field.status === 'insured' 
-                          ? "Baseline Analysis" 
-                          : "No risk data available"}
+                    {typeof existingAssessment?.riskScore === 'number'
+                      ? "From submitted risk assessment (not NDVI)"
+                      : existingAssessment
+                        ? "Complete assessment to compute risk index"
+                        : "No assessment yet"}
                   </p>
                 </div>
               </CardContent>

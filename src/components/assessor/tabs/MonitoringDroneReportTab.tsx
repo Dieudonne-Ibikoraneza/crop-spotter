@@ -30,6 +30,7 @@ import {
   CropMonitoringRecord,
 } from "@/lib/api/services/cropMonitoring";
 import { useQueryClient } from "@tanstack/react-query";
+import { formatReportTypeLabel } from "@/lib/crops";
 import { DroneAnalysisView } from "../DroneAnalysisView";
 
 interface MonitoringDroneReportTabProps {
@@ -54,7 +55,13 @@ export const MonitoringDroneReportTab = ({
   const isCompleted = activeCycle?.status === "COMPLETED";
 
   const formatValue = (val: any) => {
-    if (val == null || val === "" || String(val).toLowerCase() === "none" || val === "—") return "—";
+    if (
+      val == null ||
+      val === "" ||
+      String(val).toLowerCase() === "none" ||
+      val === "—"
+    )
+      return "—";
     return val;
   };
 
@@ -62,7 +69,10 @@ export const MonitoringDroneReportTab = ({
 
   // Derive pdfType from file name (without extension)
   const getPdfTypeFromFile = (file: File): string => {
-    const name = file.name.replace(/\.pdf$/i, "").replace(/\s+/g, "_").toLowerCase();
+    const name = file.name
+      .replace(/\.pdf$/i, "")
+      .replace(/\s+/g, "_")
+      .toLowerCase();
     return name;
   };
 
@@ -121,7 +131,6 @@ export const MonitoringDroneReportTab = ({
       });
     }
   };
-
 
   if (!activeCycle) {
     return (
@@ -217,7 +226,7 @@ export const MonitoringDroneReportTab = ({
                 <CardTitle className="text-base flex items-center gap-2">
                   <FileText className="h-4 w-4 text-primary" />
                   <span className="capitalize">
-                    {(pdf.pdfType || "unknown").replace(/_/g, " ")}
+                    {formatReportTypeLabel(pdf.pdfType || "unknown")}
                   </span>
                   <Badge
                     variant="outline"
@@ -246,15 +255,19 @@ export const MonitoringDroneReportTab = ({
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
-                   <AlertDialogHeader>
-                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      Are you absolutely sure?
+                    </AlertDialogTitle>
                     <AlertDialogDescription>
-                      This will permanently delete the "{pdf.pdfType.replace(/_/g, " ")}" PDF report from the server.
+                      This will permanently delete the "
+                      {formatReportTypeLabel(pdf.pdfType)}" PDF report from the
+                      server.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction 
+                    <AlertDialogAction
                       onClick={() => handleDeletePdf(pdf.pdfType)}
                       disabled={isCompleted}
                     >
@@ -266,9 +279,9 @@ export const MonitoringDroneReportTab = ({
             </div>
           </CardHeader>
           <CardContent>
-            <DroneAnalysisView 
-              data={pdf.droneAnalysisData} 
-              pdfType={pdf.pdfType} 
+            <DroneAnalysisView
+              data={pdf.droneAnalysisData}
+              pdfType={pdf.pdfType}
             />
           </CardContent>
         </Card>

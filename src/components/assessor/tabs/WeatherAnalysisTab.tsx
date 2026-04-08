@@ -39,6 +39,10 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { authStorage } from "@/lib/api/client";
+import {
+  agroTempToCelsius,
+  extractAgroForecastRows,
+} from "@/lib/weatherUnits";
 // Notes are handled in Overview tab only.
 
 interface WeatherData {
@@ -352,34 +356,41 @@ export const WeatherAnalysisTab = ({
     fetchWeatherData();
   }, [fieldId, fetchWeatherData]);
 
-  // Convert to array and take first 7 days
-  const transformForecastData = (response: { data: any[] }): WeatherData[] => {
-    if (!response?.data || !Array.isArray(response.data)) return [];
+  // Convert to array and take first 7 days (forecast temps from Agro API are Kelvin)
+  const transformForecastData = (
+    response: ForecastResponse | null,
+  ): WeatherData[] => {
+    const rows = extractAgroForecastRows(response) as Array<{
+      dt: number;
+      main: { temp_max: number; temp_min: number; humidity: number };
+      rain?: { "3h"?: number };
+      clouds: { all: number };
+      wind: { speed: number };
+    }>;
+    if (!rows.length) return [];
 
-    // Group by date and take the first entry per day for 7-day forecast
     const dailyData = new Map<
       string,
       { dt: number; main: any; rain?: any; clouds: any; wind: any }
     >();
 
-    response.data.forEach((item) => {
+    rows.forEach((item) => {
       const date = new Date(item.dt * 1000).toLocaleDateString();
       if (!dailyData.has(date)) {
         dailyData.set(date, item);
       }
     });
 
-    // Convert to array and take first 7 days
     return Array.from(dailyData.values())
       .slice(0, 7)
-      .map((item, index) => ({
+      .map((item) => ({
         date: new Date(item.dt * 1000).toLocaleDateString(),
-        tempHigh: Math.round(item.main.temp_max),
-        tempLow: Math.round(item.main.temp_min),
+        tempHigh: Math.round(agroTempToCelsius(item.main.temp_max)),
+        tempLow: Math.round(agroTempToCelsius(item.main.temp_min)),
         rain: item.rain?.["3h"] || 0,
         humidity: item.main.humidity,
         clouds: item.clouds.all,
-        wind: Math.round(item.wind.speed * 10) / 10, // Convert to more readable format
+        wind: Math.round(item.wind.speed * 10) / 10,
       }));
   };
 
@@ -550,14 +561,22 @@ export const WeatherAnalysisTab = ({
           <CardTitle>Current Weather</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          {forecastData?.data?.[0] ? (
+          {(() => {
+            const pts = extractAgroForecastRows(forecastData) as Array<{
+              main: { temp: number; humidity: number };
+              rain?: { "3h"?: number };
+              clouds: { all: number };
+              wind: { speed: number };
+            }>;
+            const cur = pts[0];
+            return cur ? (
             <>
               <div className="flex items-center gap-3">
                 <Thermometer className="h-8 w-8 text-primary" />
                 <div>
                   <p className="text-xs text-muted-foreground">Temperature</p>
                   <p className="text-lg font-semibold">
-                    {Math.round(forecastData.data[0].main.temp)}°C
+                    {Math.round(agroTempToCelsius(cur.main.temp))}°C
                   </p>
                 </div>
               </div>
@@ -566,7 +585,7 @@ export const WeatherAnalysisTab = ({
                 <div>
                   <p className="text-xs text-muted-foreground">Precipitation</p>
                   <p className="text-lg font-semibold">
-                    {forecastData.data[0].rain?.["3h"] || 0} mm
+                    {cur.rain?.["3h"] || 0} mm
                   </p>
                 </div>
               </div>
@@ -575,7 +594,7 @@ export const WeatherAnalysisTab = ({
                 <div>
                   <p className="text-xs text-muted-foreground">Humidity</p>
                   <p className="text-lg font-semibold">
-                    {forecastData.data[0].main.humidity}%
+                    {cur.main.humidity}%
                   </p>
                 </div>
               </div>
@@ -584,7 +603,7 @@ export const WeatherAnalysisTab = ({
                 <div>
                   <p className="text-xs text-muted-foreground">Clouds</p>
                   <p className="text-lg font-semibold">
-                    {forecastData.data[0].clouds.all}%
+                    {cur.clouds.all}%
                   </p>
                 </div>
               </div>
@@ -593,7 +612,7 @@ export const WeatherAnalysisTab = ({
                 <div>
                   <p className="text-xs text-muted-foreground">Wind</p>
                   <p className="text-lg font-semibold">
-                    {Math.round(forecastData.data[0].wind.speed * 10) / 10} m/s
+                    {Math.round(cur.wind.speed * 10) / 10} m/s
                   </p>
                 </div>
               </div>
@@ -602,7 +621,8 @@ export const WeatherAnalysisTab = ({
             <div className="col-span-5 text-center text-muted-foreground">
               Loading current weather...
             </div>
-          )}
+          );
+          })()}
         </CardContent>
       </Card>
 

@@ -30,6 +30,7 @@ import {
   useFileClaim,
 } from "@/lib/api/hooks/useFarmer";
 import type { Claim } from "@/lib/api/services/claims";
+import { formatBackendEnumLabel } from "@/lib/crops";
 
 function refId(ref: unknown): string {
   if (ref == null) return "";
@@ -196,7 +197,7 @@ const FarmerClaims = () => {
                       ] as const
                     ).map((t) => (
                       <SelectItem key={t} value={t}>
-                        {t.replace(/_/g, " ")}
+                        {formatBackendEnumLabel(t)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -287,7 +288,9 @@ const FarmerClaims = () => {
               <Card key={c._id} className="border-border/60">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base flex items-center justify-between gap-3">
-                    <span className="min-w-0 truncate">{c.lossEventType}</span>
+                    <span className="min-w-0 truncate">
+                      {formatBackendEnumLabel(c.lossEventType)}
+                    </span>
                     <Badge variant={statusBadgeVariant(c.status)} className="shrink-0">
                       {c.status}
                     </Badge>
@@ -295,8 +298,17 @@ const FarmerClaims = () => {
                 </CardHeader>
                 <CardContent className="space-y-3 text-sm">
                   <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    {c.claimType === "HARVEST_AUTO_SUBMISSION" ? (
+                      <Badge variant="outline" className="text-[10px] uppercase tracking-wider font-bold border-blue-200 bg-blue-50 text-blue-700 h-5 px-1.5">
+                        Scheduled
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] uppercase tracking-wider font-bold border-amber-200 bg-amber-50 text-amber-700 h-5 px-1.5">
+                        Farmer Reported
+                      </Badge>
+                    )}
                     {claimFarmName(c.farmId) && (
-                      <Badge variant="secondary" className="font-medium">
+                      <Badge variant="secondary" className="font-medium h-5 px-1.5">
                         {claimFarmName(c.farmId)}
                       </Badge>
                     )}

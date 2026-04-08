@@ -48,6 +48,7 @@ export interface Claim {
     | { _id: string; firstName?: string; lastName?: string; email?: string };
   assessmentReportId?: string | ClaimAssessment;
   lossEventType: string;
+  claimType?: "FARMER_REPORTED_LOSS" | "HARVEST_AUTO_SUBMISSION";
   lossDescription?: string;
   damagePhotos: string[];
   status: string;

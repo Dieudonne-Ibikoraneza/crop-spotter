@@ -16,7 +16,10 @@ import {
   Clock,
   Activity,
   FileDown,
+  Download,
 } from "lucide-react";
+import { toast } from "sonner";
+import { generateDroneDataPDF } from "@/utils/dronePdfGenerator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,6 +41,7 @@ import {
   displayUserName,
   refIdString,
 } from "@/lib/utils/adminDisplay";
+import { formatReportTypeLabel } from "@/lib/crops";
 import { resolveUploadsUrl } from "@/lib/utils/assetUrl";
 import { authService } from "@/lib/api/services/auth";
 
@@ -155,6 +159,7 @@ const AdminCropMonitoringDetail = () => {
 
   const [selectedReport, setSelectedReport] = useState<DronePdf | null>(null);
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const openFarm = (record: CropMonitoringRecord) => {
     const farmId = refIdString(record.farmId);
@@ -467,7 +472,7 @@ const AdminCropMonitoringDetail = () => {
                     </div>
                     <div className="text-left overflow-hidden">
                       <p className="text-sm font-medium truncate capitalize">
-                        {pdf.pdfType.replace(/_/g, " ")}
+                        {formatReportTypeLabel(pdf.pdfType)}
                       </p>
                       <p className="text-[10px] text-muted-foreground">
                         Monitoring #{data.monitoringNumber} •{" "}
@@ -500,7 +505,7 @@ const AdminCropMonitoringDetail = () => {
               <div className="p-2 bg-primary/10 rounded-lg">
                 <Activity className="h-5 w-5 text-primary" />
               </div>
-              {selectedReport?.pdfType?.replace(/_/g, " ") || "Report"} details
+              {formatReportTypeLabel(selectedReport?.pdfType)} details
             </DialogTitle>
             <p className="text-sm text-muted-foreground mt-1">
               Analysis data extracted from uploaded drone report
@@ -516,7 +521,34 @@ const AdminCropMonitoringDetail = () => {
             )}
           </div>
 
-          <div className="p-4 border-t bg-muted/30 flex justify-end shrink-0">
+          <div className="p-4 border-t bg-muted/30 flex justify-end items-center gap-3 shrink-0">
+            <Button
+              variant="default"
+              className="gap-2 bg-primary hover:bg-primary/90"
+              disabled={isDownloading || !selectedReport}
+              onClick={async () => {
+                if (!selectedReport) return;
+                setIsDownloading(true);
+                try {
+                  await generateDroneDataPDF(
+                    selectedReport.droneAnalysisData as any,
+                    formatReportTypeLabel(selectedReport.pdfType),
+                  );
+                  toast.success("Report downloaded successfully");
+                } catch (error) {
+                  toast.error("Failed to generate PDF report");
+                } finally {
+                  setIsDownloading(false);
+                }
+              }}
+            >
+              {isDownloading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              Download Report
+            </Button>
             <Button variant="outline" onClick={() => setIsReportDialogOpen(false)}>
               Close report
             </Button>

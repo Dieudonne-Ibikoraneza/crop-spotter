@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { formatBackendEnumLabel } from "@/lib/crops";
 
 const priorityBadge = (status: string) => {
   if (status === "FILED") return "destructive";
@@ -178,7 +179,7 @@ const InsurerClaims = () => {
                         : "Unknown Farmer"}
                     </span>
                     <span>•</span>
-                    <span>{c.lossEventType}</span>
+                    <span>{formatBackendEnumLabel(c.lossEventType)}</span>
                     <span>•</span>
                     <span>Filed {format(new Date(c.filedAt), "PPp")}</span>
                   </div>

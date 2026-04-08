@@ -1,4 +1,10 @@
 import { Loader2 } from "lucide-react";
+import {
+  analysisLevelHectares,
+  fieldAreaHectares,
+  rxAreaHectaresDisplay,
+  totalAffectedHectares,
+} from "@/utils/droneAreaDisplay";
 
 interface DroneAnalysisViewProps {
   data: any;
@@ -27,6 +33,7 @@ export const DroneAnalysisView = ({ data, pdfType }: DroneAnalysisViewProps) => 
   const fieldData = data.field || {};
   const analysisSection = data.analysis || {};
   const levels = analysisSection.levels || [];
+  const fieldHa = fieldAreaHectares(fieldData);
 
   return (
     <div className="space-y-5">
@@ -38,16 +45,10 @@ export const DroneAnalysisView = ({ data, pdfType }: DroneAnalysisViewProps) => 
             <p className="text-lg font-bold">{fieldData.crop}</p>
           </div>
         )}
-        {fieldData.area_hectares != null && (
+        {fieldHa != null && (
           <div className="p-3 rounded-lg bg-muted/50 border">
             <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Field Area</p>
-            <p className="text-lg font-bold">{fieldData.area_hectares} ha</p>
-          </div>
-        )}
-        {fieldData.area_acres != null && fieldData.area_acres > 0 && (
-          <div className="p-3 rounded-lg bg-muted/50 border">
-            <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Field Area (Acres)</p>
-            <p className="text-lg font-bold">{fieldData.area_acres} ac</p>
+            <p className="text-lg font-bold">{fieldHa.toFixed(2)} ha</p>
           </div>
         )}
         {fieldData.growing_stage && (
@@ -88,8 +89,7 @@ export const DroneAnalysisView = ({ data, pdfType }: DroneAnalysisViewProps) => 
                 <tr className="bg-muted/50">
                   <th className="text-left p-3 font-semibold">Level</th>
                   <th className="text-right p-3 font-semibold">%</th>
-                  <th className="text-right p-3 font-semibold">Hectare</th>
-                  {levels[0]?.area_acres != null && <th className="text-right p-3 font-semibold">Acres</th>}
+                  <th className="text-right p-3 font-semibold">Hectares (ha)</th>
                 </tr>
               </thead>
               <tbody>
@@ -102,8 +102,9 @@ export const DroneAnalysisView = ({ data, pdfType }: DroneAnalysisViewProps) => 
                       </div>
                     </td>
                     <td className="p-3 text-right font-medium">{parseFloat(level.percentage || 0).toFixed(2)}%</td>
-                    <td className="p-3 text-right font-medium">{parseFloat(level.area_hectares || 0).toFixed(2)}</td>
-                    {level.area_acres != null && <td className="p-3 text-right font-medium">{parseFloat(level.area_acres || 0).toFixed(2)}</td>}
+                    <td className="p-3 text-right font-medium">
+                      {analysisLevelHectares(level).toFixed(2)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -113,14 +114,11 @@ export const DroneAnalysisView = ({ data, pdfType }: DroneAnalysisViewProps) => 
       ) : null}
 
       {/* Total Affected Area */}
-      {analysisSection.total_area_hectares > 0 && (
+      {totalAffectedHectares(analysisSection) > 0 && (
         <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/30">
           <p className="text-sm text-muted-foreground mb-1">Total Affected Area:</p>
           <p className="text-2xl font-bold text-destructive">
-            {analysisSection.total_area_hectares} ha = {analysisSection.total_area_percent || 0}% field
-            {analysisSection.total_area_acres && (
-              <span className="text-base font-normal text-muted-foreground ml-2">({analysisSection.total_area_acres} acres)</span>
-            )}
+            {totalAffectedHectares(analysisSection).toFixed(2)} ha = {analysisSection.total_area_percent || 0}% field
           </p>
         </div>
       )}
@@ -182,7 +180,7 @@ export const DroneAnalysisView = ({ data, pdfType }: DroneAnalysisViewProps) => 
                     <tr className="bg-muted/50">
                       <th className="text-left p-3 font-medium">Zone</th>
                       <th className="text-right p-3 font-medium">Rate</th>
-                      <th className="text-right p-3 font-medium">Area</th>
+                      <th className="text-right p-3 font-medium">Area (ha)</th>
                       {rx.rates[0]?.percentage != null && <th className="text-right p-3 font-medium">%</th>}
                     </tr>
                   </thead>
@@ -202,10 +200,7 @@ export const DroneAnalysisView = ({ data, pdfType }: DroneAnalysisViewProps) => 
                             {formatValue(rate.rate != null ? rate.rate : (rate.amount != null ? rate.amount : null))}
                             {rate.rate_unit ? ` ${rate.rate_unit.replace(/_/g, "/")}` : ""}
                           </td>
-                          <td className="p-3 text-right font-medium">
-                            {formatValue(rate.area != null ? rate.area : (rate.area_hectares != null ? rate.area_hectares : null))}
-                            {rate.area_unit ? ` ${rate.area_unit}` : ""}
-                          </td>
+                          <td className="p-3 text-right font-medium">{rxAreaHectaresDisplay(rate)}</td>
                           {rx.rates[0]?.percentage != null && (
                             <td className="p-3 text-right font-medium">
                               {formatValue(rate.percentage != null ? `${rate.percentage}%` : null)}

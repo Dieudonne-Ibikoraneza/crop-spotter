@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FieldMapWithLayers } from "../FieldMapWithLayers";
 import { Sprout, MapPin, Calendar } from "lucide-react";
+import { formatCropTypeLabel } from "@/lib/crops";
 
 interface BasicInfoTabProps {
   fieldId: string;
@@ -70,7 +71,7 @@ export const BasicInfoTab = ({
               <p className="text-sm text-muted-foreground mb-1">Crop Type</p>
               <div className="flex items-center gap-2">
                 <Sprout className="h-4 w-4 text-primary" />
-                <p className="font-medium">{cropType}</p>
+                <p className="font-medium">{formatCropTypeLabel(cropType)}</p>
               </div>
             </div>
             <div>

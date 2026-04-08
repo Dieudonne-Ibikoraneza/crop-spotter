@@ -20,7 +20,9 @@ import {
   Activity,
   ShieldAlert,
   FileDown,
+  Download,
 } from "lucide-react";
+import { generateDroneDataPDF } from "@/utils/dronePdfGenerator";
 import {
   Card,
   CardContent,
@@ -61,6 +63,11 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState } from "react";
 import { StatusBadge } from "@/components/ui/status-badge";
+import {
+  formatBackendEnumLabel,
+  formatCropTypeLabel,
+  formatReportTypeLabel,
+} from "@/lib/crops";
 
 const InsurerClaimDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -68,6 +75,7 @@ const InsurerClaimDetail = () => {
   const { data: claim, isLoading, error } = useClaim(id);
   const [selectedReport, setSelectedReport] = useState<any>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Helper function to calculate season from sowing date (Rwanda specific)
   const getSeasonFromSowingDate = (sowingDate?: string): string => {
@@ -224,7 +232,7 @@ const InsurerClaimDetail = () => {
                     Event Type
                   </label>
                   <p className="text-lg font-bold text-primary">
-                    {claim.lossEventType}
+                    {formatBackendEnumLabel(claim.lossEventType)}
                   </p>
                 </div>
                 <div>
@@ -429,7 +437,7 @@ const InsurerClaimDetail = () => {
                             </div>
                             <div className="text-left overflow-hidden">
                               <p className="text-sm font-medium truncate capitalize">
-                                {pdf.pdfType.replace(/_/g, " ")}
+                                {formatReportTypeLabel(pdf.pdfType)}
                               </p>
                               <p className="text-[10px] text-muted-foreground">
                                 Monitoring #{m.monitoringNumber} •{" "}
@@ -470,7 +478,7 @@ const InsurerClaimDetail = () => {
                             </div>
                             <div className="text-left overflow-hidden">
                               <p className="text-sm font-medium truncate capitalize">
-                                {pdf.pdfType.replace(/_/g, " ")}
+                                {formatReportTypeLabel(pdf.pdfType)}
                               </p>
                               <p className="text-[10px] text-muted-foreground">
                                 Assessment •{" "}
@@ -508,7 +516,7 @@ const InsurerClaimDetail = () => {
                           </div>
                           <div className="text-left overflow-hidden">
                             <p className="text-sm font-medium truncate capitalize">
-                              {pdf.pdfType.replace(/_/g, " ")}
+                              {formatReportTypeLabel(pdf.pdfType)}
                             </p>
                             <p className="text-[10px] text-muted-foreground">
                               Claim Evidence Report •{" "}
@@ -573,7 +581,34 @@ const InsurerClaimDetail = () => {
                 )}
               </div>
 
-              <div className="p-4 border-t bg-muted/30 flex justify-end shrink-0">
+              <div className="p-4 border-t bg-muted/30 flex justify-end items-center gap-3 shrink-0">
+                <Button
+                  variant="default"
+                  className="gap-2 bg-primary hover:bg-primary/90"
+                  disabled={isDownloading || !selectedReport}
+                  onClick={async () => {
+                    if (!selectedReport) return;
+                    setIsDownloading(true);
+                    try {
+                      await generateDroneDataPDF(
+                        selectedReport.droneAnalysisData as any,
+                        formatReportTypeLabel(selectedReport.pdfType),
+                      );
+                      toast.success("Report downloaded successfully");
+                    } catch (error) {
+                      toast.error("Failed to generate PDF report");
+                    } finally {
+                      setIsDownloading(false);
+                    }
+                  }}
+                >
+                  {isDownloading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  Download Report
+                </Button>
                 <Button
                   variant="outline"
                   onClick={() => setIsDialogOpen(false)}
@@ -872,7 +907,7 @@ const InsurerClaimDetail = () => {
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis max-w-[180px]">
-                    {farm?.cropType} • {farm?.area} Ha
+                    {formatCropTypeLabel(farm?.cropType)} • {farm?.area} Ha
                   </p>
                 </div>
               </div>

@@ -22,6 +22,8 @@ export interface CropMonitoringRecord {
   }[];
   reportGenerated?: boolean;
   reportGeneratedAt?: string;
+  totalRecommendedCycles?: number;
+  recommendedNextMonitoringDate?: string;
   createdAt?: string;
   updatedAt?: string;
 }

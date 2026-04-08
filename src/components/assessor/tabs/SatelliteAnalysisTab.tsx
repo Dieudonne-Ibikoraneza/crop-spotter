@@ -61,6 +61,9 @@ export const SatelliteAnalysisTab = ({
       <Card>
         <CardHeader>
           <CardTitle>Satellite Metrics (EOSDA)</CardTitle>
+          <p className="text-xs text-muted-foreground font-normal pt-1">
+            Illustrative values only — connect this tab to live EOSDA or monitoring APIs for real metrics.
+          </p>
         </CardHeader>
         <CardContent className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="p-4 rounded-lg bg-muted/50">

@@ -8,6 +8,7 @@ import {
   WeatherForecastDataPoint,
   InsuranceRequest,
 } from "../types";
+import { averageNdviAcrossFarms, latestNdviFromMonitoring } from "@/lib/ndvi";
 import { Policy } from "./policies";
 import { Claim } from "./claims";
 
@@ -132,12 +133,26 @@ export const farmerService = {
       ? claims.filter(c => c.status === "FILED" || c.status === "IN_PROGRESS").length
       : 0;
 
+    const items = Array.isArray(farmsData.items) ? farmsData.items : [];
+    const latestPerFarm = await Promise.all(
+      items.map(async (farm) => {
+        try {
+          const rows = await farmerService.getFarmMonitoring(farm.id);
+          const list = Array.isArray(rows) ? rows : [];
+          return latestNdviFromMonitoring(list as MonitoringRecord[]);
+        } catch {
+          return null;
+        }
+      }),
+    );
+    const averageHealth = averageNdviAcrossFarms(latestPerFarm);
+
     return {
       totalFarms:
-        farmsData.totalItems ?? (Array.isArray(farmsData.items) ? farmsData.items.length : 0),
+        farmsData.totalItems ?? items.length,
       activePolicies,
       pendingClaims,
-      averageHealth: null,
+      averageHealth,
     };
   },
 };

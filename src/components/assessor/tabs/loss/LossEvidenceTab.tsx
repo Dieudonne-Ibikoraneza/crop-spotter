@@ -1,18 +1,25 @@
 import { useState, useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { 
-  Loader2, 
-  Upload, 
-  FileText, 
-  Image as ImageIcon, 
-  AlertCircle, 
-  Trash2, 
+import {
+  Loader2,
+  Upload,
+  FileText,
+  Image as ImageIcon,
+  AlertCircle,
+  Trash2,
   ExternalLink,
-  CheckCircle2
+  CheckCircle2,
 } from "lucide-react";
+import { formatReportTypeLabel } from "@/lib/crops";
 import { Claim, claimsService } from "@/lib/api/services/claims";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -47,23 +54,40 @@ export const LossEvidenceTab = ({ claim }: LossEvidenceTabProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  const isCompleted = ["SUBMITTED", "APPROVED", "REJECTED", "COMPLETED"].includes(claim.status);
-  
-  const { data: dronePdfs = [], isLoading: isAssessmentLoading } = useClaimPdfs(claim._id);
+  const isCompleted = [
+    "SUBMITTED",
+    "APPROVED",
+    "REJECTED",
+    "COMPLETED",
+  ].includes(claim.status);
+
+  const { data: dronePdfs = [], isLoading: isAssessmentLoading } = useClaimPdfs(
+    claim._id,
+  );
 
   const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     // Use filename as pdfType (clean it up)
-    const pdfType = file.name.split(".")[0].toUpperCase().replace(/[^A-Z0-0]/g, "_");
+    const pdfType = file.name
+      .split(".")[0]
+      .toUpperCase()
+      .replace(/[^A-Z0-0]/g, "_");
 
     setIsUploading(true);
     try {
       await claimsService.uploadDronePdf(claim._id, pdfType, file);
-      queryClient.invalidateQueries({ queryKey: ["claims", "detail", claim._id] });
-      queryClient.invalidateQueries({ queryKey: ["claims", "pdfs", claim._id] });
-      toast({ title: "Report Uploaded", description: `"${file.name}" has been processed.` });
+      queryClient.invalidateQueries({
+        queryKey: ["claims", "detail", claim._id],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["claims", "pdfs", claim._id],
+      });
+      toast({
+        title: "Report Uploaded",
+        description: `"${file.name}" has been processed.`,
+      });
     } catch (err: any) {
       toast({
         title: "Upload Failed",
@@ -79,8 +103,12 @@ export const LossEvidenceTab = ({ claim }: LossEvidenceTabProps) => {
   const handleDeletePdf = async (pdfType: string) => {
     try {
       await claimsService.deletePdf(claim._id, pdfType);
-      queryClient.invalidateQueries({ queryKey: ["claims", "detail", claim._id] });
-      queryClient.invalidateQueries({ queryKey: ["claims", "pdfs", claim._id] });
+      queryClient.invalidateQueries({
+        queryKey: ["claims", "detail", claim._id],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["claims", "pdfs", claim._id],
+      });
       toast({ title: "Deleted", description: "Report removed successfully." });
     } catch (err: any) {
       toast({
@@ -101,21 +129,26 @@ export const LossEvidenceTab = ({ claim }: LossEvidenceTabProps) => {
               <ImageIcon className="h-5 w-5 text-primary" />
               Farmer Evidence
             </CardTitle>
-            <CardDescription>Photos provided by the farmer during claim filing</CardDescription>
+            <CardDescription>
+              Photos provided by the farmer during claim filing
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            {claim.damagePhotos && claim.damagePhotos.length >0 ? (
+            {claim.damagePhotos && claim.damagePhotos.length > 0 ? (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {claim.damagePhotos.map((url, i) => (
-                  <div key={i} className="aspect-square rounded-lg border overflow-hidden bg-muted group relative">
-                    <img 
-                      src={getMediaUrl(url)} 
-                      alt={`Evidence ${i+1}`} 
-                      className="w-full h-full object-cover transition-transform group-hover:scale-105" 
+                  <div
+                    key={i}
+                    className="aspect-square rounded-lg border overflow-hidden bg-muted group relative"
+                  >
+                    <img
+                      src={getMediaUrl(url)}
+                      alt={`Evidence ${i + 1}`}
+                      className="w-full h-full object-cover transition-transform group-hover:scale-105"
                     />
-                    <a 
-                      href={getMediaUrl(url)} 
-                      target="_blank" 
+                    <a
+                      href={getMediaUrl(url)}
+                      target="_blank"
                       rel="noreferrer"
                       className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                     >
@@ -140,7 +173,9 @@ export const LossEvidenceTab = ({ claim }: LossEvidenceTabProps) => {
               <Upload className="h-5 w-5 text-primary" />
               Assessor Drone Reports
             </CardTitle>
-            <CardDescription>Upload Agremo analysis reports for damage quantification</CardDescription>
+            <CardDescription>
+              Upload Agremo analysis reports for damage quantification
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {!isCompleted ? (
@@ -155,19 +190,29 @@ export const LossEvidenceTab = ({ claim }: LossEvidenceTabProps) => {
                 />
                 <div className="space-y-2">
                   <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto group-hover:bg-primary/20 transition-colors">
-                    {isUploading ? <Loader2 className="h-5 w-5 animate-spin text-primary" /> : <Upload className="h-5 w-5 text-primary" />}
+                    {isUploading ? (
+                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                    ) : (
+                      <Upload className="h-5 w-5 text-primary" />
+                    )}
                   </div>
-                  <p className="font-medium">{isUploading ? "Uploading..." : "Click to upload drone PDF"}</p>
-                  <p className="text-xs text-muted-foreground">Supports Plant Stress, Waterlogging, Stand Count, etc.</p>
+                  <p className="font-medium">
+                    {isUploading ? "Uploading..." : "Click to upload drone PDF"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Supports Plant Stress, Waterlogging, Stand Count, etc.
+                  </p>
                 </div>
               </div>
             ) : (
               <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3 text-amber-800 text-sm">
                 <AlertCircle className="h-5 w-5 shrink-0" />
-                <p>This claim assessment is finalized. No further uploads allowed.</p>
+                <p>
+                  This claim assessment is finalized. No further uploads
+                  allowed.
+                </p>
               </div>
             )}
-
           </CardContent>
         </Card>
       </div>
@@ -182,7 +227,9 @@ export const LossEvidenceTab = ({ claim }: LossEvidenceTabProps) => {
         <div className="py-12 text-center text-muted-foreground bg-muted/30 rounded-lg border border-dashed max-w-2xl mx-auto">
           <FileText className="h-10 w-10 mx-auto mb-2 opacity-50" />
           <p>No drone reports uploaded yet</p>
-          <p className="text-xs">Extracted analysis will appear here after upload.</p>
+          <p className="text-xs">
+            Extracted analysis will appear here after upload.
+          </p>
         </div>
       )}
 
@@ -229,12 +276,14 @@ export const LossEvidenceTab = ({ claim }: LossEvidenceTabProps) => {
                     <AlertDialogHeader>
                       <AlertDialogTitle>Delete Report?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        This will permanently remove the "{pdf.pdfType.replace(/_/g, " ")}" analysis from this claim.
+                        This will permanently remove the "
+                        {formatReportTypeLabel(pdf.pdfType)}" analysis from this
+                        claim.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction 
+                      <AlertDialogAction
                         onClick={() => handleDeletePdf(pdf.pdfType)}
                         className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                       >
@@ -246,9 +295,9 @@ export const LossEvidenceTab = ({ claim }: LossEvidenceTabProps) => {
               )}
             </CardHeader>
             <CardContent>
-              <DroneAnalysisView 
-                data={pdf.droneAnalysisData} 
-                pdfType={pdf.pdfType} 
+              <DroneAnalysisView
+                data={pdf.droneAnalysisData}
+                pdfType={pdf.pdfType}
               />
             </CardContent>
           </Card>

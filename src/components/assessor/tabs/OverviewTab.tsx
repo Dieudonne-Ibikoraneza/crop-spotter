@@ -9,6 +9,10 @@ import {
   type RiskAssessment,
   type WeatherData,
 } from "@/utils/riskCalculation";
+import {
+  agroTempToCelsius,
+  extractAgroForecastRows,
+} from "@/lib/weatherUnits";
 import { ComprehensiveReportGenerator } from "@/utils/reportGenerator";
 import { apiClient } from "@/lib/api/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -110,7 +114,7 @@ export const OverviewTab = ({
         const forecastStart = today.toISOString().split("T")[0];
         const forecastEnd = end.toISOString().split("T")[0];
 
-        const [acc, forecast] = await Promise.all([
+        const [acc, forecastPayload] = await Promise.all([
           apiClient.get<{
             field_id: string;
             date_start: string;
@@ -123,18 +127,15 @@ export const OverviewTab = ({
           }>(
             `/farms/${fieldId}/weather/accumulated?dateStart=${dateStart}&dateEnd=${dateEnd}`,
           ),
-          apiClient.get<
-            Array<{
-              dt: number;
-              main: { temp: number; temp_min: number; temp_max: number; humidity: number };
-            }>
-          >(
+          apiClient.get<unknown>(
             `/farms/${fieldId}/weather/forecast?dateStart=${forecastStart}&dateEnd=${forecastEnd}`,
           ),
         ]);
 
         const totalRain = Number(acc?.total_rainfall ?? 0);
-        const avgTemp = Number(acc?.avg_temperature ?? 0);
+        const avgTempRaw = Number(acc?.avg_temperature ?? 0);
+        /** Accumulated history is averaged in °C; guard if API ever returns Kelvin. */
+        const avgTemp = agroTempToCelsius(avgTempRaw);
         const days = 30;
         const avgDaily = days > 0 ? totalRain / days : 0;
 
@@ -143,14 +144,20 @@ export const OverviewTab = ({
         const floodRiskStr =
           avgDaily > 5 ? "High" : avgDaily > 3 ? "Moderate" : "Low";
 
-        const maxForecastK = Array.isArray(forecast)
-          ? Math.max(
-              ...forecast
-                .map((p) => p?.main?.temp_max)
-                .filter((v): v is number => typeof v === "number"),
-            )
+        const forecastPoints = extractAgroForecastRows(forecastPayload) as Array<{
+          main?: { temp_max?: number };
+        }>;
+        const maxForecastRaw =
+          forecastPoints.length > 0
+            ? Math.max(
+                ...forecastPoints
+                  .map((p) => p?.main?.temp_max)
+                  .filter((v): v is number => typeof v === "number"),
+              )
+            : NaN;
+        const maxForecastC = Number.isFinite(maxForecastRaw)
+          ? agroTempToCelsius(maxForecastRaw)
           : NaN;
-        const maxForecastC = Number.isFinite(maxForecastK) ? maxForecastK - 273.15 : NaN;
 
         const maxTempForStress = Number.isFinite(maxForecastC)
           ? Math.max(avgTemp, maxForecastC)
@@ -333,7 +340,9 @@ export const OverviewTab = ({
                   </div>
 
                   <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                    <span className="font-medium">Crop Health</span>
+                    <span className="font-medium">
+                      Est. healthy area (drone report)
+                    </span>
                     <div className="flex items-center gap-2">
                       <span className="font-semibold">
                         {riskAssessment.cropHealth}
@@ -360,11 +369,18 @@ export const OverviewTab = ({
                   <div className="space-y-3">
                     <div className="space-y-1">
                       <div className="flex justify-between text-sm">
-                        <span>🌿 Crop Health</span>
-                        <span>{riskAssessment.components.cropHealth}%</span>
+                        <span>🌿 Plant stress (drone)</span>
+                        <span>
+                          {Number(
+                            riskAssessment.components.cropHealth.toFixed(2),
+                          )}
+                          %
+                        </span>
                       </div>
                       <Progress
-                        value={riskAssessment.components.cropHealth}
+                        value={Number(
+                          riskAssessment.components.cropHealth.toFixed(2),
+                        )}
                         className="h-2"
                       />
                     </div>
@@ -372,10 +388,17 @@ export const OverviewTab = ({
                     <div className="space-y-1">
                       <div className="flex justify-between text-sm">
                         <span>🌦️ Weather</span>
-                        <span>{riskAssessment.components.weather}%</span>
+                        <span>
+                          {Number(
+                            riskAssessment.components.weather.toFixed(2),
+                          )}
+                          %
+                        </span>
                       </div>
                       <Progress
-                        value={riskAssessment.components.weather}
+                        value={Number(
+                          riskAssessment.components.weather.toFixed(2),
+                        )}
                         className="h-2"
                       />
                     </div>
@@ -383,10 +406,17 @@ export const OverviewTab = ({
                     <div className="space-y-1">
                       <div className="flex justify-between text-sm">
                         <span>🌱 Growth Stage</span>
-                        <span>{riskAssessment.components.growthStage}%</span>
+                        <span>
+                          {Number(
+                            riskAssessment.components.growthStage.toFixed(2),
+                          )}
+                          %
+                        </span>
                       </div>
                       <Progress
-                        value={riskAssessment.components.growthStage}
+                        value={Number(
+                          riskAssessment.components.growthStage.toFixed(2),
+                        )}
                         className="h-2"
                       />
                     </div>
@@ -394,10 +424,17 @@ export const OverviewTab = ({
                     <div className="space-y-1">
                       <div className="flex justify-between text-sm">
                         <span>🌸 Flowering</span>
-                        <span>{riskAssessment.components.flowering}%</span>
+                        <span>
+                          {Number(
+                            riskAssessment.components.flowering.toFixed(2),
+                          )}
+                          %
+                        </span>
                       </div>
                       <Progress
-                        value={riskAssessment.components.flowering}
+                        value={Number(
+                          riskAssessment.components.flowering.toFixed(2),
+                        )}
                         className="h-2"
                       />
                     </div>

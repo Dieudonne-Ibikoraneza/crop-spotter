@@ -99,6 +99,7 @@ export function useAssignAssessorToFarm() {
       queryClient.invalidateQueries({ queryKey: ["admin", "policies", "list"] });
       queryClient.invalidateQueries({ queryKey: ["admin", "claims", "all"] });
       queryClient.invalidateQueries({ queryKey: assessmentsKeys.all });
+      queryClient.invalidateQueries({ queryKey: assessmentsKeys.assignedFarmers });
       toast.success("Assessor assigned. Assessment created for this farm.");
     },
     onError: (err: Error & { message?: string }) => {

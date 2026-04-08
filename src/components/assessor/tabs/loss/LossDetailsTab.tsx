@@ -1,20 +1,30 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { 
-  Loader2, 
-  Save, 
-  AlertCircle, 
-  TrendingDown, 
-  Layers, 
+import {
+  Loader2,
+  Save,
+  AlertCircle,
+  TrendingDown,
+  Layers,
   Percent,
   CheckCircle2,
   Sparkles,
-  Microscope
+  Microscope,
 } from "lucide-react";
-import { Claim, ClaimAssessment, claimsService } from "@/lib/api/services/claims";
+import {
+  Claim,
+  ClaimAssessment,
+  claimsService,
+} from "@/lib/api/services/claims";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAssessmentById } from "@/lib/api/hooks/useClaims";
@@ -26,17 +36,20 @@ interface LossDetailsTabProps {
 export const LossDetailsTab = ({ claim }: LossDetailsTabProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
-  const assessmentFromClaim = typeof claim.assessmentReportId === 'object' 
-    ? claim.assessmentReportId as ClaimAssessment 
-    : null;
 
-  const assessmentId = typeof claim.assessmentReportId === 'string' 
-    ? claim.assessmentReportId 
-    : assessmentFromClaim?._id;
+  const assessmentFromClaim =
+    typeof claim.assessmentReportId === "object"
+      ? (claim.assessmentReportId as ClaimAssessment)
+      : null;
 
-  const { data: fetchedAssessment, isLoading: isAssessmentLoading } = useAssessmentById(assessmentId);
-  
+  const assessmentId =
+    typeof claim.assessmentReportId === "string"
+      ? claim.assessmentReportId
+      : assessmentFromClaim?._id;
+
+  const { data: fetchedAssessment, isLoading: isAssessmentLoading } =
+    useAssessmentById(assessmentId);
+
   const assessment = fetchedAssessment || assessmentFromClaim;
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -48,19 +61,26 @@ export const LossDetailsTab = ({ claim }: LossDetailsTabProps) => {
 
   useEffect(() => {
     if (assessment) {
-      const savedNdviBefore = assessment.ndviBefore != null ? String(assessment.ndviBefore) : "";
-      const savedNdviAfter = assessment.ndviAfter != null ? String(assessment.ndviAfter) : "";
-      const savedDamageArea = assessment.damageArea != null ? String(assessment.damageArea) : "";
-      const savedYieldImpact = assessment.yieldImpact != null ? String(assessment.yieldImpact) : "";
+      const savedNdviBefore =
+        assessment.ndviBefore != null ? String(assessment.ndviBefore) : "";
+      const savedNdviAfter =
+        assessment.ndviAfter != null ? String(assessment.ndviAfter) : "";
+      const savedDamageArea =
+        assessment.damageArea != null ? String(assessment.damageArea) : "";
+      const savedYieldImpact =
+        assessment.yieldImpact != null ? String(assessment.yieldImpact) : "";
 
       setNdviBefore(savedNdviBefore);
       setNdviAfter(savedNdviAfter);
-      
+
       // Auto-extraction from drone reports if saved values are empty
       let extractedArea = "";
       let extractedYield = "";
 
-      if (assessment.droneAnalysisPdfs && assessment.droneAnalysisPdfs.length > 0) {
+      if (
+        assessment.droneAnalysisPdfs &&
+        assessment.droneAnalysisPdfs.length > 0
+      ) {
         for (const pdf of assessment.droneAnalysisPdfs) {
           const data = pdf.droneAnalysisData;
           if (!data) continue;
@@ -78,38 +98,70 @@ export const LossDetailsTab = ({ claim }: LossDetailsTabProps) => {
       setDamageArea(savedDamageArea || extractedArea);
       setYieldImpact(savedYieldImpact || extractedYield);
 
-      // If NDVI is missing, trigger an automated analysis fetch
+      // If NDVI is missing, try automated satellite analysis (no mock fallbacks on backend)
       if (!savedNdviBefore || !savedNdviAfter) {
-        handleGetAnalysis();
+        void runDamageAnalysisFetch();
       }
     }
   }, [assessment]);
 
-  const handleGetAnalysis = async () => {
+  const runDamageAnalysisFetch = async () => {
     if (isAnalyzing) return;
     setIsAnalyzing(true);
     try {
       const analysis = await claimsService.getDamageAnalysis(claim._id);
-      if (analysis) {
-        if (!ndviBefore) setNdviBefore(String(analysis.ndviBefore.toFixed(2)));
-        if (!ndviAfter) setNdviAfter(String(analysis.ndviAfter.toFixed(2)));
-        if (!damageArea && analysis.estimatedDamageArea) setDamageArea(String(analysis.estimatedDamageArea.toFixed(2)));
+      if (analysis && typeof analysis === "object") {
+        if (typeof analysis.error === "string") {
+          toast({
+            title: "Satellite NDVI",
+            description: analysis.error,
+          });
+        }
+        const b = analysis.ndviBefore;
+        const a = analysis.ndviAfter;
+        if (typeof b === "number" && Number.isFinite(b)) {
+          setNdviBefore((prev) => (prev.trim() ? prev : b.toFixed(2)));
+        }
+        if (typeof a === "number" && Number.isFinite(a)) {
+          setNdviAfter((prev) => (prev.trim() ? prev : a.toFixed(2)));
+        }
+        const area = analysis.estimatedDamageArea;
+        if (typeof area === "number" && Number.isFinite(area)) {
+          setDamageArea((prev) => (prev.trim() ? prev : area.toFixed(2)));
+        }
       }
     } catch (error) {
       console.error("Failed to fetch damage analysis:", error);
+      toast({
+        title: "Satellite analysis failed",
+        description: "Enter NDVI values manually or retry later.",
+        variant: "destructive",
+      });
     } finally {
       setIsAnalyzing(false);
     }
   };
 
-  const isCompleted = ["SUBMITTED", "APPROVED", "REJECTED", "COMPLETED"].includes(claim.status);
+  const isCompleted = [
+    "SUBMITTED",
+    "APPROVED",
+    "REJECTED",
+    "COMPLETED",
+  ].includes(claim.status);
 
   const updateMutation = useMutation({
     mutationFn: (data: any) => claimsService.updateAssessment(claim._id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["claims", "detail", claim._id] });
-      queryClient.invalidateQueries({ queryKey: ["assessments", "detail", assessmentId] });
-      toast({ title: "Saved", description: "Loss quantification updated successfully." });
+      queryClient.invalidateQueries({
+        queryKey: ["claims", "detail", claim._id],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["assessments", "detail", assessmentId],
+      });
+      toast({
+        title: "Saved",
+        description: "Loss quantification updated successfully.",
+      });
     },
     onError: (err: any) => {
       toast({
@@ -129,9 +181,14 @@ export const LossDetailsTab = ({ claim }: LossDetailsTabProps) => {
     });
   };
 
-  const ndviChange = parseFloat(ndviBefore) && parseFloat(ndviAfter) 
-    ? ((parseFloat(ndviAfter) - parseFloat(ndviBefore)) / parseFloat(ndviBefore) * 100).toFixed(1)
-    : null;
+  const ndviChange =
+    parseFloat(ndviBefore) && parseFloat(ndviAfter)
+      ? (
+          ((parseFloat(ndviAfter) - parseFloat(ndviBefore)) /
+            parseFloat(ndviBefore)) *
+          100
+        ).toFixed(1)
+      : null;
 
   return (
     <div className="space-y-6">
@@ -140,17 +197,23 @@ export const LossDetailsTab = ({ claim }: LossDetailsTabProps) => {
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <div>
               <CardTitle className="text-lg">NDVI Analysis</CardTitle>
-              <CardDescription>Comparison of vegetation health before and after the event</CardDescription>
+              <CardDescription>
+                Comparison of vegetation health before and after the event
+              </CardDescription>
             </div>
             {!isCompleted && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleGetAnalysis}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void runDamageAnalysisFetch()}
                 disabled={isAnalyzing}
                 className="h-8 gap-2"
               >
-                {isAnalyzing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Microscope className="h-3 w-3" />}
+                {isAnalyzing ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Microscope className="h-3 w-3" />
+                )}
                 Analyze Satellite Data
               </Button>
             )}
@@ -187,9 +250,13 @@ export const LossDetailsTab = ({ claim }: LossDetailsTabProps) => {
               <div className="p-4 rounded-lg bg-orange-50 border border-orange-200 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <TrendingDown className="h-5 w-5 text-orange-600" />
-                  <span className="text-sm font-medium text-orange-900">Vegetation Health Impact</span>
+                  <span className="text-sm font-medium text-orange-900">
+                    Vegetation Health Impact
+                  </span>
                 </div>
-                <span className="text-xl font-bold text-orange-700">{ndviChange}% Change</span>
+                <span className="text-xl font-bold text-orange-700">
+                  {ndviChange}% Change
+                </span>
               </div>
             )}
           </CardContent>
@@ -198,65 +265,82 @@ export const LossDetailsTab = ({ claim }: LossDetailsTabProps) => {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Loss Quantification</CardTitle>
-            <CardDescription>Estimated damage area and impact on expected yield</CardDescription>
+            <CardDescription>
+              Estimated damage area and impact on expected yield
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-             <div className="space-y-2">
-                <Label htmlFor="damage-area">Affected Area (Hectares)</Label>
-                <div className="relative">
-                  <Layers className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="damage-area"
-                    type="number"
-                    step="0.1"
-                    className="pl-9"
-                    value={damageArea}
-                    onChange={(e) => setDamageArea(e.target.value)}
-                    disabled={isCompleted}
-                    placeholder="Area in HA"
-                  />
-                </div>
+            <div className="space-y-2">
+              <Label htmlFor="damage-area">Affected Area (Hectares)</Label>
+              <div className="relative">
+                <Layers className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="damage-area"
+                  type="number"
+                  step="0.1"
+                  className="pl-9"
+                  value={damageArea}
+                  onChange={(e) => setDamageArea(e.target.value)}
+                  disabled={isCompleted}
+                  placeholder="Area in HA"
+                />
               </div>
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="yield-impact">Yield Impact Percentage</Label>
-                <div className="relative">
-                  <Percent className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="yield-impact"
-                    type="number"
-                    className="pl-9"
-                    value={yieldImpact}
-                    onChange={(e) => setYieldImpact(e.target.value)}
-                    disabled={isCompleted}
-                    placeholder="0-100"
-                  />
-                </div>
+            <div className="space-y-2">
+              <Label htmlFor="yield-impact">Yield Impact Percentage</Label>
+              <div className="relative">
+                <Percent className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="yield-impact"
+                  type="number"
+                  className="pl-9"
+                  value={yieldImpact}
+                  onChange={(e) => setYieldImpact(e.target.value)}
+                  disabled={isCompleted}
+                  placeholder="0-100"
+                />
               </div>
+            </div>
 
-              <div className="pt-4">
-                <Button 
-                  onClick={handleSave} 
-                  className="w-full bg-green-600 hover:bg-green-700"
-                  disabled={updateMutation.isPending || isCompleted}
-                >
-                  {updateMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                  Save Metrics
-                </Button>
-              </div>
+            <div className="pt-4">
+              <Button
+                onClick={handleSave}
+                className="w-full bg-green-600 hover:bg-green-700"
+                disabled={updateMutation.isPending || isCompleted}
+              >
+                {updateMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                Save Metrics
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {(ndviBefore === "" || damageArea === "") && assessment?.droneAnalysisPdfs?.length ? (
+      {(ndviBefore === "" || damageArea === "") &&
+      assessment?.droneAnalysisPdfs?.length ? (
         <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Sparkles className="h-5 w-5 text-primary" />
             <span className="text-sm font-medium text-primary-900">
-              Drone data is available. Fields have been auto-populated from your reports.
+              Drone data is available. Fields have been auto-populated from your
+              reports.
             </span>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => toast({ title: "Auto-filled", description: "Metrics extracted from reports." })}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() =>
+              toast({
+                title: "Auto-filled",
+                description: "Metrics extracted from reports.",
+              })
+            }
+          >
             Dismiss
           </Button>
         </div>
@@ -266,8 +350,9 @@ export const LossDetailsTab = ({ claim }: LossDetailsTabProps) => {
         <AlertCircle className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
         <div className="text-sm text-muted-foreground leading-relaxed">
           <p className="font-medium text-foreground mb-1">Assessor Tip</p>
-          Metrics are automatically extracted from your drone PDF reports if they contain zonation or damage analysis. 
-          You can manually override them here to match your physical field observations.
+          Metrics are automatically extracted from your drone PDF reports if
+          they contain zonation or damage analysis. You can manually override
+          them here to match your physical field observations.
         </div>
       </div>
     </div>
