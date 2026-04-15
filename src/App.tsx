@@ -32,6 +32,7 @@ import InsurerAssessments from "./pages/insurer/Assessments";
 import InsurerAssessmentDetail from "./pages/insurer/InsurerAssessmentDetail";
 import InsurerReports from "./pages/insurer/Reports";
 import InsuranceRequests from "./pages/insurer/InsuranceRequests";
+import InsurerCropMonitoring from "./pages/insurer/InsurerCropMonitoring";
 import AdminLayout from "./components/layouts/AdminLayout";
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminUsers from "./pages/admin/Users";
@@ -134,6 +135,11 @@ const App = () => (
               element={<InsurerAssessmentDetail />}
             />
             <Route path="reports" element={<InsurerReports />} />
+            <Route path="crop-monitoring" element={<InsurerCropMonitoring />} />
+            <Route
+              path="crop-monitoring/:fieldId"
+              element={<InsurerCropMonitoring />}
+            />
           </Route>
 
           {/* Admin console (mock UI) */}

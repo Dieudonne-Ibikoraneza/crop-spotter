@@ -24,6 +24,7 @@ import {
   Plus,
   CheckCircle2,
   Clock,
+  Download,
   Image as ImageIcon,
 } from "lucide-react";
 import {
@@ -32,13 +33,20 @@ import {
 } from "@/lib/api/services/cropMonitoring";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { MonitoringReportGenerator } from "@/utils/monitoringReportGenerator";
+import { formatReportTypeLabel } from "@/lib/crops";
 
 interface MonitoringOverviewTabProps {
   monitoringId: string;
   policyId: string;
   fieldName: string;
+  farmerName?: string;
+  cropType?: string;
+  area?: number;
+  location?: string;
   cycles: CropMonitoringRecord[];
   activeCycle?: CropMonitoringRecord;
+  readOnly?: boolean;
 }
 
 const getPhotoUrl = (url: string) => {
@@ -52,11 +60,17 @@ export const MonitoringOverviewTab = ({
   monitoringId,
   policyId,
   fieldName,
+  farmerName = "N/A",
+  cropType = "N/A",
+  area = 0,
+  location = "N/A",
   cycles,
   activeCycle,
+  readOnly = false,
 }: MonitoringOverviewTabProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [isDownloadingFull, setIsDownloadingFull] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ---------- local editing state ----------
@@ -178,8 +192,59 @@ export const MonitoringOverviewTab = ({
     (c) => c.status === "COMPLETED",
   );
 
+  const handleDownloadFullReport = async () => {
+    setIsDownloadingFull(true);
+    try {
+      const generator = new MonitoringReportGenerator();
+      await generator.downloadFullReport({
+        farmName: fieldName,
+        farmerName,
+        cropType,
+        area,
+        location,
+        policyNumber: policyId, // Using Number/ID passed from parent
+        cycles: [...cycles].sort((a, b) => b.monitoringNumber - a.monitoringNumber),
+      });
+      toast({
+        title: "Success",
+        description: "Full monitoring report downloaded.",
+      });
+    } catch (err) {
+      console.error("Full Report Generation Error:", err);
+      toast({
+        title: "Error",
+        description: "Failed to generate report.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloadingFull(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* Header Actions */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-muted/30 p-4 rounded-xl border border-primary/10">
+        <div>
+          <h2 className="text-xl font-bold text-primary">Monitoring Documentation</h2>
+          <p className="text-sm text-muted-foreground">
+            {completedCycles.length} completed cycles recorded so far.
+          </p>
+        </div>
+        <Button
+          onClick={handleDownloadFullReport}
+          disabled={isDownloadingFull || cycles.length === 0}
+          className="bg-primary hover:bg-primary/90 text-white gap-2 h-11 px-6 shadow-md transition-all active:scale-95"
+        >
+          {isDownloadingFull ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Download className="h-5 w-5" />
+          )}
+          {isDownloadingFull ? "Generating..." : "Download Full Monitoring Report"}
+        </Button>
+      </div>
+
       {/* Active Cycle Editor */}
       {activeCycle ? (
         <>

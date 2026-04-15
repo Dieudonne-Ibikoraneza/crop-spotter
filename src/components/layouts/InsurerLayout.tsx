@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Menu,
+  Satellite,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -29,6 +30,7 @@ const InsurerLayout = () => {
     { name: "Requests", href: "/insurer/requests", icon: Leaf },
     { name: "Claims", href: "/insurer/claims", icon: FileWarning },
     { name: "Policies", href: "/insurer/policies", icon: ShieldCheck },
+    { name: "Crop Monitoring", href: "/insurer/crop-monitoring", icon: Satellite },
     { name: "Assessments", href: "/insurer/assessments", icon: ClipboardList },
     { name: "Assessors", href: "/insurer/assessors", icon: Users },
     { name: "Reports", href: "/insurer/reports", icon: BarChart3 },
