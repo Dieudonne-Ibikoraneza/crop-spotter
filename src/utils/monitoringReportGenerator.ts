@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
 import { CropMonitoringRecord } from "@/lib/api/services/cropMonitoring";
 import { formatReportTypeLabel } from "@/lib/crops";
+import { renderDroneDataToDoc } from "./dronePdfGenerator";
 
 // --- Palette ---
 const C = {
@@ -151,6 +152,18 @@ export class MonitoringReportGenerator {
     y += 8;
 
     for (const cycle of data.cycles) {
+      const wxRaw = (cycle as any).weatherData;
+      const weatherArray = (Array.isArray(wxRaw) ? wxRaw : (wxRaw?.data || wxRaw?.list || [])) as any[];
+      const hasObservations = cycle.observations?.length && cycle.observations.length > 0;
+      const hasNotes = !!cycle.notes;
+      const hasDrone = cycle.droneAnalysisPdfs?.length && cycle.droneAnalysisPdfs.length > 0;
+      const hasPhotos = cycle.photoUrls?.length && cycle.photoUrls.length > 0;
+      const hasWeather = weatherArray.length > 0;
+
+      if (!hasObservations && !hasNotes && !hasDrone && !hasPhotos && !hasWeather) {
+        continue;
+      }
+
       if (y > H - 40) {
         this.drawFooter(pageNum++);
         doc.addPage();
@@ -205,59 +218,82 @@ export class MonitoringReportGenerator {
         y += lines.length * 4 + 4;
       }
 
-      // Drone Reports (Summary)
-      if (cycle.droneAnalysisPdfs?.length) {
+      // Weather Data (First 3 entries for summary)
+      if (weatherArray.length > 0) {
+        if (y > H - 30) { this.drawFooter(pageNum++); doc.addPage(); y = 20; }
         doc.setFontSize(8);
         doc.setFont("helvetica", "bold");
         setTxt(doc, C.slate);
-        doc.text("Drone Analysis Reports:", M + 2, y);
-        y += 5;
+        doc.text("Weather Conditions:", M + 2, y);
+        y += 4;
+        
+        const wBlockW = (CW - 10) / 3;
+        let wx = M + 2;
+        
+        weatherArray.slice(0, 3).forEach((entry) => {
+          const dt = entry.dt ? new Date(entry.dt * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit" }) : "";
+          const desc = entry.weather?.[0]?.description || "";
+          const temp = entry.main?.temp ? (entry.main.temp - 273.15).toFixed(1) : "N/A";
+          const hum = entry.main?.humidity ?? "N/A";
+          const windSpeed = entry.wind?.speed ?? "N/A";
+          const rain = entry.rain?.["3h"] || entry.rain?.["1h"] || 0;
 
-        for (const pdf of cycle.droneAnalysisPdfs) {
-          if (y > H - 60) {
-            this.drawFooter(pageNum++);
-            doc.addPage();
-            y = 20;
-          }
-
-          doc.setFontSize(8);
+          const boxHeight = rain > 0 ? 25 : 21;
+          rRect(doc, wx, y, wBlockW - 2, boxHeight, 2, C.mist);
+          
+          doc.setFontSize(7);
           doc.setFont("helvetica", "bold");
-          setTxt(doc, C.leaf);
-          doc.text(`> ${formatReportTypeLabel(pdf.pdfType)}`, M + 4, y);
-          y += 5;
+          setTxt(doc, C.charcoal);
+          doc.text(`${dt}`, wx + 2, y + 4.5);
+          
+          doc.setFont("helvetica", "normal");
+          doc.text(`${desc.charAt(0).toUpperCase() + desc.slice(1)}`, wx + 2, y + 8.5);
+          doc.text(`Temp: ${temp}°C  |  Hum: ${hum}%`, wx + 2, y + 12.5);
+          doc.text(`Wind: ${windSpeed} m/s`, wx + 2, y + 16.5);
+          
+          if (rain > 0) {
+             doc.setFont("helvetica", "bold");
+             doc.setTextColor(37, 99, 235); // blue-600
+             doc.text(`Rain: ${rain} mm`, wx + 2, y + 20.5);
+          }
+          
+          wx += wBlockW;
+        });
+        y += 28;
+      }
 
-          // If it has a map image, render at medium scale
-          if (pdf.droneAnalysisData?.map_image) {
-            try {
-              const map = pdf.droneAnalysisData.map_image;
-              const mapBase64 = map.data ? `data:image/${map.format || "png"};base64,${map.data}` : (map.url ? await this.urlToBase64(map.url) : null);
-              
-              if (mapBase64) {
-                const mapW = CW * 0.6; // 60% of page width (medium scale)
-                const mapH = 45;
-                const format = mapBase64.includes("png") ? "PNG" : "JPEG";
-                doc.addImage(mapBase64, format, M + (CW - mapW) / 2, y, mapW, mapH);
-                y += mapH + 6;
+          // Drone Reports (Full Page Quality)
+          if (cycle.droneAnalysisPdfs?.length) {
+            for (const pdf of cycle.droneAnalysisPdfs) {
+              if (pdf.droneAnalysisData) {
+                // Close out the current monitoring page
+                this.drawFooter(pageNum++);
+                const endGenericPage = doc.getNumberOfPages();
+                doc.addPage();
+                y = 20;
+
+                // Render the complete Drone Report layout
+                await renderDroneDataToDoc(doc, pdf.droneAnalysisData, formatReportTypeLabel(pdf.pdfType), true);
+
+                const finalDronePage = doc.getNumberOfPages();
+                
+                // Add the Monitoring Generator footer retrospectively
+                for (let p = endGenericPage + 1; p <= finalDronePage; p++) {
+                  doc.setPage(p);
+                  this.drawFooter(pageNum++);
+                }
+
+                // Resync cursor back to the end and start a new generic monitoring page
+                doc.setPage(finalDronePage);
+                doc.addPage();
+                y = 20;
               }
-            } catch (e) {
-              console.error("Error adding map to PDF:", e);
             }
           }
 
-          // Summary stats (e.g. stress percentage)
-          if (pdf.droneAnalysisData?.analysis?.total_area_percent) {
-             doc.setFontSize(7);
-             doc.setFont("helvetica", "normal");
-             setTxt(doc, C.charcoal);
-             doc.text(`Impact Area: ${pdf.droneAnalysisData.analysis.total_area_percent.toFixed(1)}%`, M + 8, y);
-             y += 4;
-          }
-        }
-        y += 4;
-      }
-
       // Photos Grid (Compact)
       if (cycle.photoUrls?.length) {
+        if (y > H - 40) { this.drawFooter(pageNum++); doc.addPage(); y = 20; }
         doc.setFontSize(8);
         doc.setFont("helvetica", "bold");
         setTxt(doc, C.slate);
@@ -289,12 +325,17 @@ export class MonitoringReportGenerator {
         else y += 2;
       }
 
-      // Weather (if available in cycle data)
-      if ((cycle as any).weatherData) {
-         // ... (Add weather summary if needed)
-      }
+      // Clean up spacing
+      y += 5;
+    }
 
-      y += 5; // spacing between cycles
+    // If the generator ended immediately on a new page (e.g. after a Drone Report appended it conditionally)
+    // we prune the blank page automatically to save PDF logic bloat.
+    if (y <= 25 && doc.getNumberOfPages() > 1) {
+      doc.deletePage(doc.getNumberOfPages());
+      doc.setPage(doc.getNumberOfPages());
+      // The previous page already has its footer!
+      return new Blob([doc.output("blob")], { type: "application/pdf" });
     }
 
     this.drawFooter(pageNum);

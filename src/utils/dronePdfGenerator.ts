@@ -124,24 +124,24 @@ const getTotalAreaStats = (d: DroneAnalysisData, isPlantStress: boolean) => {
   return { ha, pct };
 };
 
-export const generateDroneDataPDF = async (
+export const renderDroneDataToDoc = async (
+  doc: jsPDF,
   d: DroneAnalysisData,
-  pdfTypeLabel?: string
+  pdfTypeLabel?: string,
+  skipFooter: boolean = false
 ) => {
-  try {
-    const report = d.report ?? {};
-    const field = d.field ?? {};
-    const analysisType = report.detected_report_type || report.detected_analysis_type || report.type;
-    const isPlantStressRelated =
-      analysisType?.includes("stress") ||
-      analysisType?.includes("flowering") ||
-      analysisType?.includes("pest") ||
-      analysisType?.includes("health");
+  const report = d.report ?? {};
+  const field = d.field ?? {};
+  const analysisType = report.detected_report_type || report.detected_analysis_type || report.type;
+  const isPlantStressRelated =
+    analysisType?.includes("stress") ||
+    analysisType?.includes("flowering") ||
+    analysisType?.includes("pest") ||
+    analysisType?.includes("health");
 
-    const { left: leftStrip, right: rightStrip } = getAnalysisLabels(analysisType, report.analysis_name);
+  const { left: leftStrip, right: rightStrip } = getAnalysisLabels(analysisType, report.analysis_name);
 
-    const doc = new jsPDF("p", "mm", "a4");
-    const W = doc.internal.pageSize.getWidth();
+  const W = doc.internal.pageSize.getWidth();
     const H = doc.internal.pageSize.getHeight();
     const M = 14;
     const cropName = (field.crop ?? "N/A").toString();
@@ -469,15 +469,17 @@ export const generateDroneDataPDF = async (
     }
 
     // FOOTER
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(160, 160, 160);
-    doc.text("Powered by:", M, H - 8);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(34, 197, 94);
-    doc.text(report.provider ?? "STARHAWK", M + 20, H - 8);
-    doc.setFont("helvetica", "normal");
-    doc.text("Data extracted on " + new Date().toLocaleDateString(), W - M, H - 8, { align: "right" });
+    if (!skipFooter) {
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(160, 160, 160);
+      doc.text("Powered by:", M, H - 8);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(34, 197, 94);
+      doc.text(report.provider ?? "STARHAWK", M + 20, H - 8);
+      doc.setFont("helvetica", "normal");
+      doc.text("Data extracted on " + new Date().toLocaleDateString(), W - M, H - 8, { align: "right" });
+    }
 
     // PAGE 2: MAP IMAGE
     const mapImage = d.map_image;
@@ -521,7 +523,17 @@ export const generateDroneDataPDF = async (
         }
       }
     }
+};
 
+export const generateDroneDataPDF = async (
+  d: DroneAnalysisData,
+  pdfTypeLabel?: string
+) => {
+  try {
+    const doc = new jsPDF("p", "mm", "a4");
+    await renderDroneDataToDoc(doc, d, pdfTypeLabel);
+    
+    const report = d.report ?? {};
     const dateStr = new Date().toISOString().split("T")[0];
     const fileName = `starhawk-analysis-${report.analysis_name?.toLowerCase().replace(/\s+/g, "-") || "report"}-${dateStr}.pdf`;
     doc.save(fileName);
