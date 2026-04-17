@@ -406,18 +406,31 @@ export const renderDroneDataToDoc = async (
         y += 8;
 
         doc.setFontSize(8);
+        const RX_COLORS = [
+          [34, 197, 94],   // green-500
+          [163, 230, 53],  // lime-400
+          [250, 204, 21],  // yellow-400
+          [251, 146, 60],  // orange-400
+          [248, 113, 113], // red-400
+          [220, 38, 38],   // red-600
+        ];
+
         rx.rates.forEach((rate: any, i: number) => {
           const bg = i % 2 === 0 ? [255, 255, 255] : [248, 249, 248];
           doc.setFillColor(bg[0], bg[1], bg[2]);
           doc.rect(M, y, W - M * 2, 8, "F");
-          doc.setTextColor(30, 30, 30);
           doc.setFont("helvetica", "normal");
           
-          const label = rate.zone_range || rate.rate_range || "N/A";
+          const label = rate.zone_range || rate.rate_range || rate.zone || rate.name || "N/A";
           const area = rate.area ?? rate.area_hectares ?? 0;
           const rateVal = rate.rate != null ? `${rate.rate} ${rate.rate_unit || ""}` : "N/A";
           
-          doc.text(label.toString(), M + 2, y + 5.5);
+          const dotCol = RX_COLORS[i] || [156, 163, 175]; // fallback gray-400
+          doc.setFillColor(dotCol[0], dotCol[1], dotCol[2]);
+          doc.circle(M + 3.5, y + 4.2, 1.5, "F");
+
+          doc.setTextColor(30, 30, 30);
+          doc.text(label.toString(), M + 7, y + 5.5);
           doc.text(rateVal, M + 45, y + 5.5);
           doc.text(area.toString(), M + 95, y + 5.5);
           doc.text(`${rate.percentage}%`, M + 140, y + 5.5);

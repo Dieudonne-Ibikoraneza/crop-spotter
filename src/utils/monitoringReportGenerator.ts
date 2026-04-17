@@ -179,7 +179,7 @@ export class MonitoringReportGenerator {
       const cycleDate = cycle.monitoringDate ? new Date(cycle.monitoringDate).toLocaleDateString() : "Pending";
       doc.text(`Cycle #${cycle.monitoringNumber} - ${cycleDate}`, M + 4, y + 6.5);
       
-      const status = cycle.status || "In Progress";
+      const status = cycle.status === "COMPLETED" ? "Completed" : "In Progress";
       doc.setFontSize(7);
       const sw = doc.getTextWidth(status) + 6;
       rRect(doc, M + CW - sw - 4, y + 2, sw, 6, 3, C.white);
@@ -218,19 +218,33 @@ export class MonitoringReportGenerator {
         y += lines.length * 4 + 4;
       }
 
-      // Weather Data (First 3 entries for summary)
+      // Weather Data (First 6 entries for summary)
       if (weatherArray.length > 0) {
         if (y > H - 30) { this.drawFooter(pageNum++); doc.addPage(); y = 20; }
         doc.setFontSize(8);
         doc.setFont("helvetica", "bold");
         setTxt(doc, C.slate);
-        doc.text("Weather Conditions:", M + 2, y);
+        doc.text("Weather Forecast Logs:", M + 2, y);
         y += 4;
         
         const wBlockW = (CW - 10) / 3;
+        const uniformHeight = 24; // Fixed height to precisely fit all icon rows
         let wx = M + 2;
+        let wy = y;
         
-        weatherArray.slice(0, 3).forEach((entry) => {
+        weatherArray.slice(0, 6).forEach((entry, idx) => {
+          if (idx === 3) {
+            // New row
+            wx = M + 2;
+            wy += uniformHeight + 3;
+            // Protect against row clipping
+            if (wy > H - uniformHeight - 10) {
+                this.drawFooter(pageNum++);
+                doc.addPage();
+                wy = 20;
+            }
+          }
+
           const dt = entry.dt ? new Date(entry.dt * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit" }) : "";
           const desc = entry.weather?.[0]?.description || "";
           const temp = entry.main?.temp ? (entry.main.temp - 273.15).toFixed(1) : "N/A";
@@ -238,28 +252,41 @@ export class MonitoringReportGenerator {
           const windSpeed = entry.wind?.speed ?? "N/A";
           const rain = entry.rain?.["3h"] || entry.rain?.["1h"] || 0;
 
-          const boxHeight = rain > 0 ? 25 : 21;
-          rRect(doc, wx, y, wBlockW - 2, boxHeight, 2, C.mist);
+          rRect(doc, wx, wy, wBlockW - 2, uniformHeight, 2, C.mist);
           
           doc.setFontSize(7);
           doc.setFont("helvetica", "bold");
           setTxt(doc, C.charcoal);
-          doc.text(`${dt}`, wx + 2, y + 4.5);
+          doc.text(`${dt}`, wx + 2, wy + 5);
           
           doc.setFont("helvetica", "normal");
-          doc.text(`${desc.charAt(0).toUpperCase() + desc.slice(1)}`, wx + 2, y + 8.5);
-          doc.text(`Temp: ${temp}°C  |  Hum: ${hum}%`, wx + 2, y + 12.5);
-          doc.text(`Wind: ${windSpeed} m/s`, wx + 2, y + 16.5);
+          doc.text(`${desc.charAt(0).toUpperCase() + desc.slice(1)}`, wx + 2, wy + 9);
+          
+          // Row 1: Temp & Hum
+          setTxt(doc, [239, 68, 68]); doc.text(`T`, wx + 2, wy + 14); // red-500
+          setTxt(doc, C.charcoal); doc.text(`${temp}°C`, wx + 6, wy + 14);
+          
+          setTxt(doc, [59, 130, 246]); doc.text(`H`, wx + wBlockW/2 - 2, wy + 14); // blue-500
+          setTxt(doc, C.charcoal); doc.text(`${hum}%`, wx + wBlockW/2 + 2, wy + 14);
+          
+          // Row 2: Wind & Rain
+          setTxt(doc, [100, 116, 139]); doc.text(`W`, wx + 2, wy + 19); // slate-500
+          setTxt(doc, C.charcoal); doc.text(`${windSpeed} m/s`, wx + 6, wy + 19);
           
           if (rain > 0) {
              doc.setFont("helvetica", "bold");
              doc.setTextColor(37, 99, 235); // blue-600
-             doc.text(`Rain: ${rain} mm`, wx + 2, y + 20.5);
+             doc.text(`R: ${rain} mm`, wx + wBlockW/2 - 2, wy + 19);
+          } else {
+             doc.setFont("helvetica", "normal");
+             doc.setTextColor(160, 160, 160); // muted gray
+             doc.text(`No Rain`, wx + wBlockW/2 - 2, wy + 19);
           }
           
           wx += wBlockW;
         });
-        y += 28;
+        
+        y = wy + uniformHeight + 6;
       }
 
           // Drone Reports (Full Page Quality)
