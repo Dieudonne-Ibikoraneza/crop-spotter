@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-non-null-asserted-optional-chain */
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { format, addDays } from "date-fns";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -219,6 +219,7 @@ function normalizeReports(assessment: Assessment): NormalizedReport[] {
 }
 
 const InsurerAssessmentDetail = () => {
+  const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const { data: assessment, isLoading, error } = useAssessmentDetail(id);
@@ -472,16 +473,25 @@ const InsurerAssessmentDetail = () => {
           )}
         </div>
         {assessment.status === "APPROVED" && blockingPolicyForIssue && (
-          <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">Policy already on file: </span>
-            {blockingPolicyForIssue.policyNumber}
-            <span className="mx-1">—</span>
-            {String(blockingPolicyForIssue.status).toUpperCase() === "PENDING_ACCEPTANCE"
-              ? "Awaiting farmer acceptance."
-              : "Active coverage."}{" "}
-            <Link to="/insurer/policies" className="text-primary font-medium underline-offset-4 hover:underline">
-              Open policies
-            </Link>
+          <div
+            onClick={() => {
+              const pId = blockingPolicyForIssue._id || blockingPolicyForIssue.policyNumber;
+              if (pId) {
+                navigate(`/insurer/policies?policyId=${pId}`);
+              }
+            }}
+          >
+            <Badge
+              variant="outline"
+              className="py-1.5 px-4 bg-primary/5 border-primary/20 text-primary font-mono text-sm cursor-pointer hover:bg-primary/10 transition-colors"
+            >
+              Policy: {blockingPolicyForIssue.policyNumber || "N/A"}
+              <span className="ml-2 opacity-70 border-l border-primary/30 pl-2 font-sans text-xs">
+                {String(blockingPolicyForIssue.status).toUpperCase() === "PENDING_ACCEPTANCE"
+                  ? "Pending Acceptance"
+                  : "Active Coverage"}
+              </span>
+            </Badge>
           </div>
         )}
       </div>
