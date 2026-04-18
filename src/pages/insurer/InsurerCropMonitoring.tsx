@@ -302,12 +302,20 @@ const InsurerCropMonitoring = () => {
               • {formatCropTypeLabel(farm?.cropType)}
             </p>
           </div>
-          <Badge
-            variant="outline"
-            className="py-1.5 px-4 bg-primary/5 border-primary/20 text-primary font-mono text-sm"
+          <div
+            onClick={() => {
+              if (policy?._id || policy?.policyNumber) {
+                navigate(`/insurer/policies?policyId=${policy._id || policy.policyNumber}`);
+              }
+            }}
           >
-            Policy: {policy?.policyNumber}
-          </Badge>
+            <Badge
+              variant="outline"
+              className="py-1.5 px-4 bg-primary/5 border-primary/20 text-primary font-mono text-sm cursor-pointer hover:bg-primary/10 transition-colors"
+            >
+              Policy: {policy?.policyNumber || "N/A"}
+            </Badge>
+          </div>
         </div>
 
         <Tabs defaultValue="basic" className="w-full">

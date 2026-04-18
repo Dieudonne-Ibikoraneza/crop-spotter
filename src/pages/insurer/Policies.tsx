@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { format, addYears } from "date-fns";
 import {
   ShieldCheck,
@@ -53,6 +54,7 @@ type InsurerPolicyFilter =
   | "other";
 
 const InsurerPolicies = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<InsurerPolicyFilter>("all");
   const [selectedPolicy, setSelectedPolicy] = useState<any>(null);
@@ -76,6 +78,19 @@ const InsurerPolicies = () => {
   const { data: policiesData, isLoading, error } = useMyPolicies();
   const { data: assessmentsData, isLoading: isAssessmentsLoading } = useAssessments();
   const issuePolicyMutation = useIssuePolicy();
+
+  // Listen for deeplinks directing to a specific policy detail sheet
+  useEffect(() => {
+    if (policiesData && searchParams.get("policyId")) {
+      const targetId = searchParams.get("policyId");
+      const policy = policiesData.find((p: any) => p._id === targetId || p.policyNumber === targetId);
+      if (policy) {
+        setSelectedPolicy(policy);
+        searchParams.delete("policyId");
+        setSearchParams(searchParams, { replace: true });
+      }
+    }
+  }, [policiesData, searchParams, setSearchParams]);
 
   // Helper function to calculate season from sowing date (Rwanda specific)
   const getSeasonFromSowingDate = (sowingDate?: string): string => {
