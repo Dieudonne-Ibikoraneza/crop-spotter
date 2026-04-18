@@ -103,6 +103,7 @@ import {
 } from "@/utils/weatherDisplay";
 import { formatReportTypeLabel } from "@/lib/crops";
 import { generateDroneDataPDF } from "@/utils/dronePdfGenerator";
+import { ComprehensiveReportGenerator } from "@/utils/reportGenerator";
 
 function embStr(v: unknown): string | undefined {
   if (v == null) return undefined;
@@ -230,7 +231,6 @@ const InsurerAssessmentDetail = () => {
 
 
   const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
-  const [isFarmDialogOpen, setIsFarmDialogOpen] = useState(false);
   const [rejectConfirmOpen, setRejectConfirmOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
@@ -251,7 +251,7 @@ const InsurerAssessmentDetail = () => {
   const { data: fullFarm, isLoading: farmDialogLoading } = useQuery({
     queryKey: farmsKeys.detail(farmId),
     queryFn: () => farmService.getFarm(farmId),
-    enabled: !!farmId && isFarmDialogOpen,
+    enabled: !!farmId,
   });
 
   const today = format(new Date(), "yyyy-MM-dd");
@@ -298,6 +298,42 @@ const InsurerAssessmentDetail = () => {
   const canApproveOrReject =
     assessment &&
     (assessment.status === "SUBMITTED" || assessment.status === "COMPLETED");
+
+  const [isDownloadingAssessment, setIsDownloadingAssessment] = useState(false);
+
+  const handleGenerateAssessmentReport = async () => {
+    if (!assessment) return;
+
+    setIsDownloadingAssessment(true);
+    try {
+      const reportGenerator = new ComprehensiveReportGenerator();
+      const reportData = {
+        assessmentId: assessment._id || id || "",
+        farmDetails: {
+          name: fullFarm?.name || (assessment.farmId as any)?.name || "Field",
+          cropType: fullFarm?.cropType || (assessment.farmId as any)?.cropType || "—",
+          area: fullFarm?.area || (assessment.farmId as any)?.area || 0,
+          location: fullFarm?.locationName || (assessment.farmId as any)?.locationName || "—",
+          farmerName: [assessment.farmerId?.firstName, assessment.farmerId?.lastName].filter(Boolean).join(" ").trim() || (farmRecord as any)?.farmerName || "—",
+        },
+        dronePdfs: pdfReports.map((pdf) => ({
+          pdfType: pdf.pdfType,
+          droneAnalysisData: pdf.droneAnalysisData,
+        })),
+        weatherData: forecastDays as unknown as any,
+        comprehensiveNotes: assessment.comprehensiveNotes,
+        riskAssessment: computedRisk as unknown as any,
+        reportGeneratedAt: new Date(),
+      };
+      
+      await reportGenerator.downloadReport(reportData);
+    } catch (error) {
+      console.error("Error generating report:", error);
+      toast.error("Failed to generate assessment report");
+    } finally {
+      setIsDownloadingAssessment(false);
+    }
+  };
 
   const policyForThisAssessment = useMemo(() => {
     if (!insurerPolicies || !id) return undefined;
@@ -642,6 +678,27 @@ const InsurerAssessmentDetail = () => {
         </TabsContent>
 
         <TabsContent value="overview" className="mt-0 space-y-8">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-muted/30 p-4 rounded-xl border border-primary/10 mb-8">
+            <div>
+              <h2 className="text-xl font-bold text-primary">Assessment Documentation</h2>
+              <p className="text-sm text-muted-foreground">
+                Download the comprehensive risk assessment and field documentation.
+              </p>
+            </div>
+            <Button
+              onClick={handleGenerateAssessmentReport}
+              disabled={isDownloadingAssessment}
+              className="bg-primary hover:bg-primary/90 text-white gap-2 h-11 px-6 shadow-md transition-all active:scale-95"
+            >
+              {isDownloadingAssessment ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-5 w-5" />
+              )}
+              {isDownloadingAssessment ? "Generating..." : "Export assessment report"}
+            </Button>
+          </div>
+
           <Card className="overflow-hidden border-primary/20 bg-gradient-to-br from-background to-primary/5">
             <CardHeader className="pb-4">
               <CardTitle className="text-lg flex items-center gap-2">
@@ -773,45 +830,59 @@ const InsurerAssessmentDetail = () => {
             <div className="space-y-6">
               {pdfReports.map((report) => (
                 <Card key={report.key} className="overflow-hidden border-primary/20">
-                  <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
-                    <div>
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <FileText className="h-5 w-5 text-primary" />
-                        {formatReportTypeLabel(report.pdfType)} Analysis
-                      </CardTitle>
-                      <CardDescription className="mt-1">
-                        {report.extractedAt
-                          ? `Extracted ${format(new Date(report.extractedAt), "PPP p")}`
-                          : "Recently processed"}
-                      </CardDescription>
+                  <CardHeader className="pb-3 border-b border-border/50 bg-muted/10">
+                    <div className="flex items-start justify-between flex-wrap gap-4">
+                      <div className="space-y-1">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-primary" />
+                          <span className="capitalize">
+                            {formatReportTypeLabel(report.pdfType)}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className="text-xs bg-green-50 text-green-700 border-green-200 ml-2"
+                          >
+                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                            Processed
+                          </Badge>
+                        </CardTitle>
+                        <p className="text-xs text-muted-foreground font-normal ml-6">
+                          {report.extractedAt
+                            ? `Extracted ${format(new Date(report.extractedAt), "PPP p")}`
+                            : "Recently processed"}
+                        </p>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={isDownloading}
+                          className="gap-2 shrink-0 bg-background"
+                          onClick={async () => {
+                            setIsDownloading(true);
+                            try {
+                              await generateDroneDataPDF(
+                                report.droneAnalysisData as any,
+                                formatReportTypeLabel(report.pdfType),
+                              );
+                              toast.success("Report downloaded successfully");
+                            } catch (error) {
+                              toast.error("Failed to generate PDF report");
+                            } finally {
+                              setIsDownloading(false);
+                            }
+                          }}
+                        >
+                          {isDownloading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Download className="h-4 w-4" />
+                          )}
+                          <span className="hidden sm:inline">Download</span>
+                        </Button>
+                      </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-2 shrink-0 bg-background"
-                      disabled={isDownloading}
-                      onClick={async () => {
-                        setIsDownloading(true);
-                        try {
-                          await generateDroneDataPDF(
-                            report.droneAnalysisData as any,
-                            formatReportTypeLabel(report.pdfType),
-                          );
-                          toast.success("Report downloaded successfully");
-                        } catch (error) {
-                          toast.error("Failed to generate PDF report");
-                        } finally {
-                          setIsDownloading(false);
-                        }
-                      }}
-                    >
-                      {isDownloading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Download className="h-4 w-4" />
-                      )}
-                      Export PDF
-                    </Button>
                   </CardHeader>
                   <CardContent>
                     <DroneAnalysisView

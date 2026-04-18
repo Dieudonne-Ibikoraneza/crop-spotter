@@ -6,6 +6,7 @@ import {
 } from "./riskCalculation";
 import { formatReportTypeLabel } from "@/lib/crops";
 import { analysisLevelHectares, fieldAreaHectares } from "./droneAreaDisplay";
+import { renderDroneDataToDoc } from "./dronePdfGenerator";
 
 export interface ReportData {
   assessmentId: string;
@@ -221,9 +222,24 @@ function cleanText(str: string): string {
  * If location is raw "lat, lng" coordinates, format as "1.9607°S, 30.3567°E".
  * Otherwise returns the string unchanged.
  */
-function formatLocation(loc: string): string {
-  const m = loc.trim().match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
-  if (!m) return loc;
+function formatLocation(loc: unknown): string {
+  if (!loc) return "N/A";
+  
+  if (typeof loc === "object" && loc !== null) {
+    const obj = loc as any;
+    if (obj.coordinates && Array.isArray(obj.coordinates) && obj.coordinates.length >= 2) {
+      const lng = obj.coordinates[0];
+      const lat = obj.coordinates[1];
+      const latDir = lat >= 0 ? "N" : "S";
+      const lngDir = lng >= 0 ? "E" : "W";
+      return `${Math.abs(lat).toFixed(4)}\u00B0${latDir}, ${Math.abs(lng).toFixed(4)}\u00B0${lngDir}`;
+    }
+    return "N/A";
+  }
+
+  const strLoc = String(loc);
+  const m = strLoc.trim().match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
+  if (!m) return strLoc;
   const lat = parseFloat(m[1]);
   const lng = parseFloat(m[2]);
   const latDir = lat >= 0 ? "N" : "S";
@@ -250,150 +266,55 @@ export class ComprehensiveReportGenerator {
   }
 
   // ── Footer ────────────────────────────────────────────────────────────────
-  private drawFooter(pageNum: number, totalPages: number) {
+  private drawFooter(pageNum: number) {
     const { doc, W, H, M } = this;
-    const fh = 12;
-    const fy = H - fh;
-
-    setFill(doc, C.forest);
-    doc.rect(0, fy, W, fh, "F");
-
     doc.setFontSize(8);
-    doc.setFont("helvetica", "bold");
-    setTxt(doc, C.accentGreen);
-    doc.text("STARHAWK\u2122", M, fy + 4.5);
-
-    doc.setFont("helvetica", "normal");
-    setTxt(doc, C.white);
-    doc.text("CROP RISK ASSESSMENT  \u00B7  Confidential", W / 2, fy + 4.5, {
-      align: "center",
-    });
-
-    const dateStr = new Date().toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-    setTxt(doc, C.softGreen);
-    doc.text(
-      `${dateStr}  \u00B7  Page ${pageNum} of ${totalPages}`,
-      W - M,
-      fy + 4.5,
-      { align: "right" },
-    );
+    setTxt(doc, C.slate);
+    doc.text(`STARHAWK\u2122 Crop Assessment System  \u00B7  Confidential`, W / 2, H - 8, { align: "center" });
+    doc.text(`Page ${pageNum}`, W - M, H - 8, { align: "right" });
   }
 
   // ── Page header (pages 2+) ────────────────────────────────────────────────
   private drawPageHeader(subtitle: string) {
     const { doc, W, M } = this;
-    const topY = 8;
+    setFill(doc, C.forest);
+    doc.rect(0, 0, W, 15, "F");
 
-    // Uses setDrawColor — the correct jsPDF method for line colour
-    setDraw(doc, C.mist);
-    doc.setLineWidth(0.4);
-    doc.line(M, topY + 4, W - M, topY + 4);
-
-    doc.setFontSize(8);
+    setTxt(doc, C.white);
+    doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    setTxt(doc, C.leaf);
-    doc.text("STARHAWK\u2122 Crop Assessment System", M, topY + 2);
+    doc.text("STARHAWK\u2122 Crop Assessment", M, 8);
 
     doc.setFont("helvetica", "normal");
-    setTxt(doc, C.slate);
-    doc.text(subtitle, W - M, topY + 2, { align: "right" });
+    setTxt(doc, C.accentGreen);
+    doc.setFontSize(8);
+    doc.text(subtitle, W - M, 8, { align: "right" });
   }
 
-  // ── Hero block ────────────────────────────────────────────────────────────
-  private drawHero(data: ReportData): number {
-    const { doc, M, CW } = this;
-    const heroY = 14;
-    const HH = 48;
-
-    // Base forest-green background
-    rRect(doc, M, heroY, CW, HH, 5, C.forest);
-
-    // Sage accent strip on right ~34%
-    setFill(doc, C.sage);
-    doc.rect(M + CW * 0.66, heroY, CW * 0.34, HH, "F");
-    // Re-paint left rounded corners (no native clip in jsPDF)
+  // ── Header (monitoring style) ──────────────────────────────────────────
+  private drawHeader(title: string, subtitle?: string) {
+    const { doc, W, M } = this;
     setFill(doc, C.forest);
-    doc.rect(M, heroY, 6, 6, "F");
-    doc.rect(M, heroY + HH - 6, 6, 6, "F");
-    rRect(doc, M, heroY, 12, HH, 6, C.forest);
-    // Re-paint right rounded corners for sage band
-    setFill(doc, C.sage);
-    rRect(doc, M + CW - 12, heroY, 12, HH, 6, C.sage);
+    doc.rect(0, 0, W, 25, "F");
 
-    // Dot grid on sage zone
-    setFill(doc, C.white);
-    for (let row = 0; row < 5; row++) {
-      for (let col = 0; col < 9; col++) {
-        const dx = M + CW * 0.69 + col * 5.5;
-        const dy = heroY + 6 + row * 8;
-        if (dx < M + CW - 4) doc.circle(dx, dy, 0.55, "F");
-      }
+    setTxt(doc, C.white);
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text(title, M, 12);
+
+    if (subtitle) {
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      setTxt(doc, C.accentGreen);
+      doc.text(subtitle, M, 18);
     }
 
-    // Top accent rule
-    setDraw(doc, C.accentGreen);
-    doc.setLineWidth(2.5);
-    doc.line(M + 4, heroY + 1.5, M + CW - 4, heroY + 1.5);
-    doc.setLineWidth(0.4);
-
-    // Leaf emblem
-    const embX = M + CW - 18;
-    const embY = heroY + HH / 2;
-    setFill(doc, C.sage);
-    doc.circle(embX, embY, 10, "F");
-    setFill(doc, C.white);
-    doc.ellipse(embX, embY, 4.5, 6.5, "F");
-    setFill(doc, C.sage);
-    doc.ellipse(embX, embY, 1.8, 5, "F");
-
-    // Text content
-    doc.setFontSize(19);
-    doc.setFont("helvetica", "bold");
-    setTxt(doc, C.white);
-    doc.text("Crop Risk Assessment Report", M + 7, heroY + 14);
-
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    setTxt(doc, C.softGreen);
-    doc.text(
-      "STARHAWK\u2122  \u00B7  Drone-Powered Agricultural Intelligence",
-      M + 7,
-      heroY + 21,
-    );
-
-    setDraw(doc, C.accentGreen);
-    doc.setLineWidth(0.6);
-    doc.line(M + 7, heroY + 24, M + 68, heroY + 24);
-    doc.setLineWidth(0.4);
-
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    setTxt(doc, C.white);
-    doc.text(
-      `${data.farmDetails.name}  \u00B7  ${formatLocation(data.farmDetails.location)}`,
-      M + 7,
-      heroY + 31,
-    );
-
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    setTxt(doc, C.softGreen);
-    const dateStr = data.reportGeneratedAt.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-    doc.text(
-      `Generated ${dateStr}  \u00B7  ID: ${data.assessmentId}`,
-      M + 7,
-      heroY + 40,
-    );
-
-    return heroY + HH + 6;
+    // Logo placeholder
+    setFill(doc, C.accentGreen);
+    doc.circle(W - M - 5, 12, 6, "F");
+    setTxt(doc, C.forest);
+    doc.setFontSize(6);
+    doc.text("SH", W - M - 5, 12.5, { align: "center" });
   }
 
   // ── Section divider ───────────────────────────────────────────────────────
@@ -724,33 +645,55 @@ export class ComprehensiveReportGenerator {
   // PUBLIC: generateReport
   // ══════════════════════════════════════════════════════════════════════════
   public async generateReport(data: ReportData): Promise<Blob> {
-    const { doc, M, CW } = this;
-    const TOTAL_PAGES = 2;
-    let y = 0;
+    const { doc, M, CW, H } = this;
+    let y = 35;
+    let pageNum = 1;
 
-    // ── PAGE 1: Executive Summary ──────────────────────────────────────────
-    y = this.drawHero(data);
+    // ── PAGE 1: Farm Overview & Risk Summary ─────────────────────────────
+    this.drawHeader(
+      "Crop Risk Assessment Report",
+      `${data.farmDetails.name} • ID: ${data.assessmentId}`,
+    );
 
-    y = this.drawSection("Farm Overview", y);
-    // Round area to 2 dp; format location coords nicely if they look like "lat, lng"
+    // --- Farm Info Grid (monitoring style) ---
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    setTxt(doc, C.forest);
+    doc.text("FARM CONTEXT", M, y);
+    y += 6;
+
+    const locationDisplay = formatLocation(data.farmDetails.location);
     const areaDisplay =
       typeof data.farmDetails.area === "number"
         ? `${data.farmDetails.area.toFixed(2)} ha`
         : `${data.farmDetails.area} ha`;
-    const locationDisplay = formatLocation(data.farmDetails.location);
 
-    y = this.drawInfoGrid(
-      [
-        ["Farm / Field", data.farmDetails.name],
-        ["Crop Type", data.farmDetails.cropType],
-        ["Total Area", areaDisplay],
-        ["Location", locationDisplay],
-        ["Farmer", data.farmDetails.farmerName],
-        ["Assessment ID", data.assessmentId],
-      ],
-      y,
-    );
+    const info = [
+      ["Farmer", data.farmDetails.farmerName],
+      ["Crop Type", data.farmDetails.cropType],
+      ["Field Area", areaDisplay],
+      ["Location", locationDisplay],
+    ];
 
+    info.forEach(([label, val], i) => {
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const x = M + col * (CW / 2);
+      const ry = y + row * 12;
+
+      doc.setFontSize(7);
+      setTxt(doc, C.slate);
+      doc.text(label.toUpperCase(), x, ry);
+
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      setTxt(doc, C.charcoal);
+      doc.text(String(val), x, ry + 5);
+    });
+
+    y += 25;
+
+    // --- Risk Assessment Summary ---
     y = this.drawSection("Risk Assessment Summary", y);
 
     const levelDesc: Record<string, string> = {
@@ -772,15 +715,13 @@ export class ComprehensiveReportGenerator {
     y += blurbLines.length * 5 + 8;
 
     // Score dial + field status badge — side by side
-    // Dial: cx centred at M+32, cy sits r+8 below y so the arc top clears y
     const DIAL_R = 18;
     const DIAL_CX = M + 32;
-    const DIAL_CY = y + DIAL_R + 8; // arc crown lands at y+8, base at y+DIAL_R*2+8
-    const DIAL_BOTTOM = DIAL_CY + DIAL_R + 16; // pill + caption below arc
+    const DIAL_CY = y + DIAL_R + 8;
+    const DIAL_BOTTOM = DIAL_CY + DIAL_R + 16;
 
     this.drawScoreDial(data.riskAssessment, DIAL_CX, DIAL_CY, DIAL_R);
 
-    // Status badge: vertically centred beside the dial
     const BADGE_W = 54;
     const BADGE_H = 24;
     const BADGE_X = M + 74;
@@ -816,64 +757,67 @@ export class ComprehensiveReportGenerator {
     y += 4;
 
     // ── Recommendations ───────────────────────────────────────────────────
+    if (this.needsBreak(y, 50)) {
+      this.drawFooter(pageNum++);
+      doc.addPage();
+      this.drawPageHeader("Recommendations");
+      y = 20;
+    }
     y = this.drawSection("Key Recommendations", y);
     y = this.drawRecommendations(data.riskAssessment.recommendations, y);
 
-    this.drawFooter(1, TOTAL_PAGES);
+    // ── Notes ────────────────────────────────────────────────────────────
+    if (data.comprehensiveNotes) {
+      if (this.needsBreak(y, 40)) {
+        this.drawFooter(pageNum++);
+        doc.addPage();
+        this.drawPageHeader("Assessor Notes");
+        y = 20;
+      }
+      y = this.drawSection("Assessor Comprehensive Notes", y);
+      y = this.drawNotes(data.comprehensiveNotes, y);
+    }
 
-    // ── PAGE 2: Detailed Analysis ──────────────────────────────────────────
-    doc.addPage();
-    this.drawPageHeader("Detailed Analysis");
-    y = 18;
+    this.drawFooter(pageNum++);
 
-    y = this.drawSection("Drone Analysis Results", y);
-
+    // ── DRONE ANALYSIS PAGES (Full Page Quality — matching monitoring) ───
     const validDrones = data.dronePdfs.filter((p) => p.droneAnalysisData);
-    if (validDrones.length === 0) {
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "italic");
-      setTxt(doc, C.slate);
-      doc.text("No drone analysis data available.", M, y + 5);
-      y += 12;
-    } else {
+    if (validDrones.length > 0) {
       for (const pdf of validDrones) {
-        const title = `${formatReportTypeLabel(pdf.pdfType)} Analysis`;
+        const endGenericPage = doc.getNumberOfPages();
+        doc.addPage();
 
-        if (this.needsBreak(y, 60)) {
-          doc.addPage();
-          this.drawPageHeader("Detailed Analysis (cont.)");
-          y = 18;
+        // Render the complete Drone Report layout (full page, rich design)
+        await renderDroneDataToDoc(
+          doc,
+          pdf.droneAnalysisData!,
+          formatReportTypeLabel(pdf.pdfType),
+          true,
+        );
+
+        const finalDronePage = doc.getNumberOfPages();
+
+        // Add footer to all drone pages retrospectively
+        for (let p = endGenericPage + 1; p <= finalDronePage; p++) {
+          doc.setPage(p);
+          this.drawFooter(pageNum++);
         }
 
-        y = this.drawDroneCard(title, pdf.droneAnalysisData!, y);
+        // Resync to last page
+        doc.setPage(finalDronePage);
       }
     }
 
-    if (this.needsBreak(y, 40)) {
-      doc.addPage();
-      this.drawPageHeader("Assessor Notes");
-      y = 18;
-    }
-
-    y = this.drawSection("Assessor Comprehensive Notes", y);
-    y = this.drawNotes(data.comprehensiveNotes, y);
-
-    // ── Recommendations ─────────────────────────────────────────────────────
-    y = this.drawSection("Key Recommendations", y);
-    y = this.drawRecommendations(data.riskAssessment.recommendations, y);
-
-    // ── Sign-Off ──────────────────────────────────────────────────────────
-    if (this.needsBreak(y, 32)) {
-      doc.addPage();
-      this.drawPageHeader("Sign-Off");
-      y = 18;
-    }
+    // ── Sign-Off Page ───────────────────────────────────────────────────
+    doc.addPage();
+    this.drawPageHeader("Sign-Off");
+    y = 20;
 
     y = this.drawSection("Report Sign-Off", y);
     this.drawSignOff(y, data);
+    this.drawFooter(pageNum);
 
-    this.drawFooter(2, TOTAL_PAGES);
-
+    // Prune trailing blank page if sign-off was short
     return new Blob([doc.output("blob")], { type: "application/pdf" });
   }
 
