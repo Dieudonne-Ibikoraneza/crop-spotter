@@ -27,7 +27,12 @@ import {
   Briefcase,
   Download,
 } from "lucide-react";
-import { generateDroneDataPDF } from "@/utils/dronePdfGenerator";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import {
   Card,
   CardContent,
@@ -87,7 +92,7 @@ import type { Assessment } from "@/lib/api/services/assessor";
 import { assessmentsKeys, farmsKeys } from "@/lib/api/queryKeys";
 import type { UserProfile } from "@/lib/api/services/users";
 import { DroneAnalysisView } from "@/components/assessor/DroneAnalysisView";
-import { BasicInfoTab } from "@/components/assessor/tabs/BasicInfoTab";
+import { InsurerBasicInfoTab as BasicInfoTab } from "@/components/insurer/tabs/InsurerBasicInfoTab";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { calculateOverallRisk } from "@/utils/riskCalculation";
@@ -97,6 +102,7 @@ import {
   unwrapWeather,
 } from "@/utils/weatherDisplay";
 import { formatReportTypeLabel } from "@/lib/crops";
+import { generateDroneDataPDF } from "@/utils/dronePdfGenerator";
 
 function embStr(v: unknown): string | undefined {
   if (v == null) return undefined;
@@ -221,8 +227,7 @@ const InsurerAssessmentDetail = () => {
   const approveMutation = useApproveAssessment();
   const rejectMutation = useRejectAssessment();
 
-  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
-  const [selectedReport, setSelectedReport] = useState<NormalizedReport | null>(null);
+
   const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
   const [isFarmDialogOpen, setIsFarmDialogOpen] = useState(false);
   const [rejectConfirmOpen, setRejectConfirmOpen] = useState(false);
@@ -398,10 +403,7 @@ const InsurerAssessmentDetail = () => {
     }
   };
 
-  const openReportDialog = (report: NormalizedReport) => {
-    setSelectedReport(report);
-    setIsReportDialogOpen(true);
-  };
+
 
   const farmerNameForFarm = farmerNameShort || fullFarm?.farmerName || "—";
 
@@ -484,8 +486,15 @@ const InsurerAssessmentDetail = () => {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
+      <Tabs defaultValue="basic" className="w-full">
+        <TabsList className="grid w-full grid-cols-4 mb-8">
+          <TabsTrigger value="basic" className="gap-2">📋 Basic Info</TabsTrigger>
+          <TabsTrigger value="weather" className="gap-2">🌦️ Weather</TabsTrigger>
+          <TabsTrigger value="drone" className="gap-2">🛸 Drone Analysis</TabsTrigger>
+          <TabsTrigger value="overview" className="gap-2">🕒 Overview</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="basic" className="mt-0 space-y-8">
           <Card className="border-muted">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
@@ -513,6 +522,116 @@ const InsurerAssessmentDetail = () => {
             </CardContent>
           </Card>
 
+          {farmDialogLoading || !fullFarm ? (
+            <div className="flex h-64 items-center justify-center border rounded-xl bg-muted/10">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <BasicInfoTab
+              fieldId={farmIdForMap}
+              farmerId={refId(assessment.farmerId) || refId(fullFarm.farmerId)}
+              fieldName={fullFarm.name || farm?.name || "Field"}
+              farmerName={farmerNameForFarm}
+              cropType={fullFarm.cropType || farm?.cropType || "—"}
+              area={fullFarm.area ?? farm?.area ?? 0}
+              season={getSeasonFromSowingDate(fullFarm.sowingDate || farm?.sowingDate)}
+              location={fullFarm.locationName || farm?.locationName || "—"}
+              sowingDate={
+                fullFarm.sowingDate || farm?.sowingDate
+                  ? format(new Date(fullFarm.sowingDate || farm?.sowingDate!), "PP")
+                  : "N/A"
+              }
+              boundary={fullFarm.boundary}
+              locationCoords={fullFarm.location?.coordinates}
+              showActions={false}
+              assessorElement={
+                <button
+                  type="button"
+                  className="p-0 border-none bg-transparent hover:underline text-primary font-medium cursor-pointer"
+                  onClick={() => setAssessorSheetOpen(true)}
+                >
+                  {[assessor?.firstName, assessor?.lastName].filter(Boolean).join(" ").trim() || "Assessor Profile"}
+                </button>
+              }
+            />
+          )}
+
+
+        </TabsContent>
+
+        <TabsContent value="weather" className="mt-0">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <CloudRain className="h-5 w-5 text-blue-500" />
+                    Farm weather forecast
+                  </CardTitle>
+                  <CardDescription>Up to 7 days, one reading per day (around local midday).</CardDescription>
+                </div>
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                  Live data
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {isWeatherLoading ? (
+                <div className="flex h-32 items-center justify-center">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ) : forecastDays.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground bg-muted/20 rounded-lg">
+                  No weather data available for this location.
+                </div>
+              ) : (
+                <ScrollArea className="w-full whitespace-nowrap rounded-md">
+                  <div className="flex w-max space-x-4 p-1">
+                    {forecastDays.map((d, idx) => {
+                      const tempC = openWeatherTempToCelsius(d.main.temp);
+                      return (
+                        <div
+                          key={`${d.dt}-${idx}`}
+                          className="w-[140px] p-4 rounded-xl border bg-card hover:bg-muted/50 transition-colors flex flex-col items-center gap-3"
+                        >
+                          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                            {format(new Date(d.dt * 1000), "EEE, MMM d")}
+                          </p>
+                          <div className="p-2 rounded-full bg-blue-50">
+                            <img
+                              src={`https://openweathermap.org/img/wn/${d.weather[0]?.icon}@2x.png`}
+                              alt={d.weather[0]?.description}
+                              className="w-10 h-10"
+                            />
+                          </div>
+                          <div className="text-center">
+                            <p className="text-lg font-black">{Math.round(tempC)}°C</p>
+                            <p className="text-[10px] font-medium text-muted-foreground capitalize truncate max-w-[120px]">
+                              {d.weather[0]?.description}
+                            </p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 w-full pt-2 border-t text-[10px]">
+                            <div className="flex items-center gap-1 text-muted-foreground">
+                              <Droplets className="h-3 w-3" />
+                              {d.main.humidity}%
+                            </div>
+                            <div className="flex items-center gap-1 text-muted-foreground justify-end">
+                              <Wind className="h-3 w-3" />
+                              {Math.round(d.wind.speed * 10) / 10} m/s
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <ScrollBar orientation="horizontal" />
+                </ScrollArea>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="overview" className="mt-0 space-y-8">
           <Card className="overflow-hidden border-primary/20 bg-gradient-to-br from-background to-primary/5">
             <CardHeader className="pb-4">
               <CardTitle className="text-lg flex items-center gap-2">
@@ -591,6 +710,7 @@ const InsurerAssessmentDetail = () => {
             </CardContent>
           </Card>
 
+
           {assessment.observations && assessment.observations.length > 0 && (
             <Card>
               <CardHeader>
@@ -635,253 +755,81 @@ const InsurerAssessmentDetail = () => {
             </Card>
           )}
 
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <CloudRain className="h-5 w-5 text-blue-500" />
-                    Farm weather forecast
-                  </CardTitle>
-                  <CardDescription>Up to 7 days, one reading per day (around local midday).</CardDescription>
-                </div>
-                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                  Live data
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {isWeatherLoading ? (
-                <div className="flex h-32 items-center justify-center">
-                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                </div>
-              ) : forecastDays.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground bg-muted/20 rounded-lg">
-                  No weather data available for this location.
-                </div>
-              ) : (
-                <ScrollArea className="w-full whitespace-nowrap rounded-md">
-                  <div className="flex w-max space-x-4 p-1">
-                    {forecastDays.map((d, idx) => {
-                      const tempC = openWeatherTempToCelsius(d.main.temp);
-                      return (
-                        <div
-                          key={`${d.dt}-${idx}`}
-                          className="w-[140px] p-4 rounded-xl border bg-card hover:bg-muted/50 transition-colors flex flex-col items-center gap-3"
-                        >
-                          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                            {format(new Date(d.dt * 1000), "EEE, MMM d")}
-                          </p>
-                          <div className="p-2 rounded-full bg-blue-50">
-                            <img
-                              src={`https://openweathermap.org/img/wn/${d.weather[0]?.icon}@2x.png`}
-                              alt={d.weather[0]?.description}
-                              className="w-10 h-10"
-                            />
-                          </div>
-                          <div className="text-center">
-                            <p className="text-lg font-black">{Math.round(tempC)}°C</p>
-                            <p className="text-[10px] font-medium text-muted-foreground capitalize truncate max-w-[120px]">
-                              {d.weather[0]?.description}
-                            </p>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 w-full pt-2 border-t text-[10px]">
-                            <div className="flex items-center gap-1 text-muted-foreground">
-                              <Droplets className="h-3 w-3" />
-                              {d.main.humidity}%
-                            </div>
-                            <div className="flex items-center gap-1 text-muted-foreground justify-end">
-                              <Wind className="h-3 w-3" />
-                              {Math.round(d.wind.speed * 10) / 10} m/s
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <ScrollBar orientation="horizontal" />
-                </ScrollArea>
-              )}
-            </CardContent>
-          </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <FileText className="h-5 w-5 text-primary" />
-                Assessment reports & PDF analyses
-              </CardTitle>
-              <CardDescription>Drone and satellite extracts (same data the assessor used).</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {pdfReports.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {pdfReports.map((report) => (
-                    <div
-                      key={report.key}
-                      className="group p-4 rounded-xl border border-primary/10 hover:border-primary/40 hover:bg-primary/5 transition-all cursor-pointer flex items-center gap-4"
-                      onClick={() => openReportDialog(report)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") openReportDialog(report);
-                      }}
-                      role="button"
-                      tabIndex={0}
-                    >
-                      <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                        <FileText className="h-6 w-6 text-primary" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold truncate">
-                          {formatReportTypeLabel(report.pdfType)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {report.extractedAt
-                            ? `Extracted ${format(new Date(report.extractedAt), "PPP")}`
-                            : "Recently processed"}
-                        </p>
-                      </div>
-                      <Button size="icon" variant="ghost" className="rounded-full" type="button">
-                        <ArrowRight className="h-4 w-4" />
-                      </Button>
+        </TabsContent>
+
+        <TabsContent value="drone" className="mt-0 space-y-8">
+          {pdfReports.length > 0 ? (
+            <div className="space-y-6">
+              {pdfReports.map((report) => (
+                <Card key={report.key} className="overflow-hidden border-primary/20">
+                  <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
+                    <div>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <FileText className="h-5 w-5 text-primary" />
+                        {formatReportTypeLabel(report.pdfType)} Analysis
+                      </CardTitle>
+                      <CardDescription className="mt-1">
+                        {report.extractedAt
+                          ? `Extracted ${format(new Date(report.extractedAt), "PPP p")}`
+                          : "Recently processed"}
+                      </CardDescription>
                     </div>
-                  ))}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2 shrink-0 bg-background"
+                      disabled={isDownloading}
+                      onClick={async () => {
+                        setIsDownloading(true);
+                        try {
+                          await generateDroneDataPDF(
+                            report.droneAnalysisData as any,
+                            formatReportTypeLabel(report.pdfType),
+                          );
+                          toast.success("Report downloaded successfully");
+                        } catch (error) {
+                          toast.error("Failed to generate PDF report");
+                        } finally {
+                          setIsDownloading(false);
+                        }
+                      }}
+                    >
+                      {isDownloading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
+                      Export PDF
+                    </Button>
+                  </CardHeader>
+                  <CardContent>
+                    <DroneAnalysisView
+                      data={report.droneAnalysisData}
+                      pdfType={report.pdfType}
+                    />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="h-16 w-16 bg-muted/30 rounded-full flex items-center justify-center mb-4">
+                  <FileText className="h-8 w-8 text-muted-foreground opacity-50" />
                 </div>
-              ) : (
-                <div className="text-center py-12 bg-muted/20 rounded-xl border-2 border-dashed">
-                  <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-20" />
-                  <p className="text-muted-foreground font-medium">No PDF analyses linked to this assessment yet.</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                Assessment timeline
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">Created</span>
-                <span className="font-medium">{format(new Date(assessment.createdAt), "PPp")}</span>
-              </div>
-              <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">Last updated</span>
-                <span className="font-medium">{format(new Date(assessment.updatedAt), "PPp")}</span>
-              </div>
-              {assessment.assignedAt && (
-                <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Assigned to assessor</span>
-                  <span className="font-medium">{format(new Date(assessment.assignedAt), "PPp")}</span>
-                </div>
-              )}
-              <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">Report generated (flag)</span>
-                <Badge variant={assessment.reportGenerated ? "default" : "secondary"}>
-                  {assessment.reportGenerated ? "Yes" : "No"}
-                </Badge>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="space-y-8">
-          <Card
-            role="button"
-            tabIndex={0}
-            className="cursor-pointer transition-colors hover:bg-muted/30 hover:border-primary/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            onClick={() => setAssessorSheetOpen(true)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                setAssessorSheetOpen(true);
-              }
-            }}
-          >
-            <CardHeader className="pb-2">
-              <div className="flex items-start justify-between gap-2">
-                <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                  <Briefcase className="h-4 w-4" />
-                  Assessor
-                </CardTitle>
-                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden />
-              </div>
-              <CardDescription className="text-xs">Tap for assessor details from this assessment</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-amber-500/15 flex items-center justify-center font-bold text-amber-900 dark:text-amber-200 text-sm">
-                  {assessor?.firstName?.[0] || "?"}
-                  {assessor?.lastName?.[0] || ""}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-bold truncate">
-                    {[assessor?.firstName, assessor?.lastName].filter(Boolean).join(" ").trim() || "Assessor"}
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
-                    <Mail className="h-3 w-3 shrink-0" />
-                    {assessor?.email || "Email not listed"}
-                  </p>
-                </div>
-              </div>
-              <Badge variant="secondary" className="text-[10px] font-normal">
-                Assigned to this assessment
-              </Badge>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-start justify-between space-y-0">
-              <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
-                Farm details
-              </CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1 shrink-0"
-                onClick={() => setIsFarmDialogOpen(true)}
-              >
-                <ExternalLink className="w-4 h-4" />
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-1">
-                <p className="font-bold text-lg">
-                  {farm?.name ||
-                    `Field #${farm && "_id" in farm ? String((farm as { _id: string })._id).substring(0, 6) : "N/A"}`}
+                <h3 className="text-lg font-bold text-muted-foreground">No Drone Analysis Yet</h3>
+                <p className="text-sm text-muted-foreground mt-2 max-w-md">
+                  This field assessment does not have any attached static drone reports or machine learning extracted pdf analyses.
                 </p>
-                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Activity className="h-3 w-3" />
-                  {farm?.cropType || "Various crops"}
-                </p>
-              </div>
-              <Separator />
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Location</span>
-                  <span className="font-medium text-right">{farm?.locationName || "N/A"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Size</span>
-                  <span className="font-medium">{farm?.area != null ? `${farm.area} ha` : "N/A"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Sowing date</span>
-                  <span className="font-medium">
-                    {farm?.sowingDate ? format(new Date(farm.sowingDate), "MMM d, yyyy") : "N/A"}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
 
       <Sheet open={assessorSheetOpen} onOpenChange={setAssessorSheetOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+        <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto z-[9999]">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2 pr-8">
               <Briefcase className="h-5 w-5 text-primary" />
@@ -919,108 +867,9 @@ const InsurerAssessmentDetail = () => {
         </SheetContent>
       </Sheet>
 
-      <Dialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen}>
-        <DialogContent className="max-w-4xl h-[90vh] p-0 flex flex-col">
-          <DialogHeader className="p-6 pb-2 border-b bg-muted/5 shrink-0">
-            <DialogTitle className="text-2xl font-bold flex items-center gap-3 capitalize">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Activity className="h-5 w-5 text-primary" />
-              </div>
-              {formatReportTypeLabel(selectedReport?.pdfType)} Details
-            </DialogTitle>
-            <p className="text-sm text-muted-foreground mt-1">
-              Analysis data extracted from uploaded drone report
-            </p>
-          </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
-            {selectedReport && (
-              <DroneAnalysisView
-                data={selectedReport.droneAnalysisData}
-                pdfType={selectedReport.pdfType}
-              />
-            )}
-          </div>
 
-          <div className="p-4 border-t bg-muted/30 flex justify-end items-center gap-3 shrink-0">
-            <Button
-              variant="default"
-              className="gap-2 bg-primary hover:bg-primary/90"
-              disabled={isDownloading || !selectedReport}
-              onClick={async () => {
-                if (!selectedReport) return;
-                setIsDownloading(true);
-                try {
-                  await generateDroneDataPDF(
-                    selectedReport.droneAnalysisData as any,
-                    formatReportTypeLabel(selectedReport.pdfType),
-                  );
-                  toast.success("Report downloaded successfully");
-                } catch (error) {
-                  toast.error("Failed to generate PDF report");
-                } finally {
-                  setIsDownloading(false);
-                }
-              }}
-            >
-              {isDownloading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-              Download Report
-            </Button>
-            <Button variant="outline" onClick={() => setIsReportDialogOpen(false)}>
-              Close Report
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
-      <Dialog open={isFarmDialogOpen} onOpenChange={setIsFarmDialogOpen}>
-        <DialogContent className="max-w-4xl h-[90vh] p-0 flex flex-col overflow-hidden">
-          <DialogHeader className="p-6 border-b shrink-0">
-            <DialogTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5 text-primary" />
-              Farm & field context
-            </DialogTitle>
-            <DialogDescription>
-              Full registration details and map view for this field ({farmerNameForFarm}).
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto p-6 bg-muted/10">
-            {farmDialogLoading || !fullFarm ? (
-              <div className="flex h-64 items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : (
-              <BasicInfoTab
-                fieldId={farmIdForMap}
-                farmerId={refId(assessment.farmerId) || refId(fullFarm.farmerId)}
-                fieldName={fullFarm.name || farm?.name || "Field"}
-                farmerName={farmerNameForFarm}
-                cropType={fullFarm.cropType || farm?.cropType || "—"}
-                area={fullFarm.area ?? farm?.area ?? 0}
-                season={getSeasonFromSowingDate(fullFarm.sowingDate || farm?.sowingDate)}
-                location={fullFarm.locationName || farm?.locationName || "—"}
-                sowingDate={
-                  fullFarm.sowingDate || farm?.sowingDate
-                    ? format(new Date(fullFarm.sowingDate || farm?.sowingDate!), "PP")
-                    : "N/A"
-                }
-                boundary={fullFarm.boundary}
-                locationCoords={fullFarm.location?.coordinates}
-                showActions={false}
-              />
-            )}
-          </div>
-          <DialogFooter className="p-4 border-t">
-            <Button variant="outline" onClick={() => setIsFarmDialogOpen(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={isIssueModalOpen} onOpenChange={setIsIssueModalOpen}>
         <DialogContent className="sm:max-w-[500px]">
