@@ -18,6 +18,8 @@ const statusConfig = {
   approved: { color: "bg-success/10 text-success border-success/20", label: "Approved" },
   rejected: { color: "bg-destructive/10 text-destructive border-destructive/20", label: "Rejected" },
   submitted: { color: "bg-blue-100 text-blue-700 border-blue-200", label: "Submitted" },
+  in_progress: { color: "bg-amber-100 text-amber-800 border-amber-200", label: "In Progress" },
+  completed: { color: "bg-green-100 text-green-800 border-green-200", label: "Completed" },
 };
 
 export function StatusBadge({ status, label }: StatusBadgeProps) {
