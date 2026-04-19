@@ -44,9 +44,14 @@ import {
 interface LossOverviewTabProps {
   claim: Claim;
   fieldName: string;
+  isInsurer?: boolean;
 }
 
-export const LossOverviewTab = ({ claim, fieldName }: LossOverviewTabProps) => {
+export const LossOverviewTab = ({
+  claim,
+  fieldName,
+  isInsurer = false,
+}: LossOverviewTabProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -159,6 +164,95 @@ export const LossOverviewTab = ({ claim, fieldName }: LossOverviewTabProps) => {
     reportText.trim().length > 0 &&
     (assessment?.droneAnalysisPdfs?.length || 0) > 0;
 
+  const renderParagraphs = (text: string) => {
+    if (!text) return null;
+    return text
+      .split(/\n\s*\n/)
+      .filter((p) => p.trim())
+      .map((p, i) => (
+        <p key={i} className={`mb-4 leading-relaxed text-base ${isInsurer ? "text-white/80" : "text-slate-700"}`}>
+          {p.trim()}
+        </p>
+      ));
+  };
+
+  if (isInsurer) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6 pb-12 animate-in fade-in duration-700">
+        {/* Header / Finalization Banner - Ultra Compact */}
+        <div className="flex items-center justify-between p-3 bg-white border border-green-100 rounded-lg shadow-sm">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-green-600" />
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+              Report Finalized & Verified
+            </span>
+          </div>
+          {claim.status === "SUBMITTED" && (
+            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-[10px] h-5 px-2">
+              Pending Approval
+            </Badge>
+          )}
+        </div>
+
+        {/* Observations Section */}
+        <section className="overflow-hidden rounded-xl shadow-sm">
+          <div className="bg-slate-900 px-5 py-3 flex items-center gap-2.5">
+            <FileText className="h-4 w-4 text-slate-400" />
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Field Observations</h3>
+          </div>
+          <div className="bg-slate-800 p-6">
+            <div className="grid gap-3">
+              {observations.length > 0 ? (
+                observations.map((obs, idx) => (
+                  <div key={idx} className="flex items-start gap-4">
+                    <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                    <p className="text-white/90 leading-relaxed text-sm md:text-base font-light">{obs}</p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-white/40 italic text-sm">No specific field observations recorded.</p>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* Weather Impact Section */}
+        <section className="overflow-hidden rounded-xl shadow-sm">
+          <div className="bg-slate-900 px-5 py-3 flex items-center gap-2.5">
+            <CloudLightning className="h-4 w-4 text-slate-400" />
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Weather Impact Analysis</h3>
+          </div>
+          <div className="bg-slate-800 p-6">
+            {weatherImpactAnalysis ? (
+              <div className="text-white/80 font-serif italic leading-relaxed">
+                {renderParagraphs(weatherImpactAnalysis)}
+              </div>
+            ) : (
+              <p className="text-white/80 italic text-sm">No weather impact analysis provided.</p>
+            )}
+          </div>
+        </section>
+
+        {/* Final Summary Section */}
+        <section className="overflow-hidden rounded-xl shadow-sm">
+          <div className="bg-slate-900 px-5 py-3 flex items-center gap-2.5">
+            <FileText className="h-4 w-4 text-slate-400" />
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Assessment Executive Summary</h3>
+          </div>
+          <div className="bg-slate-800 p-6 min-h-[150px]">
+            {reportText ? (
+              <div className="text-white/80 leading-8 font-sans">
+                {renderParagraphs(reportText)}
+              </div>
+            ) : (
+              <p className="text-white/80 italic text-sm">No formal summary has been provided for this assessment.</p>
+            )}
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="grid lg:grid-cols-2 gap-6">
@@ -184,7 +278,7 @@ export const LossOverviewTab = ({ claim, fieldName }: LossOverviewTabProps) => {
                     <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
                     <span className="text-sm">{obs}</span>
                   </div>
-                  {!isCompleted && (
+                  {!isCompleted && !isInsurer && (
                     <button
                       onClick={() => removeObservation(idx)}
                       className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
@@ -201,7 +295,7 @@ export const LossOverviewTab = ({ claim, fieldName }: LossOverviewTabProps) => {
               )}
             </div>
 
-            {!isCompleted && (
+            {!isCompleted && !isInsurer && (
               <div className="flex gap-2">
                 <Input
                   value={newObservation}
@@ -232,13 +326,22 @@ export const LossOverviewTab = ({ claim, fieldName }: LossOverviewTabProps) => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Textarea
-                value={weatherImpactAnalysis}
-                onChange={(e) => setWeatherImpactAnalysis(e.target.value)}
-                placeholder="Analyze how weather events contributed to the observed damage..."
-                className="min-h-[100px] resize-none"
-                disabled={isCompleted}
-              />
+              {isInsurer ? (
+                <div className="relative p-6 rounded-lg bg-blue-50/50 border border-blue-100/50 text-sm whitespace-pre-wrap min-h-[120px] text-blue-900/80 leading-relaxed font-serif italic shadow-inner">
+                  <div className="absolute top-3 right-3 opacity-20">
+                    <CloudLightning className="h-8 w-8 text-blue-400" />
+                  </div>
+                  {weatherImpactAnalysis || "No weather impact analysis provided for this assessment."}
+                </div>
+              ) : (
+                <Textarea
+                  value={weatherImpactAnalysis}
+                  onChange={(e) => setWeatherImpactAnalysis(e.target.value)}
+                  placeholder="Analyze how weather events contributed to the observed damage..."
+                  className="min-h-[100px] resize-none"
+                  disabled={isCompleted}
+                />
+              )}
             </CardContent>
           </Card>
 
@@ -250,16 +353,25 @@ export const LossOverviewTab = ({ claim, fieldName }: LossOverviewTabProps) => {
               </CardTitle>
             </CardHeader>
             <CardContent className="flex-1 space-y-4">
-              <Textarea
-                value={reportText}
-                onChange={(e) => setReportText(e.target.value)}
-                placeholder="Provide a comprehensive summary of the loss evaluation..."
-                className="min-h-[200px] flex-1 resize-none"
-                disabled={isCompleted}
-              />
+              {isInsurer ? (
+                <div className="relative p-8 rounded-lg bg-white border shadow-sm text-sm whitespace-pre-wrap min-h-[250px] text-slate-700 leading-8 font-sans">
+                   <div className="absolute top-4 right-4 opacity-10">
+                    <FileText className="h-12 w-12 text-slate-400" />
+                  </div>
+                  {reportText || "A formal assessment summary has not been provided."}
+                </div>
+              ) : (
+                <Textarea
+                  value={reportText}
+                  onChange={(e) => setReportText(e.target.value)}
+                  placeholder="Provide a comprehensive summary of the loss evaluation..."
+                  className="min-h-[200px] flex-1 resize-none"
+                  disabled={isCompleted}
+                />
+              )}
 
               <div className="flex flex-col gap-3 pt-4 border-t mt-auto">
-                {!isCompleted ? (
+                {!isCompleted && !isInsurer ? (
                   <>
                     <Button
                       variant="outline"
@@ -274,7 +386,7 @@ export const LossOverviewTab = ({ claim, fieldName }: LossOverviewTabProps) => {
                       )}
                       Save Progress
                     </Button>
-
+ 
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button
@@ -312,7 +424,7 @@ export const LossOverviewTab = ({ claim, fieldName }: LossOverviewTabProps) => {
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
-
+ 
                     {!canSubmit && (
                       <p className="text-xs text-muted-foreground text-center">
                         Add observations, notes, and at least one drone report
@@ -320,11 +432,11 @@ export const LossOverviewTab = ({ claim, fieldName }: LossOverviewTabProps) => {
                       </p>
                     )}
                   </>
-                ) : (
-                  <div className="flex flex-col items-center gap-2 p-4 bg-green-50 border border-green-200 rounded-lg">
-                    <CheckCircle2 className="h-8 w-8 text-green-600" />
-                    <p className="text-sm font-bold text-green-900 uppercase tracking-wide">
-                      Assessment Finalized
+                ) : (isInsurer || isCompleted) && (
+                  <div className="flex flex-col items-center gap-2 p-6 bg-green-50/50 border border-green-200/50 rounded-xl shadow-sm">
+                    <CheckCircle2 className="h-10 w-10 text-green-600 mb-1" />
+                    <p className="text-sm font-bold text-green-900 uppercase tracking-widest">
+                      Official Assessment Report Finalized
                     </p>
                     {claim.status === "SUBMITTED" && (
                       <p className="text-xs text-green-700">

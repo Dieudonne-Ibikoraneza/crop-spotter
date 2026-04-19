@@ -320,15 +320,19 @@ const InsurerClaimDetail = () => {
           </TabsContent>
 
           <TabsContent value="evidence" className="mt-0">
-            <LossEvidenceTab claim={claim} />
+            <LossEvidenceTab claim={claim} isInsurer={true} />
           </TabsContent>
 
           <TabsContent value="details" className="mt-0">
-            <LossDetailsTab claim={claim} />
+            <LossDetailsTab claim={claim} isInsurer={true} />
           </TabsContent>
 
           <TabsContent value="overview" className="mt-0">
-            <LossOverviewTab claim={claim} fieldName={farm?.name || "Field"} />
+            <LossOverviewTab 
+              claim={claim} 
+              fieldName={farm?.name || "Field"} 
+              isInsurer={true} 
+            />
           </TabsContent>
         </Tabs>
 

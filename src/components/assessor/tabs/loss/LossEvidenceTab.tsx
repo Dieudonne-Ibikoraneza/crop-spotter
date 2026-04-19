@@ -39,6 +39,7 @@ import { DroneAnalysisView } from "../../DroneAnalysisView";
 
 interface LossEvidenceTabProps {
   claim: Claim;
+  isInsurer?: boolean;
 }
 
 const getMediaUrl = (url: string) => {
@@ -48,7 +49,7 @@ const getMediaUrl = (url: string) => {
   return `${baseUrl}${url.startsWith("/") ? "" : "/"}${url}`;
 };
 
-export const LossEvidenceTab = ({ claim }: LossEvidenceTabProps) => {
+export const LossEvidenceTab = ({ claim, isInsurer = false }: LossEvidenceTabProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -121,9 +122,9 @@ export const LossEvidenceTab = ({ claim }: LossEvidenceTabProps) => {
 
   return (
     <div className="space-y-6">
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className={`grid ${isInsurer ? "grid-cols-1" : "lg:grid-cols-2"} gap-6`}>
         {/* Farmer Evidence */}
-        <Card>
+        <Card className={isInsurer ? "w-full" : ""}>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <ImageIcon className="h-5 w-5 text-primary" />
@@ -135,7 +136,7 @@ export const LossEvidenceTab = ({ claim }: LossEvidenceTabProps) => {
           </CardHeader>
           <CardContent>
             {claim.damagePhotos && claim.damagePhotos.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div className={`grid ${isInsurer ? "grid-cols-2 md:grid-cols-4" : "grid-cols-2 md:grid-cols-3"} gap-3`}>
                 {claim.damagePhotos.map((url, i) => (
                   <div
                     key={i}
@@ -166,55 +167,57 @@ export const LossEvidenceTab = ({ claim }: LossEvidenceTabProps) => {
           </CardContent>
         </Card>
 
-        {/* Assessor Drone Reports */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Upload className="h-5 w-5 text-primary" />
-              Assessor Drone Reports
-            </CardTitle>
-            <CardDescription>
-              Upload Agremo analysis reports for damage quantification
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {!isCompleted ? (
-              <div className="p-6 border-2 border-dashed rounded-lg text-center hover:bg-muted/50 transition-colors cursor-pointer group relative">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf"
-                  className="absolute inset-0 opacity-0 cursor-pointer"
-                  onChange={handlePdfUpload}
-                  disabled={isUploading}
-                />
-                <div className="space-y-2">
-                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto group-hover:bg-primary/20 transition-colors">
-                    {isUploading ? (
-                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                    ) : (
-                      <Upload className="h-5 w-5 text-primary" />
-                    )}
+        {/* Assessor Drone Reports - Hidden for Insurer */}
+        {!isInsurer && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Upload className="h-5 w-5 text-primary" />
+                Assessor Drone Reports
+              </CardTitle>
+              <CardDescription>
+                Upload Agremo analysis reports for damage quantification
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {!isCompleted ? (
+                <div className="p-6 border-2 border-dashed rounded-lg text-center hover:bg-muted/50 transition-colors cursor-pointer group relative">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf"
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    onChange={handlePdfUpload}
+                    disabled={isUploading}
+                  />
+                  <div className="space-y-2">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto group-hover:bg-primary/20 transition-colors">
+                      {isUploading ? (
+                        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                      ) : (
+                        <Upload className="h-5 w-5 text-primary" />
+                      )}
+                    </div>
+                    <p className="font-medium">
+                      {isUploading ? "Uploading..." : "Click to upload drone PDF"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Supports Plant Stress, Waterlogging, Stand Count, etc.
+                    </p>
                   </div>
-                  <p className="font-medium">
-                    {isUploading ? "Uploading..." : "Click to upload drone PDF"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Supports Plant Stress, Waterlogging, Stand Count, etc.
+                </div>
+              ) : (
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3 text-amber-800 text-sm">
+                  <AlertCircle className="h-5 w-5 shrink-0" />
+                  <p>
+                    This claim assessment is finalized. No further uploads
+                    allowed.
                   </p>
                 </div>
-              </div>
-            ) : (
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3 text-amber-800 text-sm">
-                <AlertCircle className="h-5 w-5 shrink-0" />
-                <p>
-                  This claim assessment is finalized. No further uploads
-                  allowed.
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {isAssessmentLoading && (
@@ -259,7 +262,7 @@ export const LossEvidenceTab = ({ claim }: LossEvidenceTabProps) => {
                 )}
               </div>
 
-              {!isCompleted && (
+              {!isCompleted && !isInsurer && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button

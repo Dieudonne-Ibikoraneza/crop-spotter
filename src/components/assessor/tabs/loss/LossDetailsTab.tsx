@@ -31,9 +31,10 @@ import { useAssessmentById } from "@/lib/api/hooks/useClaims";
 
 interface LossDetailsTabProps {
   claim: Claim;
+  isInsurer?: boolean;
 }
 
-export const LossDetailsTab = ({ claim }: LossDetailsTabProps) => {
+export const LossDetailsTab = ({ claim, isInsurer = false }: LossDetailsTabProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -98,8 +99,8 @@ export const LossDetailsTab = ({ claim }: LossDetailsTabProps) => {
       setDamageArea(savedDamageArea || extractedArea);
       setYieldImpact(savedYieldImpact || extractedYield);
 
-      // If NDVI is missing, try automated satellite analysis (no mock fallbacks on backend)
-      if (!savedNdviBefore || !savedNdviAfter) {
+      // If NDVI is missing, try automated satellite analysis (only for Assessor)
+      if (!isInsurer && (!savedNdviBefore || !savedNdviAfter)) {
         void runDamageAnalysisFetch();
       }
     }
@@ -111,7 +112,7 @@ export const LossDetailsTab = ({ claim }: LossDetailsTabProps) => {
     try {
       const analysis = await claimsService.getDamageAnalysis(claim._id);
       if (analysis && typeof analysis === "object") {
-        if (typeof analysis.error === "string") {
+        if (typeof analysis.error === "string" && !isInsurer) {
           toast({
             title: "Satellite NDVI",
             description: analysis.error,
@@ -132,11 +133,13 @@ export const LossDetailsTab = ({ claim }: LossDetailsTabProps) => {
       }
     } catch (error) {
       console.error("Failed to fetch damage analysis:", error);
-      toast({
-        title: "Satellite analysis failed",
-        description: "Enter NDVI values manually or retry later.",
-        variant: "destructive",
-      });
+      if (!isInsurer) {
+        toast({
+          title: "Satellite analysis failed",
+          description: "Enter NDVI values manually or retry later.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsAnalyzing(false);
     }
@@ -201,7 +204,7 @@ export const LossDetailsTab = ({ claim }: LossDetailsTabProps) => {
                 Comparison of vegetation health before and after the event
               </CardDescription>
             </div>
-            {!isCompleted && (
+            {!isCompleted && !isInsurer && (
               <Button
                 variant="outline"
                 size="sm"
@@ -228,7 +231,7 @@ export const LossDetailsTab = ({ claim }: LossDetailsTabProps) => {
                   step="0.01"
                   value={ndviBefore}
                   onChange={(e) => setNdviBefore(e.target.value)}
-                  disabled={isCompleted}
+                  disabled={isCompleted || isInsurer}
                   placeholder="e.g. 0.75"
                 />
               </div>
@@ -240,7 +243,7 @@ export const LossDetailsTab = ({ claim }: LossDetailsTabProps) => {
                   step="0.01"
                   value={ndviAfter}
                   onChange={(e) => setNdviAfter(e.target.value)}
-                  disabled={isCompleted}
+                  disabled={isCompleted || isInsurer}
                   placeholder="e.g. 0.45"
                 />
               </div>
@@ -281,7 +284,7 @@ export const LossDetailsTab = ({ claim }: LossDetailsTabProps) => {
                   className="pl-9"
                   value={damageArea}
                   onChange={(e) => setDamageArea(e.target.value)}
-                  disabled={isCompleted}
+                  disabled={isCompleted || isInsurer}
                   placeholder="Area in HA"
                 />
               </div>
@@ -297,31 +300,33 @@ export const LossDetailsTab = ({ claim }: LossDetailsTabProps) => {
                   className="pl-9"
                   value={yieldImpact}
                   onChange={(e) => setYieldImpact(e.target.value)}
-                  disabled={isCompleted}
+                  disabled={isCompleted || isInsurer}
                   placeholder="0-100"
                 />
               </div>
             </div>
 
-            <div className="pt-4">
-              <Button
-                onClick={handleSave}
-                className="w-full bg-green-600 hover:bg-green-700"
-                disabled={updateMutation.isPending || isCompleted}
-              >
-                {updateMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4 mr-2" />
-                )}
-                Save Metrics
-              </Button>
-            </div>
+            {!isInsurer && (
+              <div className="pt-4">
+                <Button
+                  onClick={handleSave}
+                  className="w-full bg-green-600 hover:bg-green-700"
+                  disabled={updateMutation.isPending || isCompleted}
+                >
+                  {updateMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
+                  Save Metrics
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {(ndviBefore === "" || damageArea === "") &&
+      {!isInsurer && (ndviBefore === "" || damageArea === "") &&
       assessment?.droneAnalysisPdfs?.length ? (
         <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -346,15 +351,17 @@ export const LossDetailsTab = ({ claim }: LossDetailsTabProps) => {
         </div>
       ) : null}
 
-      <div className="p-4 bg-muted/40 rounded-lg border border-dashed flex items-start gap-3">
-        <AlertCircle className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
-        <div className="text-sm text-muted-foreground leading-relaxed">
-          <p className="font-medium text-foreground mb-1">Assessor Tip</p>
-          Metrics are automatically extracted from your drone PDF reports if
-          they contain zonation or damage analysis. You can manually override
-          them here to match your physical field observations.
+      {!isInsurer && (
+        <div className="p-4 bg-muted/40 rounded-lg border border-dashed flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+          <div className="text-sm text-muted-foreground leading-relaxed">
+            <p className="font-medium text-foreground mb-1">Assessor Tip</p>
+            Metrics are automatically extracted from your drone PDF reports if
+            they contain zonation or damage analysis. You can manually override
+            them here to match your physical field observations.
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
