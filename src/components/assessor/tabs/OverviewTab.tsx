@@ -235,7 +235,7 @@ export const OverviewTab = ({
   };
 
   // Download comprehensive report
-  const handleDownloadReport = () => {
+  const handleDownloadReport = async () => {
     if (!riskAssessment || !farmDetails) {
       console.log("Missing data for report generation:", {
         riskAssessment,
@@ -261,9 +261,11 @@ export const OverviewTab = ({
         reportGeneratedAt: new Date(),
       };
 
-      reportGenerator.downloadReport(reportData);
+      await reportGenerator.downloadReport(reportData);
+      toast.success("Assessment report downloaded successfully");
     } catch (error) {
       console.error("Error generating report:", error);
+      toast.error("Failed to generate assessment report");
     } finally {
       setIsDownloadingReport(false);
     }
@@ -304,6 +306,28 @@ export const OverviewTab = ({
 
   return (
     <div className="space-y-6">
+      {/* Assessment Documentation Header (monitoring style) */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-muted/30 p-4 rounded-xl border border-primary/10">
+        <div>
+          <h2 className="text-xl font-bold text-primary">Assessment Documentation</h2>
+          <p className="text-sm text-muted-foreground">
+            Download the comprehensive risk assessment and field documentation.
+          </p>
+        </div>
+        <Button
+          onClick={handleDownloadReport}
+          disabled={isDownloadingReport || !riskAssessment}
+          className="bg-primary hover:bg-primary/90 text-white gap-2 h-11 px-6 shadow-md transition-all active:scale-95"
+        >
+          {isDownloadingReport ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Download className="h-5 w-5" />
+          )}
+          {isDownloadingReport ? "Generating..." : "Export assessment report"}
+        </Button>
+      </div>
+
       {/* Overall Summary */}
       <Card>
         <CardHeader>
@@ -570,7 +594,7 @@ export const OverviewTab = ({
                   ) : (
                     <Download className="h-4 w-4" />
                   )}
-                  {isDownloadingReport ? "Downloading..." : "Download Report"}
+                  {isDownloadingReport ? "Generating..." : "Export assessment report"}
                 </Button>
               )}
             </div>

@@ -824,20 +824,19 @@ export class ComprehensiveReportGenerator {
   // ══════════════════════════════════════════════════════════════════════════
   // PUBLIC: downloadReport
   // ══════════════════════════════════════════════════════════════════════════
-  public downloadReport(data: ReportData, filename?: string): void {
+  public async downloadReport(data: ReportData, filename?: string): Promise<void> {
     const defaultFilename =
       `crop-assessment-${data.farmDetails.name}-` +
       `${data.reportGeneratedAt.toISOString().split("T")[0]}.pdf`;
 
-    this.generateReport(data).then((blob) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename ?? defaultFilename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    });
+    const blob = await this.generateReport(data);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename ?? defaultFilename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 }
