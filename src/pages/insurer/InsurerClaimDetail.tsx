@@ -1,5 +1,6 @@
 import { useParams, Link } from "react-router-dom";
 import { format } from "date-fns";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft,
   FileWarning,
@@ -68,6 +69,10 @@ import {
   formatCropTypeLabel,
   formatReportTypeLabel,
 } from "@/lib/crops";
+import { LossBasicInfoTab } from "@/components/assessor/tabs/loss/LossBasicInfoTab";
+import { LossEvidenceTab } from "@/components/assessor/tabs/loss/LossEvidenceTab";
+import { LossDetailsTab } from "@/components/assessor/tabs/loss/LossDetailsTab";
+import { LossOverviewTab } from "@/components/assessor/tabs/loss/LossOverviewTab";
 
 const InsurerClaimDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -195,782 +200,310 @@ const InsurerClaimDetail = () => {
 
   return (
     <div className="p-6 md:p-8 space-y-8 max-w-5xl mx-auto animate-in fade-in duration-500">
-      <div className="flex items-center gap-4">
-        <Button asChild variant="ghost" size="icon">
-          <Link to="/insurer/claims">
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-        </Button>
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-3xl font-extrabold tracking-tight">
-              Claim Details
-            </h1>
-            <Badge variant="outline" className="text-xs">
-              {claim._id}
-            </Badge>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Button asChild variant="ghost" size="icon">
+            <Link to="/insurer/claims">
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+          </Button>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-extrabold tracking-tight">
+                Claim Details
+              </h1>
+              <Badge variant="outline" className="text-xs">
+                {claim._id}
+              </Badge>
+            </div>
+            <p className="text-muted-foreground mt-1">
+              Reviewing claim for {farm?.name || "Unknown Farm"}
+            </p>
           </div>
-          <p className="text-muted-foreground mt-1">
-            Reviewing claim for {farm?.name || "Unknown Farm"}
-          </p>
+        </div>
+        <div className="flex items-center gap-4">
+          <StatusBadge status={claim.status as any} />
+          {policy && (
+            <div
+              onClick={() => {
+                const pId = policy._id || policy.policyNumber;
+                if (pId) {
+                  window.location.href = `/insurer/policies?policyId=${pId}`;
+                }
+              }}
+            >
+              <Badge
+                variant="outline"
+                className="py-1.5 px-4 bg-primary/5 border-primary/20 text-primary font-mono text-sm cursor-pointer hover:bg-primary/10 transition-colors flex items-center gap-2"
+              >
+                <ShieldAlert className="h-3.5 w-3.5" />
+                Policy: {policy.policyNumber || "N/A"}
+                <span className="ml-2 opacity-70 border-l border-primary/30 pl-2 font-sans text-xs">
+                  Active Coverage
+                </span>
+              </Badge>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <FileWarning className="h-5 w-5 text-primary" />
-                Loss Event Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs text-muted-foreground uppercase font-semibold">
-                    Event Type
-                  </label>
-                  <p className="text-lg font-bold text-primary">
-                    {formatBackendEnumLabel(claim.lossEventType)}
-                  </p>
+      <div className="space-y-8">
+        {/* Claim Actions Dashboard - Full Width Banner */}
+        {["FILED", "SUBMITTED", "IN_PROGRESS", "ASSIGNED"].includes(claim.status) && (
+          <Card className="border-primary/20 bg-primary/5 shadow-md overflow-hidden animate-in slide-in-from-top duration-500">
+            <div className="flex flex-col md:flex-row items-center justify-between p-6 gap-6">
+              <div className="flex items-center gap-4 text-center md:text-left">
+                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <ShieldAlert className="h-6 w-6 text-primary" />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground uppercase font-semibold">
-                    Filed Date
-                  </label>
-                  <p className="font-medium">
-                    {format(new Date(claim.filedAt), "PPP")}
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs text-muted-foreground uppercase font-semibold">
-                  Description
-                </label>
-                <p className="mt-1 text-sm leading-relaxed">
-                  {claim.lossDescription || "No description provided."}
-                </p>
-              </div>
-
-              {claim.damagePhotos && claim.damagePhotos.length > 0 && (
-                <div>
-                  <label className="text-xs text-muted-foreground uppercase font-semibold">
-                    Damage Photos
-                  </label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
-                    {claim.damagePhotos.map((photo, i) => (
-                      <div
-                        key={i}
-                        className="aspect-video rounded-md overflow-hidden bg-muted border"
-                      >
-                        <img
-                          src={
-                            photo.startsWith("http")
-                              ? photo
-                              : `http://localhost:3000${photo}`
-                          }
-                          alt={`Damage photo ${i + 1}`}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <ClipboardCheck className="h-5 w-5 text-primary" />
-                Assessment Report
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {claim.status === "FILED" ? (
-                <div className="text-center py-6">
-                  <p className="text-muted-foreground italic">
-                    No assessment has been assigned yet.
-                  </p>
-                </div>
-              ) : claim.status === "ASSIGNED" ||
-                (claim.status === "IN_PROGRESS" && !assessment) ? (
-                <div className="text-center py-6">
-                  <p className="text-muted-foreground italic">
-                    Assessment is currently in progress.
-                  </p>
-                </div>
-              ) : assessment ? (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-xs text-muted-foreground uppercase font-semibold">
-                          Observations
-                        </label>
-                        {assessment.observations &&
-                        assessment.observations.length > 0 ? (
-                          <ul className="list-disc list-inside text-sm mt-1 space-y-1">
-                            {assessment.observations.map((obs, i) => (
-                              <li key={i}>{obs}</li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="text-sm text-muted-foreground italic">
-                            No observations recorded.
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground uppercase font-semibold">
-                          Weather Impact Analysis
-                        </label>
-                        <p className="text-sm mt-1">
-                          {assessment.weatherImpactAnalysis ||
-                            "No weather impact analysis provided."}
-                        </p>
-                      </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground uppercase font-semibold">
-                          Assessor Summary
-                        </label>
-                        <p className="text-sm mt-1">
-                          {assessment.reportText ||
-                            assessment.notes ||
-                            "No summary provided."}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="bg-muted/30 p-4 rounded-lg border">
-                      <h4 className="font-semibold text-sm mb-2">
-                        Satellite Analysis (NDVI)
-                      </h4>
-                      <div className="space-y-3">
-                        <div className="flex justify-between text-xs">
-                          <span>Before Event</span>
-                          <span className="font-bold">
-                            {assessment.ndviBefore || "---"}
-                          </span>
-                        </div>
-                        <div className="w-full bg-muted h-1.5 rounded-full overflow-hidden">
-                          <div
-                            className="bg-green-500 h-full"
-                            style={{
-                              width: `${(assessment.ndviBefore || 0) * 100}%`,
-                            }}
-                          ></div>
-                        </div>
-                        <div className="flex justify-between text-xs">
-                          <span>After Event</span>
-                          <span className="font-bold text-red-500">
-                            {assessment.ndviAfter || "---"}
-                          </span>
-                        </div>
-                        <div className="w-full bg-muted h-1.5 rounded-full overflow-hidden">
-                          <div
-                            className="bg-red-500 h-full"
-                            style={{
-                              width: `${(assessment.ndviAfter || 0) * 100}%`,
-                            }}
-                          ></div>
-                        </div>
-                        <div className="pt-2 flex justify-between items-center border-t">
-                          <span className="text-xs font-semibold">
-                            Damage Estimate
-                          </span>
-                          <Badge variant="destructive">
-                            {assessment.ndviBefore && assessment.ndviAfter
-                              ? `${(((assessment.ndviBefore - assessment.ndviAfter) / assessment.ndviBefore) * 100).toFixed(1)}% Loss`
-                              : "--- % Loss"}
-                          </Badge>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-6">
-                  <p className="text-muted-foreground italic">
-                    Assessment report not found.
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Report Repository */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2 text-primary">
-                <FileDown className="h-5 w-5" />
-                Report Repository
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Crop Monitoring Section */}
-              {monitoringRecords &&
-                monitoringRecords.some(
-                  (m) => m.droneAnalysisPdfs && m.droneAnalysisPdfs.length > 0,
-                ) && (
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-semibold flex items-center gap-2 text-muted-foreground">
-                      <Activity className="h-4 w-4" />
-                      CROP MONITORING REPORTS
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {monitoringRecords.flatMap((m) =>
-                        (m.droneAnalysisPdfs || []).map((pdf, idx) => (
-                          <Button
-                            key={`${m._id}-${idx}`}
-                            variant="outline"
-                            className="justify-start gap-3 h-auto py-3 px-4 transition-all hover:bg-primary/5 hover:border-primary/30"
-                            onClick={() => {
-                              setSelectedReport(pdf);
-                              setIsDialogOpen(true);
-                            }}
-                          >
-                            <div className="h-8 w-8 rounded-lg bg-green-100 flex items-center justify-center shrink-0">
-                              <FileText className="h-4 w-4 text-green-600" />
-                            </div>
-                            <div className="text-left overflow-hidden">
-                              <p className="text-sm font-medium truncate capitalize">
-                                {formatReportTypeLabel(pdf.pdfType)}
-                              </p>
-                              <p className="text-[10px] text-muted-foreground">
-                                Monitoring #{m.monitoringNumber} •{" "}
-                                {format(new Date(m.monitoringDate), "PP")}
-                              </p>
-                            </div>
-                          </Button>
-                        )),
-                      )}
-                    </div>
-                  </div>
-                )}
-
-              {/* Risk Assessment Section */}
-              {farmAssessments &&
-                farmAssessments.some(
-                  (a) => a.droneAnalysisPdfs && a.droneAnalysisPdfs.length > 0,
-                ) && (
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-semibold flex items-center gap-2 text-muted-foreground">
-                      <ShieldAlert className="h-4 w-4" />
-                      RISK ASSESSMENT REPORTS
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {farmAssessments.flatMap((a) =>
-                        (a.droneAnalysisPdfs || []).map((pdf, idx) => (
-                          <Button
-                            key={`risk-${a._id}-${idx}`}
-                            variant="outline"
-                            className="justify-start gap-3 h-auto py-3 px-4 transition-all hover:bg-primary/5 hover:border-primary/30"
-                            onClick={() => {
-                              setSelectedReport(pdf);
-                              setIsDialogOpen(true);
-                            }}
-                          >
-                            <div className="h-8 w-8 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
-                              <ShieldAlert className="h-4 w-4 text-amber-600" />
-                            </div>
-                            <div className="text-left overflow-hidden">
-                              <p className="text-sm font-medium truncate capitalize">
-                                {formatReportTypeLabel(pdf.pdfType)}
-                              </p>
-                              <p className="text-[10px] text-muted-foreground">
-                                Assessment •{" "}
-                                {format(new Date(pdf.uploadedAt), "PP")}
-                              </p>
-                            </div>
-                          </Button>
-                        )),
-                      )}
-                    </div>
-                  </div>
-                )}
-
-              {/* Loss Assessment Section (Redundant but grouped here for portal feel) */}
-              {assessment?.droneAnalysisPdfs &&
-                assessment.droneAnalysisPdfs.length > 0 && (
-                  <div className="space-y-3 pt-2">
-                    <h3 className="text-sm font-semibold flex items-center gap-2 text-muted-foreground uppercase">
-                      <FileWarning className="h-4 w-4" />
-                      Current Loss Assessment
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {assessment.droneAnalysisPdfs.map((pdf, idx) => (
-                        <Button
-                          key={`loss-${idx}`}
-                          variant="outline"
-                          className="justify-start gap-3 h-auto py-3 px-4 transition-all hover:bg-primary/5 hover:border-primary/30"
-                          onClick={() => {
-                            setSelectedReport(pdf);
-                            setIsDialogOpen(true);
-                          }}
-                        >
-                          <div className="h-8 w-8 rounded-lg bg-red-100 flex items-center justify-center shrink-0">
-                            <FileText className="h-4 w-4 text-red-600" />
-                          </div>
-                          <div className="text-left overflow-hidden">
-                            <p className="text-sm font-medium truncate capitalize">
-                              {formatReportTypeLabel(pdf.pdfType)}
-                            </p>
-                            <p className="text-[10px] text-muted-foreground">
-                              Claim Evidence Report •{" "}
-                              {pdf.uploadedAt
-                                ? format(new Date(pdf.uploadedAt), "PP")
-                                : "N/A"}
-                            </p>
-                          </div>
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-              {/* Fallback if no reports at all */}
-              {!(
-                (monitoringRecords &&
-                  monitoringRecords.some(
-                    (m) =>
-                      m.droneAnalysisPdfs && m.droneAnalysisPdfs.length > 0,
-                  )) ||
-                (farmAssessments &&
-                  farmAssessments.some(
-                    (a) =>
-                      a.droneAnalysisPdfs && a.droneAnalysisPdfs.length > 0,
-                  )) ||
-                (assessment?.droneAnalysisPdfs &&
-                  assessment.droneAnalysisPdfs.length > 0)
-              ) && (
-                <div className="py-12 text-center bg-muted/20 rounded-lg border border-dashed">
-                  <FileText className="h-8 w-8 mx-auto mb-2 text-muted-foreground opacity-50" />
+                  <h3 className="font-bold text-lg">Claim Action Required</h3>
                   <p className="text-sm text-muted-foreground italic">
-                    No satellite or drone analysis reports available for this
-                    claim.
+                    {claim.status === "FILED" 
+                      ? "This claim requires an assessor assignment to begin the evaluation process."
+                      : "The assessment report has been submitted. Please review and finalize the payout."}
                   </p>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogContent className="max-w-4xl h-[90vh] p-0 flex flex-col">
-              <DialogHeader className="p-6 pb-2 border-b bg-muted/5 shrink-0">
-                <DialogTitle className="text-2xl font-bold flex items-center gap-3 capitalize">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <Activity className="h-5 w-5 text-primary" />
-                  </div>
-                  {selectedReport?.pdfType?.replace(/_/g, " ") || "Report"}{" "}
-                  Details
-                </DialogTitle>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Analysis data extracted from uploaded drone report
-                </p>
-              </DialogHeader>
-
-              <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
-                {selectedReport && (
-                  <DroneAnalysisView
-                    data={selectedReport.droneAnalysisData}
-                    pdfType={selectedReport.pdfType}
-                  />
-                )}
               </div>
 
-              <div className="p-4 border-t bg-muted/30 flex justify-end items-center gap-3 shrink-0">
-                <Button
-                  variant="default"
-                  className="gap-2 bg-primary hover:bg-primary/90"
-                  disabled={isDownloading || !selectedReport}
-                  onClick={async () => {
-                    if (!selectedReport) return;
-                    setIsDownloading(true);
-                    try {
-                      await generateDroneDataPDF(
-                        selectedReport.droneAnalysisData as any,
-                        formatReportTypeLabel(selectedReport.pdfType),
-                      );
-                      toast.success("Report downloaded successfully");
-                    } catch (error) {
-                      toast.error("Failed to generate PDF report");
-                    } finally {
-                      setIsDownloading(false);
-                    }
-                  }}
-                >
-                  {isDownloading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Download className="h-4 w-4" />
-                  )}
-                  Download Report
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setIsDialogOpen(false)}
-                >
-                  Close Report
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-
-          {/* Farm Detail Dialog */}
-          <Dialog open={isFarmModalOpen} onOpenChange={setIsFarmModalOpen}>
-            <DialogContent className="max-w-4xl h-[90vh] p-0 flex flex-col overflow-hidden">
-              <DialogHeader className="p-6 border-b shrink-0">
-                <DialogTitle className="flex items-center gap-2">
-                  <Activity className="h-5 w-5 text-primary" />
-                  Farm & Field Context
-                </DialogTitle>
-              </DialogHeader>
-              <div className="flex-1 overflow-y-auto p-6 bg-muted/10">
-                {fullFarm ? (
-                  <BasicInfoTab
-                    fieldId={fullFarm.id}
-                    farmerId={
-                      typeof claim.farmerId === "object"
-                        ? claim.farmerId._id
-                        : claim.farmerId
-                    }
-                    fieldName={fullFarm.name || "N/A"}
-                    farmerName={
-                      farmer
-                        ? `${farmer.firstName} ${farmer.lastName}`
-                        : "Unknown"
-                    }
-                    cropType={fullFarm.cropType || "N/A"}
-                    area={fullFarm.area || 0}
-                    season={getSeasonFromSowingDate(fullFarm.sowingDate)}
-                    location={fullFarm.locationName || "Unknown"}
-                    sowingDate={
-                      fullFarm.sowingDate
-                        ? format(new Date(fullFarm.sowingDate), "PP")
-                        : "N/A"
-                    }
-                    boundary={fullFarm.boundary}
-                    locationCoords={fullFarm.location?.coordinates}
-                    showActions={false}
-                  />
-                ) : (
-                  <div className="flex h-64 items-center justify-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  </div>
-                )}
-              </div>
-            </DialogContent>
-          </Dialog>
-
-          {/* Assign Modal */}
-          <Dialog open={isAssignModalOpen} onOpenChange={setIsAssignModalOpen}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Assign Assessor</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label>Available Assessors</Label>
-                  <Select
-                    onValueChange={setSelectedAssessorId}
-                    value={selectedAssessorId}
+              <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                {claim.status === "FILED" && (
+                  <Button
+                    className="flex-1 md:flex-none gap-2 h-11 px-6 shadow-sm"
+                    onClick={() => setIsAssignModalOpen(true)}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select an assessor" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {assessors?.map((a) => (
-                        <SelectItem key={a.id} value={a.id}>
-                          {a.firstName} {a.lastName} ({a.email})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setIsAssignModalOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={() => assignMutation.mutate(selectedAssessorId)}
-                  disabled={!selectedAssessorId || assignMutation.isPending}
-                >
-                  {assignMutation.isPending
-                    ? "Assigning..."
-                    : "Confirm Assignment"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          {/* Approve Modal */}
-          <Dialog
-            open={isApproveModalOpen}
-            onOpenChange={setIsApproveModalOpen}
-          >
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Approve Claim</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="payout">Final Payout Amount (RWF)</Label>
-                  <Input
-                    id="payout"
-                    type="number"
-                    placeholder="Enter amount"
-                    value={payoutAmountInput}
-                    onChange={(e) => setPayoutAmountInput(e.target.value)}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setIsApproveModalOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  className="bg-green-600 hover:bg-green-700"
-                  onClick={() =>
-                    approveMutation.mutate(Number(payoutAmountInput))
-                  }
-                  disabled={!payoutAmountInput || approveMutation.isPending}
-                >
-                  {approveMutation.isPending
-                    ? "Approving..."
-                    : "Confirm Approval"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          {/* Reject Modal */}
-          <Dialog open={isRejectModalOpen} onOpenChange={setIsRejectModalOpen}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Reject Claim</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="reason">Reason for Rejection</Label>
-                  <Textarea
-                    id="reason"
-                    placeholder="Provide details for the rejection"
-                    value={rejectionReasonInput}
-                    onChange={(e) => setRejectionReasonInput(e.target.value)}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setIsRejectModalOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={() => rejectMutation.mutate(rejectionReasonInput)}
-                  disabled={!rejectionReasonInput || rejectMutation.isPending}
-                >
-                  {rejectMutation.isPending
-                    ? "Rejecting..."
-                    : "Confirm Rejection"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        <div className="space-y-8">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase flex items-center justify-between">
-                Status
-                <StatusBadge status={claim.status as any} />
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2 mb-4">
-                {claim.status === "APPROVED" ? (
-                  <CheckCircle className="h-6 w-6 text-green-500" />
-                ) : claim.status === "REJECTED" ? (
-                  <XCircle className="h-6 w-6 text-red-500" />
-                ) : (
-                  <div className="h-6 w-6 rounded-sm bg-primary/20 flex items-center justify-center">
-                    <Activity className="h-4 w-4 text-primary animate-pulse" />
-                  </div>
+                    <UserPlus className="h-4 w-4" /> Assign Assessor
+                  </Button>
                 )}
-                <span className="text-xl font-bold">{claim.status}</span>
-              </div>
 
-              {/* Claim Actions Section */}
-              {["FILED", "SUBMITTED", "IN_PROGRESS", "ASSIGNED"].includes(
-                claim.status,
-              ) && (
-                <div className="space-y-2 mt-4 pt-4 border-t">
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase mb-2">
-                    Available Actions
-                  </p>
-
-                  {claim.status === "FILED" && (
-                    <Button
-                      className="w-full justify-start gap-2 h-9"
-                      onClick={() => setIsAssignModalOpen(true)}
-                    >
-                      <UserPlus className="h-4 w-4" /> Assign Assessor
-                    </Button>
-                  )}
-
-                  {(claim.status === "SUBMITTED" ||
-                    claim.status === "IN_PROGRESS" ||
-                    claim.status === "ASSIGNED") && (
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button
-                        variant="outline"
-                        className="border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800 gap-2 h-9"
-                        onClick={() => setIsApproveModalOpen(true)}
-                      >
-                        <BadgeCheck className="h-4 w-4" /> Approve
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800 gap-2 h-9"
-                        onClick={() => setIsRejectModalOpen(true)}
-                      >
-                        <Ban className="h-4 w-4" /> Reject
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <Separator className="my-4" />
-              <div className="space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Claim ID</span>
-                  <span className="font-mono text-xs">
-                    {claim._id.substring(0, 8)}...
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Priority</span>
-                  <Badge variant="secondary">High</Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase">
-                Farmer & Farm
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-start gap-3">
-                <User className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="font-semibold">
-                    {farmer
-                      ? `${farmer.firstName} ${farmer.lastName}`
-                      : "Unknown Farmer"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {farmer?.email}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 group">
-                <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="font-semibold">
-                      {farm?.name || "Unknown Farm"}
-                    </p>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 rounded-full hover:bg-primary/10 hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => setIsFarmModalOpen(true)}
-                    >
-                      <Info className="h-3 w-3" />
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis max-w-[180px]">
-                    {formatCropTypeLabel(farm?.cropType)} • {farm?.area} Ha
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <BadgeCheck className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="font-semibold">
-                    Policy {policy?.policyNumber || "N/A"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {policy?.coverageLevel} Coverage
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-primary/5 border-primary/20">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold text-primary uppercase">
-                Financials
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Policy Premium</span>
-                <span className="font-semibold">
-                  {policy?.premiumAmount?.toLocaleString()} RWF
-                </span>
-              </div>
-              {claim.payoutAmount !== undefined &&
-                claim.payoutAmount !== null && (
+                {(claim.status === "SUBMITTED" ||
+                  claim.status === "IN_PROGRESS" ||
+                  claim.status === "ASSIGNED") && (
                   <>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        Payout Decided
-                      </span>
-                      <span className="font-semibold text-green-600">
-                        {claim.payoutAmount.toLocaleString()} RWF
-                      </span>
-                    </div>
-                    <Separator />
-                    <div className="flex justify-between items-center pt-2">
-                      <span className="font-bold">Total Payout</span>
-                      <span className="text-xl font-bold text-primary">
-                        {claim.payoutAmount.toLocaleString()} RWF
-                      </span>
-                    </div>
+                    <Button
+                      variant="outline"
+                      className="flex-1 md:flex-none border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800 gap-2 h-11 px-6"
+                      onClick={() => setIsRejectModalOpen(true)}
+                    >
+                      <Ban className="h-4 w-4" /> Reject Claim
+                    </Button>
+                    <Button
+                      className="flex-1 md:flex-none bg-green-600 hover:bg-green-700 text-white gap-2 h-11 px-8 shadow-lg shadow-green-100"
+                      onClick={() => setIsApproveModalOpen(true)}
+                    >
+                      <BadgeCheck className="h-4 w-4" /> Approve & Payout
+                    </Button>
                   </>
                 )}
-              {!claim.payoutAmount && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground italic">
-                    Payout pending decision...
-                  </span>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        <Tabs defaultValue="basic-info" className="w-full">
+          <TabsList className="grid w-full grid-cols-4 mb-6">
+            <TabsTrigger value="basic-info">Basic Info</TabsTrigger>
+            <TabsTrigger value="evidence">Evidence</TabsTrigger>
+            <TabsTrigger value="details">Loss Details</TabsTrigger>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="basic-info" className="mt-0">
+            <LossBasicInfoTab
+              field={farm}
+              claim={claim}
+              farmerName={farmer ? `${farmer.firstName} ${farmer.lastName}` : "Unknown Farmer"}
+              farmer={farmer}
+              policy={policy}
+              showFinancials={true}
+            />
+          </TabsContent>
+
+          <TabsContent value="evidence" className="mt-0">
+            <LossEvidenceTab claim={claim} />
+          </TabsContent>
+
+          <TabsContent value="details" className="mt-0">
+            <LossDetailsTab claim={claim} />
+          </TabsContent>
+
+          <TabsContent value="overview" className="mt-0">
+            <LossOverviewTab claim={claim} fieldName={farm?.name || "Field"} />
+          </TabsContent>
+        </Tabs>
+
+        {/* Dialogs and Modals */}
+        <Dialog open={isFarmModalOpen} onOpenChange={setIsFarmModalOpen}>
+          <DialogContent className="max-w-4xl h-[90vh] p-0 flex flex-col overflow-hidden">
+            <DialogHeader className="p-6 border-b shrink-0">
+              <DialogTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5 text-primary" />
+                Farm & Field Context
+              </DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 overflow-y-auto p-6 bg-muted/10">
+              {fullFarm ? (
+                <BasicInfoTab
+                  fieldId={fullFarm.id}
+                  farmerId={
+                    typeof claim.farmerId === "object"
+                      ? claim.farmerId._id
+                      : claim.farmerId
+                  }
+                  fieldName={fullFarm.name || "N/A"}
+                  farmerName={
+                    farmer
+                      ? `${farmer.firstName} ${farmer.lastName}`
+                      : "Unknown"
+                  }
+                  cropType={fullFarm.cropType || "N/A"}
+                  area={fullFarm.area || 0}
+                  season={getSeasonFromSowingDate(fullFarm.sowingDate)}
+                  location={fullFarm.locationName || "Unknown"}
+                  sowingDate={
+                    fullFarm.sowingDate
+                      ? format(new Date(fullFarm.sowingDate), "PP")
+                      : "N/A"
+                  }
+                  boundary={fullFarm.boundary}
+                  locationCoords={fullFarm.location?.coordinates}
+                  showActions={false}
+                />
+              ) : (
+                <div className="flex h-64 items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={isAssignModalOpen} onOpenChange={setIsAssignModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Assign Assessor</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Available Assessors</Label>
+                <Select
+                  onValueChange={setSelectedAssessorId}
+                  value={selectedAssessorId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select an assessor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {assessors?.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.firstName} {a.lastName} ({a.email})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsAssignModalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => assignMutation.mutate(selectedAssessorId)}
+                disabled={!selectedAssessorId || assignMutation.isPending}
+              >
+                {assignMutation.isPending
+                  ? "Assigning..."
+                  : "Confirm Assignment"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog
+          open={isApproveModalOpen}
+          onOpenChange={setIsApproveModalOpen}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Approve Claim</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="payout">Final Payout Amount (RWF)</Label>
+                <Input
+                  id="payout"
+                  type="number"
+                  placeholder="Enter amount"
+                  value={payoutAmountInput}
+                  onChange={(e) => setPayoutAmountInput(e.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsApproveModalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={() =>
+                  approveMutation.mutate(Number(payoutAmountInput))
+                }
+                disabled={!payoutAmountInput || approveMutation.isPending}
+              >
+                {approveMutation.isPending
+                  ? "Approving..."
+                  : "Confirm Approval"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={isRejectModalOpen} onOpenChange={setIsRejectModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Reject Claim</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="reason">Reason for Rejection</Label>
+                <Textarea
+                  id="reason"
+                  placeholder="Provide details for the rejection"
+                  value={rejectionReasonInput}
+                  onChange={(e) => setRejectionReasonInput(e.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsRejectModalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => rejectMutation.mutate(rejectionReasonInput)}
+                disabled={!rejectionReasonInput || rejectMutation.isPending}
+              >
+                {rejectMutation.isPending
+                  ? "Rejecting..."
+                  : "Confirm Rejection"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
 };
 
 export default InsurerClaimDetail;
+
+
