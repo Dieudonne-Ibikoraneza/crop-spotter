@@ -197,6 +197,14 @@ export const renderDroneDataToDoc = async (
     return startY + rowH;
   };
 
+  const ensureSpace = (currentY: number, requiredH: number): number => {
+    if (currentY + requiredH > H - 15) {
+      doc.addPage();
+      return drawPageHeader(0, 20) + 10;
+    }
+    return currentY;
+  };
+
   let y = drawPageHeader(0, 20);
 
   // DUAL TITLE STRIP
@@ -270,7 +278,7 @@ export const renderDroneDataToDoc = async (
       const drawSection = (title: string, content: string | null | undefined) => {
         if (!content || String(content).toLowerCase() === "null" || String(content).toLowerCase() === "undefined" || String(content).trim() === "") return;
         
-        if (y > H - 40) { doc.addPage(); y = drawPageHeader(0) + 12; }
+        y = ensureSpace(y, 30);
 
         doc.setFillColor(13, 74, 42); // forest green
         doc.rect(M, y, W - M * 2, 7, "F");
@@ -297,6 +305,7 @@ export const renderDroneDataToDoc = async (
     // SECTION 1: STRESS LEVELS (If available)
   const levels = getLevels(d);
   if (levels.length > 0) {
+    y = ensureSpace(y, 80); // Ensure space for chart + some rows
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(34, 197, 94);
@@ -377,7 +386,8 @@ export const renderDroneDataToDoc = async (
     // Stats Banner
     const stats = getTotalAreaStats(d, isPlantStressRelated);
     if (stats.ha > 0 || stats.pct > 0) {
-      const bannerY = Math.max(y, pieY + pieSize + 15) + 8;
+      const bannerYRaw = Math.max(y, pieY + pieSize + 15) + 8;
+      const bannerY = ensureSpace(bannerYRaw, 25);
       doc.setFillColor(34, 197, 94);
       doc.rect(0, bannerY, W, 20, "F");
       doc.setFillColor(22, 101, 52);
@@ -410,10 +420,7 @@ export const renderDroneDataToDoc = async (
   const hasSC =
     sc && (sc.plants_counted != null || sc.average_plant_density != null);
   if (hasSC) {
-    if (y > H - 60) {
-      doc.addPage();
-      y = drawPageHeader(0) + 10;
-    }
+    y = ensureSpace(y, 50);
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(34, 197, 94);
@@ -458,10 +465,7 @@ export const renderDroneDataToDoc = async (
   const hasRX =
     rx && (rx.pesticide_type != null || (rx.rates && rx.rates.length > 0));
   if (hasRX) {
-    if (y > H - 70) {
-      doc.addPage();
-      y = drawPageHeader(0) + 10;
-    }
+    y = ensureSpace(y, 60);
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(34, 197, 94);
@@ -551,10 +555,7 @@ export const renderDroneDataToDoc = async (
   const hasZN =
     zn && (zn.num_zones != null || (zn.zones && zn.zones.length > 0));
   if (hasZN) {
-    if (y > H - 40) {
-      doc.addPage();
-      y = drawPageHeader(0) + 10;
-    }
+    y = ensureSpace(y, 30);
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(34, 197, 94);
@@ -572,10 +573,7 @@ export const renderDroneDataToDoc = async (
   }
 
   if (d.additional_info) {
-    if (y > H - 40) {
-      doc.addPage();
-      y = drawPageHeader(0) + 10;
-    }
+    y = ensureSpace(y, 40);
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 100, 100);

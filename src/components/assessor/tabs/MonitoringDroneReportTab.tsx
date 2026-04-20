@@ -38,6 +38,9 @@ interface MonitoringDroneReportTabProps {
   monitoringId: string;
   activeCycle?: CropMonitoringRecord;
   cycles?: CropMonitoringRecord[];
+  fieldName: string;
+  farmerName: string;
+  location: string;
   cropType: string;
   area: number;
   readOnly?: boolean;
@@ -47,6 +50,9 @@ export const MonitoringDroneReportTab = ({
   monitoringId,
   activeCycle,
   cycles = [],
+  fieldName,
+  farmerName,
+  location,
   cropType,
   area,
   readOnly = false,
@@ -121,9 +127,9 @@ export const MonitoringDroneReportTab = ({
     }
   };
 
-  const handleDeletePdf = async (pdfType: string) => {
+  const handleDeletePdf = async (cycleId: string, pdfType: string) => {
     try {
-      await cropMonitoringService.deletePdf(monitoringId, pdfType);
+      await cropMonitoringService.deletePdf(cycleId, pdfType);
       toast({
         title: "Delete Successful",
         description: "The PDF report has been deleted.",
@@ -264,14 +270,15 @@ export const MonitoringDroneReportTab = ({
                     )}
                   </div>
                   
-                  <div className="flex items-center gap-2">
+                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      disabled={isDownloading === pdf._id}
+                      disabled={isDownloading === (pdf._id || idx.toString())}
                       className="gap-2"
+                      title="Download PDF report"
                       onClick={async () => {
-                        setIsDownloading(pdf._id || "downloading");
+                        setIsDownloading(pdf._id || idx.toString());
                         try {
                           await generateDroneDataPDF(
                             pdf.droneAnalysisData as any,
@@ -280,10 +287,15 @@ export const MonitoringDroneReportTab = ({
                             {
                               summary: activeCycle?.notes || "Monitoring data log",
                               weather: "Monthly monitoring cycle context.",
+                              farmName: fieldName,
+                              farmerName: farmerName,
+                              location: location,
+                              area: area,
+                              cropType: cropType
                             },
-                            false, // showContext: false - Technical reports should be focused on data
+                            true, // showContext: true - Now that we have context, show it
                           );
-                          toast({ title: "Success", description: "Report downloaded successfully" });
+                          toast({ title: "Success", description: "PDF report downloaded successfully" });
                         } catch (error) {
                           toast({ title: "Error", description: "Failed to generate PDF", variant: "destructive" });
                         } finally {
@@ -291,8 +303,8 @@ export const MonitoringDroneReportTab = ({
                         }
                       }}
                     >
-                      {isDownloading === pdf._id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                      <span className="hidden sm:inline">Download</span>
+                      {isDownloading === (pdf._id || idx.toString()) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                      <span className="hidden sm:inline">Download PDF report</span>
                     </Button>
                     
                     {!readOnly && (
@@ -303,9 +315,10 @@ export const MonitoringDroneReportTab = ({
                             size="sm"
                             className="gap-2 shrink-0"
                             title="Delete Report"
+                            disabled={pdf.cycleId !== activeCycle?._id || isCompleted}
                           >
                             <Trash2 className="h-4 w-4" />
-                            <span className="hidden sm:inline">Delete Report</span>
+                            <span className="hidden sm:inline">Delete</span>
                           </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
@@ -319,8 +332,7 @@ export const MonitoringDroneReportTab = ({
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
                             <AlertDialogAction
                               className="bg-destructive hover:bg-destructive/90 text-white"
-                              onClick={() => handleDeletePdf(pdf.pdfType)}
-                              disabled={isCompleted}
+                              onClick={() => handleDeletePdf(pdf.cycleId!, pdf.pdfType)}
                             >
                               Delete
                             </AlertDialogAction>

@@ -233,15 +233,16 @@ export const MonitoringOverviewTab = ({
         </div>
         <Button
           onClick={handleDownloadFullReport}
-          disabled={isDownloadingFull || cycles.length === 0}
-          className="bg-primary hover:bg-primary/90 text-white gap-2 h-11 px-6 shadow-md transition-all active:scale-95"
+          disabled={isDownloadingFull || completedCycles.length === 0}
+          className="bg-primary hover:bg-primary/90 text-white gap-2 h-11 px-6 shadow-md transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+          title={completedCycles.length === 0 ? "At least one completed cycle is required to generate a full report." : "Download the complete monitoring history"}
         >
           {isDownloadingFull ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <Download className="h-5 w-5" />
           )}
-          {isDownloadingFull ? "Generating..." : "Download Full Monitoring Report"}
+          {isDownloadingFull ? "Generating Dossier..." : "Download Full Monitoring Report"}
         </Button>
       </div>
 
@@ -436,10 +437,17 @@ export const MonitoringOverviewTab = ({
                           <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
                             <AlertDialogAction
-                              onClick={() => reportMutation.mutate()}
-                              className="bg-green-600 hover:bg-green-700"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                reportMutation.mutate();
+                              }}
+                              className="bg-green-600 hover:bg-green-700 min-w-[140px]"
+                              disabled={reportMutation.isPending}
                             >
-                              Generate Report
+                              {reportMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                              ) : null}
+                              {reportMutation.isPending ? "Generating..." : "Generate Report"}
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>

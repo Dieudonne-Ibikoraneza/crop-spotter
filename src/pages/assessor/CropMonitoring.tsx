@@ -580,6 +580,10 @@ const CropMonitoring = () => {
               <MonitoringDroneReportTab
                 monitoringId={activeCycle?._id || ""}
                 activeCycle={activeCycle}
+                cycles={cycles || []}
+                fieldName={field.name || "N/A"}
+                farmerName={field.farmerName}
+                location={field.location}
                 cropType={field.crop}
                 area={field.area}
               />
@@ -590,6 +594,10 @@ const CropMonitoring = () => {
                 monitoringId={activeCycle?._id || ""}
                 policyId={fieldPolicy._id}
                 fieldName={field.name || "N/A"}
+                farmerName={field.farmerName}
+                cropType={field.crop}
+                area={field.area}
+                location={field.location}
                 cycles={cycles || []}
                 activeCycle={activeCycle}
               />
