@@ -332,6 +332,30 @@ export const LossOverviewTab = ({
 
   return (
     <div className="space-y-6">
+      {/* Assessor Action Bar - Mirrored from Insurer view for consistency */}
+      <div className="flex items-center justify-between p-3 bg-muted/30 border border-primary/10 rounded-lg shadow-sm">
+        <div className="flex items-center gap-2">
+          <Activity className="h-4 w-4 text-primary" />
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+            Assessment Export & Documentation
+          </span>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleExport}
+          disabled={isExporting || !assessment}
+          className="h-7 px-3 text-[10px] font-bold uppercase tracking-wider gap-1.5 border-slate-200 hover:bg-slate-50 transition-colors"
+        >
+          {isExporting ? (
+            <Loader2 className="h-3 w-3 animate-spin text-primary" />
+          ) : (
+            <Download className="h-3 w-3 text-primary" />
+          )}
+          Export Report
+        </Button>
+      </div>
+
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Observations */}
         <Card>

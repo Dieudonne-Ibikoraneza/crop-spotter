@@ -178,6 +178,14 @@ export const LossDetailsTab = ({ claim, isInsurer = false }: LossDetailsTabProps
   });
 
   const handleSave = () => {
+    if (!ndviBefore || !ndviAfter) {
+      toast({
+        title: "Validation Error",
+        description: "NDVI analysis is mandatory. Please enter values for both Before and After.",
+        variant: "destructive",
+      });
+      return;
+    }
     updateMutation.mutate({
       ndviBefore: parseFloat(ndviBefore) || 0,
       ndviAfter: parseFloat(ndviAfter) || 0,
@@ -233,7 +241,9 @@ export const LossDetailsTab = ({ claim, isInsurer = false }: LossDetailsTabProps
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="ndvi-before">NDVI (Before)</Label>
+                <Label htmlFor="ndvi-before" className="flex items-center gap-1">
+                  NDVI (Before) <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="ndvi-before"
                   type="number"
@@ -242,10 +252,13 @@ export const LossDetailsTab = ({ claim, isInsurer = false }: LossDetailsTabProps
                   onChange={(e) => setNdviBefore(e.target.value)}
                   disabled={isCompleted || isInsurer}
                   placeholder="e.g. 0.75"
+                  className={!ndviBefore && !isCompleted && !isInsurer ? "border-amber-200" : ""}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="ndvi-after">NDVI (After)</Label>
+                <Label htmlFor="ndvi-after" className="flex items-center gap-1">
+                  NDVI (After) <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="ndvi-after"
                   type="number"
@@ -254,6 +267,7 @@ export const LossDetailsTab = ({ claim, isInsurer = false }: LossDetailsTabProps
                   onChange={(e) => setNdviAfter(e.target.value)}
                   disabled={isCompleted || isInsurer}
                   placeholder="e.g. 0.45"
+                  className={!ndviAfter && !isCompleted && !isInsurer ? "border-amber-200" : ""}
                 />
               </div>
             </div>
@@ -320,7 +334,7 @@ export const LossDetailsTab = ({ claim, isInsurer = false }: LossDetailsTabProps
                 <Button
                   onClick={handleSave}
                   className="w-full bg-green-600 hover:bg-green-700"
-                  disabled={updateMutation.isPending || isCompleted}
+                  disabled={updateMutation.isPending || isCompleted || !ndviBefore || !ndviAfter}
                 >
                   {updateMutation.isPending ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -344,10 +358,14 @@ export const LossDetailsTab = ({ claim, isInsurer = false }: LossDetailsTabProps
         >
           <div className="flex items-center gap-3">
             <Sparkles className="h-5 w-5 text-primary" />
-            <span className="text-sm font-medium text-primary-900">
-              Drone data is available. Fields have been auto-populated from your
-              reports.
-            </span>
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-primary-900">
+                Drone data is available. Fields have been auto-populated from your reports.
+              </span>
+              <span className="text-xs text-primary-700/80">
+                Important: Review the values below and click "Save Metrics" to finalize.
+              </span>
+            </div>
           </div>
           <Button
             variant="ghost"
