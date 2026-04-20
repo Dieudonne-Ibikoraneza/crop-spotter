@@ -74,12 +74,13 @@ export class MonitoringReportGenerator {
     doc.text("SH", W - M - 5, 12.5, { align: "center" });
   }
 
-  private drawFooter(pageNum: number) {
+  private drawFooter(pageNum: number, systemLabel: string = "Monitoring Audit System") {
     const { doc, W, H, M } = this;
     doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
     setTxt(doc, C.slate);
-    doc.text(`STARHAWK™ Monitoring System  •  Confidential`, W / 2, H - 8, { align: "center" });
-    doc.text(`Page ${pageNum}`, W - M, H - 8, { align: "right" });
+    doc.text(`STARHAWK\u2122 ${systemLabel} \u00B7 Confidential`, W / 2, H - 7, { align: "center" });
+    doc.text(`Page ${pageNum}`, W - M, H - 7, { align: "right" });
   }
 
   private async urlToBase64(url: string): Promise<string | null> {
@@ -165,7 +166,7 @@ export class MonitoringReportGenerator {
       }
 
       if (y > H - 40) {
-        this.drawFooter(pageNum++);
+        this.drawFooter(pageNum++, "Monitoring Audit System");
         doc.addPage();
         y = 20;
       }
@@ -220,7 +221,7 @@ export class MonitoringReportGenerator {
 
       // Weather Data (First 6 entries for summary)
       if (weatherArray.length > 0) {
-        if (y > H - 30) { this.drawFooter(pageNum++); doc.addPage(); y = 20; }
+        if (y > H - 30) { this.drawFooter(pageNum++, "Monitoring Audit System"); doc.addPage(); y = 20; }
         doc.setFontSize(8);
         doc.setFont("helvetica", "bold");
         setTxt(doc, C.slate);
@@ -239,7 +240,7 @@ export class MonitoringReportGenerator {
             wy += uniformHeight + 3;
             // Protect against row clipping
             if (wy > H - uniformHeight - 10) {
-                this.drawFooter(pageNum++);
+                this.drawFooter(pageNum++, "Monitoring Audit System");
                 doc.addPage();
                 wy = 20;
             }
@@ -294,20 +295,31 @@ export class MonitoringReportGenerator {
             for (const pdf of cycle.droneAnalysisPdfs) {
               if (pdf.droneAnalysisData) {
                 // Close out the current monitoring page
-                this.drawFooter(pageNum++);
+                this.drawFooter(pageNum++, "Monitoring Audit System");
                 const endGenericPage = doc.getNumberOfPages();
                 doc.addPage();
                 y = 20;
 
                 // Render the complete Drone Report layout
-                await renderDroneDataToDoc(doc, pdf.droneAnalysisData, formatReportTypeLabel(pdf.pdfType), true);
+                await renderDroneDataToDoc(
+                  doc,
+                  pdf.droneAnalysisData!,
+                  formatReportTypeLabel(pdf.pdfType),
+                  true, // skipFooter
+                  "Monitoring Audit System",
+                  {
+                    summary: cycle.notes || "",
+                    weather: "Monthly monitoring cycle context."
+                  },
+                  false // showContext: false - we already have notes in history
+                );
 
                 const finalDronePage = doc.getNumberOfPages();
                 
                 // Add the Monitoring Generator footer retrospectively
                 for (let p = endGenericPage + 1; p <= finalDronePage; p++) {
                   doc.setPage(p);
-                  this.drawFooter(pageNum++);
+                  this.drawFooter(pageNum++, "Monitoring Audit System");
                 }
 
                 // Resync cursor back to the end and start a new generic monitoring page
@@ -320,7 +332,7 @@ export class MonitoringReportGenerator {
 
       // Photos Grid (Compact)
       if (cycle.photoUrls?.length) {
-        if (y > H - 40) { this.drawFooter(pageNum++); doc.addPage(); y = 20; }
+        if (y > H - 40) { this.drawFooter(pageNum++, "Monitoring Audit System"); doc.addPage(); y = 20; }
         doc.setFontSize(8);
         doc.setFont("helvetica", "bold");
         setTxt(doc, C.slate);
@@ -365,7 +377,7 @@ export class MonitoringReportGenerator {
       return new Blob([doc.output("blob")], { type: "application/pdf" });
     }
 
-    this.drawFooter(pageNum);
+    this.drawFooter(pageNum, "Monitoring Audit System");
     return new Blob([doc.output("blob")], { type: "application/pdf" });
   }
 

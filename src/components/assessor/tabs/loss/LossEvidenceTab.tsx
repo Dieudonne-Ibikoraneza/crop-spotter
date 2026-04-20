@@ -140,10 +140,16 @@ export const LossEvidenceTab = ({
 
   const handleDownloadReport = async (pdf: any) => {
     try {
-      await generateDroneDataPDF(pdf.droneAnalysisData, pdf.pdfType, {
-        summary: assessment?.reportText || assessment?.notes,
-        weather: assessment?.weatherImpactAnalysis,
-      });
+      await generateDroneDataPDF(
+        pdf.droneAnalysisData,
+        pdf.pdfType,
+        "Claim Audit System",
+        {
+          summary: assessment?.reportText || assessment?.notes,
+          weather: assessment?.weatherImpactAnalysis,
+        },
+        false, // showContext: false - Standalone technical reports should strictly show raw data
+      );
       toast({
         title: "Report Downloaded",
         description: `Detailed analysis for ${formatReportTypeLabel(

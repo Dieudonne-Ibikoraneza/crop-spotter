@@ -266,11 +266,12 @@ export class ComprehensiveReportGenerator {
   }
 
   // ── Footer ────────────────────────────────────────────────────────────────
-  private drawFooter(pageNum: number) {
+  private drawFooter(pageNum: number, systemLabel: string = "Crop Assessment System") {
     const { doc, W, H, M } = this;
     doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
     setTxt(doc, C.slate);
-    doc.text(`STARHAWK\u2122 Crop Assessment System  \u00B7  Confidential`, W / 2, H - 8, { align: "center" });
+    doc.text(`STARHAWK\u2122 ${systemLabel} \u00B7 Confidential`, W / 2, H - 8, { align: "center" });
     doc.text(`Page ${pageNum}`, W - M, H - 8, { align: "right" });
   }
 
@@ -758,7 +759,7 @@ export class ComprehensiveReportGenerator {
 
     // ── Recommendations ───────────────────────────────────────────────────
     if (this.needsBreak(y, 50)) {
-      this.drawFooter(pageNum++);
+      this.drawFooter(pageNum++, "Risk Assessment System");
       doc.addPage();
       this.drawPageHeader("Recommendations");
       y = 20;
@@ -769,7 +770,7 @@ export class ComprehensiveReportGenerator {
     // ── Notes ────────────────────────────────────────────────────────────
     if (data.comprehensiveNotes) {
       if (this.needsBreak(y, 40)) {
-        this.drawFooter(pageNum++);
+        this.drawFooter(pageNum++, "Risk Assessment System");
         doc.addPage();
         this.drawPageHeader("Assessor Notes");
         y = 20;
@@ -792,7 +793,13 @@ export class ComprehensiveReportGenerator {
           doc,
           pdf.droneAnalysisData!,
           formatReportTypeLabel(pdf.pdfType),
-          true,
+          true, // skipFooter
+          "Risk Assessment System",
+          {
+            summary: data.comprehensiveNotes,
+            weather: "Contextual weather data included in previous pages."
+          },
+          false // showContext: false - we already have summary in dossier
         );
 
         const finalDronePage = doc.getNumberOfPages();
@@ -800,7 +807,7 @@ export class ComprehensiveReportGenerator {
         // Add footer to all drone pages retrospectively
         for (let p = endGenericPage + 1; p <= finalDronePage; p++) {
           doc.setPage(p);
-          this.drawFooter(pageNum++);
+          this.drawFooter(pageNum++, "Risk Assessment System");
         }
 
         // Resync to last page
@@ -815,7 +822,7 @@ export class ComprehensiveReportGenerator {
 
     y = this.drawSection("Report Sign-Off", y);
     this.drawSignOff(y, data);
-    this.drawFooter(pageNum);
+    this.drawFooter(pageNum, "Risk Assessment System");
 
     // Prune trailing blank page if sign-off was short
     return new Blob([doc.output("blob")], { type: "application/pdf" });

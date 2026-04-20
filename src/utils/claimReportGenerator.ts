@@ -91,11 +91,10 @@ export class ClaimReportGenerator {
 
   private drawFooter(page: number) {
     const { doc, W, H, M } = this;
-    const totalPages = doc.getNumberOfPages();
     doc.setFontSize(8);
     doc.setFont("helvetica", "bold"); 
     doc.setTextColor(60, 60, 60);
-    doc.text("STARHAWK\u2122 Claim Audit System \u00B7 Confidential", W / 2, H - 7, { align: "center" });
+    doc.text(`STARHAWK\u2122 Claim Audit System \u00B7 Confidential`, W / 2, H - 7, { align: "center" });
     doc.text(`Page ${page}`, W - M, H - 7, { align: "right" });
   }
 
@@ -267,7 +266,8 @@ export class ClaimReportGenerator {
           doc, 
           pdf.droneAnalysisData || pdf.analysisData, 
           formatReportTypeLabel(pdf.pdfType),
-          true, // skipFooter on drone pages as we handle it ourselves globally below
+          true, // skipFooter
+          "Claim Audit System",
           {
             summary: this.getStr(assessment, ["reportText", "report_text", "notes", "summary"]),
             weather: this.getStr(assessment, ["weatherImpactAnalysis", "weather_impact", "weather_notes"])

@@ -145,11 +145,12 @@ export const renderDroneDataToDoc = async (
   d: DroneAnalysisData,
   pdfTypeLabel?: string,
   skipFooter: boolean = false,
+  systemLabel: string = "Claim Audit System",
   assessmentContext?: {
     summary?: string;
     weather?: string;
   },
-  showContext: boolean = true,
+  showContext: boolean = false,
 ) => {
   const report = d.report ?? {};
   const field = d.field ?? {};
@@ -590,23 +591,6 @@ export const renderDroneDataToDoc = async (
     y += 28;
   }
 
-  // --- FOOTER RENDERING ---
-  if (!skipFooter) {
-    const totalPages = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= totalPages; i++) {
-        doc.setPage(i);
-        doc.setFontSize(7);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(160, 160, 160);
-        doc.text("Powered by:", M, H - 8);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(34, 197, 94);
-        doc.text(report.provider ?? "STARHAWK", M + 18, H - 8);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Page ${i} of ${totalPages}`, W / 2, H - 8, { align: "center" });
-        doc.text(new Date().toLocaleDateString(), W - M, H - 8, { align: "right" });
-    }
-  }
 
   // PAGE 2: MAP IMAGE
   const mapImage = d.map_image;
@@ -662,16 +646,18 @@ export const renderDroneDataToDoc = async (
     }
   }
 
-  // --- FOOTER RENDERING ---
+  // --- FOOTER RENDERING (Standardized) ---
   if (!skipFooter) {
     const totalPages = (doc as any).internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
-        doc.setPage(i);
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(60, 60, 60);
-        doc.text("STARHAWK\u2122 Claim Audit System \u00B7 Confidential", W / 2, H - 7, { align: "center" });
-        doc.text(`Page ${i}`, W - M, H - 7, { align: "right" });
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(60, 60, 60);
+      doc.text(`STARHAWK\u2122 ${systemLabel} \u00B7 Confidential`, W / 2, H - 7, {
+        align: "center",
+      });
+      doc.text(`Page ${i}`, W - M, H - 7, { align: "right" });
     }
   }
 };
@@ -679,14 +665,24 @@ export const renderDroneDataToDoc = async (
 export const generateDroneDataPDF = async (
   d: DroneAnalysisData,
   pdfTypeLabel?: string,
+  systemLabel: string = "Claim Audit System",
   assessmentContext?: {
     summary?: string;
     weather?: string;
   },
+  showContext: boolean = false,
 ) => {
   try {
     const doc = new jsPDF("p", "mm", "a4");
-    await renderDroneDataToDoc(doc, d, pdfTypeLabel, false, assessmentContext, true);
+    await renderDroneDataToDoc(
+      doc,
+      d,
+      pdfTypeLabel,
+      false,
+      systemLabel,
+      assessmentContext,
+      showContext,
+    );
 
     const report = d.report ?? {};
     const dateStr = new Date().toISOString().split("T")[0];

@@ -40,7 +40,8 @@ import {
   Assessment,
 } from "@/lib/api/services/assessor";
 import { Farm } from "@/lib/api/types";
-import { formatReportTypeLabel } from "@/lib/crops";
+import { formatReportTypeLabel, getAgremoTitle } from "@/lib/crops";
+import { generateDroneDataPDF } from "@/utils/dronePdfGenerator";
 
 interface DroneAnalysisTabProps {
   fieldId: string;
@@ -274,6 +275,32 @@ export const DroneAnalysisTab = ({
       toast.error(error.message || "Failed to delete PDF");
     }
   };
+  
+  const handleDownloadReport = async (pdf: AssessmentDronePdf) => {
+    try {
+      const data = dronePayload(pdf);
+      if (!data) {
+        toast.error("No analysis data available to generate PDF.");
+        return;
+      }
+
+      await generateDroneDataPDF(
+        data,
+        pdf.pdfType,
+        "Risk Assessment System",
+        {
+          summary: assessmentData?.comprehensiveNotes || "No summary provided.",
+          weather:
+            "Risk Assessment - Manual Weather check available in Weather tab.",
+        },
+        false, // showContext: false - Standalone reports should only show technical data
+      );
+      toast.success("Technical report generated successfully.");
+    } catch (err) {
+      console.error("Failed to generate report:", err);
+      toast.error("Failed to generate PDF report.");
+    }
+  };
 
   const isCurrentPdfUploaded = uploadedPdfs.length > 0;
 
@@ -414,41 +441,53 @@ export const DroneAnalysisTab = ({
                         </p>
                       )}
                     </div>
-                    {!readOnly && (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            className="gap-2 shrink-0"
-                            disabled={isCompleted}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            Delete report
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>
-                              Are you absolutely sure?
-                            </AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This permanently deletes &quot;
-                              {formatReportTypeLabel(pdf.pdfType)}&quot; from
-                              this assessment.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDeletePdf(pdf.pdfType)}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                        onClick={() => handleDownloadReport(pdf)}
+                      >
+                        <FileText className="h-4 w-4" />
+                        Download PDF
+                      </Button>
+
+                      {!readOnly && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="gap-2"
+                              disabled={isCompleted}
                             >
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    )}
+                              <Trash2 className="h-4 w-4" />
+                              Delete report
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>
+                                Are you absolutely sure?
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This permanently deletes &quot;
+                                {formatReportTypeLabel(pdf.pdfType)}&quot; from
+                                this assessment.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDeletePdf(pdf.pdfType)}
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>

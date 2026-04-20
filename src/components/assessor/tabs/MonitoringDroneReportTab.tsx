@@ -275,7 +275,13 @@ export const MonitoringDroneReportTab = ({
                         try {
                           await generateDroneDataPDF(
                             pdf.droneAnalysisData as any,
-                            formatReportTypeLabel(pdf.pdfType)
+                            formatReportTypeLabel(pdf.pdfType),
+                            "Monitoring Audit System",
+                            {
+                              summary: activeCycle?.notes || "Monitoring data log",
+                              weather: "Monthly monitoring cycle context.",
+                            },
+                            false, // showContext: false - Technical reports should be focused on data
                           );
                           toast({ title: "Success", description: "Report downloaded successfully" });
                         } catch (error) {
