@@ -139,32 +139,49 @@ const FarmerPolicyDetail = () => {
                 ? "default"
                 : String(policy.status).toUpperCase() === "DECLINED"
                   ? "destructive"
-                  : "secondary"
+                  : "outline"
             }
-            className="text-sm"
+            className={`text-sm px-3 py-1 ${
+              String(policy.status).toUpperCase() === "PENDING_ACCEPTANCE"
+                ? "border-amber-500 text-amber-600 bg-amber-50/30 dark:bg-amber-900/10"
+                : ""
+            }`}
           >
-            {String(policy.status).toUpperCase() === "DECLINED" ? "Declined" : policy.status}
+            {(() => {
+              const s = String(policy.status).toUpperCase();
+              if (s === "PENDING_ACCEPTANCE") return "Issued (Pending)";
+              if (s === "DECLINED") return "Declined";
+              if (s === "ACTIVE") return "Active / Coverage On";
+              return policy.status;
+            })()}
           </Badge>
         </div>
       </div>
 
       {pending && (
-        <Card className="border-amber-500/40 bg-amber-50/50 dark:bg-amber-950/20">
+        <Card className="border-amber-500/40 bg-transparent shadow-none">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-amber-600" />
+            <CardTitle className="text-base flex items-center gap-2 text-amber-700 dark:text-amber-500">
+              <CheckCircle2 className="h-5 w-5" />
               Action required
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-amber-700/80 dark:text-amber-400/80 font-medium">
               Your insurer has issued this policy. Review the terms below and accept to activate coverage.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
-            <Button className="gap-2" onClick={() => setConfirmOpen(true)}>
+            <Button 
+              className="gap-2 bg-amber-600 hover:bg-amber-700 text-white border-0" 
+              onClick={() => setConfirmOpen(true)}
+            >
               <CheckCircle2 className="h-4 w-4" />
               Review and accept policy
             </Button>
-            <Button variant="outline" className="gap-2" onClick={() => setRejectOpen(true)}>
+            <Button 
+              variant="outline" 
+              className="gap-2 border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800" 
+              onClick={() => setRejectOpen(true)}
+            >
               Decline policy
             </Button>
           </CardContent>

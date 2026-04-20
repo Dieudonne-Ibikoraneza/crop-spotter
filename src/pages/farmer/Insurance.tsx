@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useMemo } from "react";
 import { format } from "date-fns";
-import { ShieldCheck, FileText, ArrowRight, Hash } from "lucide-react";
+import { ShieldCheck, FileText, ArrowRight, Hash, CheckCircle2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,14 +49,22 @@ function PolicyRow({
           variant={
             statusU === "ACTIVE"
               ? "default"
-              : statusU === "PENDING_ACCEPTANCE"
-                ? "outline"
-                : statusU === "DECLINED"
-                  ? "destructive"
-                  : "secondary"
+              : statusU === "DECLINED"
+                ? "destructive"
+                : "outline"
           }
+          className={`${
+            statusU === "PENDING_ACCEPTANCE"
+              ? "border-amber-500 text-amber-600 bg-amber-50/30"
+              : ""
+          }`}
         >
-          {statusU === "DECLINED" ? "Declined" : p.status}
+          {(() => {
+            if (statusU === "PENDING_ACCEPTANCE") return "Issued (Pending)";
+            if (statusU === "DECLINED") return "Declined";
+            if (statusU === "ACTIVE") return "Active / Coverage On";
+            return p.status;
+          })()}
         </Badge>
       </div>
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -163,13 +171,14 @@ const FarmerInsurance = () => {
       </div>
 
       {policyGroups.pending.length > 0 && (
-        <Card className="border-amber-500/40 bg-amber-50/40 dark:bg-amber-950/20">
+        <Card className="border-amber-500/40 bg-transparent shadow-none">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">
+            <CardTitle className="text-base text-amber-700 dark:text-amber-500 flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5" />
               Awaiting your acceptance ({policyGroups.pending.length})
             </CardTitle>
           </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
+          <CardContent className="text-sm text-amber-700/80 dark:text-amber-400/80 font-medium">
             You have {policyGroups.pending.length} polic
             {policyGroups.pending.length === 1 ? "y" : "ies"} from your insurer. Open each one to review, accept,
             or decline before coverage becomes active.
