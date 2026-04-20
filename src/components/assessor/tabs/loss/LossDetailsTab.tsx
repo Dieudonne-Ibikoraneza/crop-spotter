@@ -54,6 +54,8 @@ export const LossDetailsTab = ({ claim, isInsurer = false }: LossDetailsTabProps
   const assessment = fetchedAssessment || assessmentFromClaim;
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isAlertVisible, setIsAlertVisible] = useState(true);
+  const [isDismissing, setIsDismissing] = useState(false);
 
   const [ndviBefore, setNdviBefore] = useState<string>("");
   const [ndviAfter, setNdviAfter] = useState<string>("");
@@ -182,6 +184,13 @@ export const LossDetailsTab = ({ claim, isInsurer = false }: LossDetailsTabProps
       damageArea: parseFloat(damageArea) || 0,
       yieldImpact: parseFloat(yieldImpact) || 0,
     });
+  };
+
+  const handleDismiss = () => {
+    setIsDismissing(true);
+    setTimeout(() => {
+      setIsAlertVisible(false);
+    }, 400); // match duration-500 approximately or slightly less
   };
 
   const ndviChange =
@@ -326,9 +335,13 @@ export const LossDetailsTab = ({ claim, isInsurer = false }: LossDetailsTabProps
         </Card>
       </div>
 
-      {!isInsurer && (ndviBefore === "" || damageArea === "") &&
+      {isAlertVisible && (ndviBefore === "" || damageArea === "") &&
       assessment?.droneAnalysisPdfs?.length ? (
-        <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg flex items-center justify-between">
+        <div 
+          className={`p-4 bg-primary/5 border border-primary/20 rounded-lg flex items-center justify-between transition-all duration-500 ease-in-out ${
+            isDismissing ? "opacity-0 -translate-y-4 scale-95 max-h-0 py-0 overflow-hidden border-transparent" : "opacity-100 translate-y-0 scale-100"
+          } animate-in fade-in slide-in-from-top-4`}
+        >
           <div className="flex items-center gap-3">
             <Sparkles className="h-5 w-5 text-primary" />
             <span className="text-sm font-medium text-primary-900">
@@ -339,12 +352,7 @@ export const LossDetailsTab = ({ claim, isInsurer = false }: LossDetailsTabProps
           <Button
             variant="ghost"
             size="sm"
-            onClick={() =>
-              toast({
-                title: "Auto-filled",
-                description: "Metrics extracted from reports.",
-              })
-            }
+            onClick={handleDismiss}
           >
             Dismiss
           </Button>
