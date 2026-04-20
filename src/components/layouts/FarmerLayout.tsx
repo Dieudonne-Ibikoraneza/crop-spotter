@@ -75,7 +75,7 @@ const FarmerLayout = () => {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-2 space-y-1 mt-4">
+        <nav className="flex-1 p-2 space-y-1 mt-4 overflow-y-auto">
           {navigation.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
