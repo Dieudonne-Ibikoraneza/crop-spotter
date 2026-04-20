@@ -319,6 +319,116 @@ export class ComprehensiveReportGenerator {
   }
 
   // ── Section divider ───────────────────────────────────────────────────────
+  private drawWeatherAnalysis(y: number, weather?: WeatherData): number {
+    if (!weather || !weather.current || !weather.forecast) return y;
+    const { doc, M, CW, H } = this;
+
+    y = this.drawSection("Weather Analysis & Forecast", y);
+
+    // --- 1. Current Weather Grid ---
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "bold");
+    setTxt(doc, C.leaf);
+    doc.text("Current Field Conditions", M + 1, y);
+    y += 5;
+
+    const cur = weather.current;
+    const gridItems = [
+      { label: "Temperature", value: `${cur.temp.toFixed(1)}\u00B0C`, color: C.rose },
+      { label: "Precipitation", value: `${cur.rainfall.toFixed(2)} mm`, color: C.sky },
+      { label: "Humidity", value: `${cur.humidity}%`, color: C.sky },
+      { label: "Clouds", value: `${cur.clouds}%`, color: C.slate },
+      { label: "Wind Speed", value: `${cur.wind.toFixed(1)} m/s`, color: C.slate },
+    ];
+
+    const itemW = (CW - 4) / gridItems.length;
+    let ix = M;
+    gridItems.forEach((item) => {
+      rRect(doc, ix, y, itemW - 2, 14, 1.5, C.mist);
+      doc.setFontSize(7);
+      setTxt(doc, C.slate);
+      doc.text(item.label.toUpperCase(), ix + (itemW - 2) / 2, y + 4.5, { align: "center" });
+      
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      setTxt(doc, item.color);
+      doc.text(item.value, ix + (itemW - 2) / 2, y + 10, { align: "center" });
+      ix += itemW;
+    });
+
+    y += 20;
+
+    // --- 2. 7-Day Forecast Table ---
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "bold");
+    setTxt(doc, C.leaf);
+    doc.text("7-Day Forecast Outlook", M + 1, y);
+    y += 5;
+
+    // Table Header
+    const cols = [
+      { label: "Date", w: 22 },
+      { label: "Temp (H/L)", w: 28 },
+      { label: "Rain", w: 18 },
+      { label: "Humidity", w: 18 },
+      { label: "Clouds", w: 18 },
+      { label: "Wind", w: 18 },
+      { label: "Conditions", w: CW - 22-28-18-18-18-18 },
+    ];
+
+    rRect(doc, M, y, CW, 7, 0, C.forest);
+    doc.setFontSize(7.5);
+    doc.setFont("helvetica", "bold");
+    setTxt(doc, C.white);
+    let tx = M + 2;
+    cols.forEach((col) => {
+      doc.text(col.label, tx, y + 4.5);
+      tx += col.w;
+    });
+    y += 7;
+
+    // Table Rows
+    doc.setFontSize(7.5);
+    doc.setFont("helvetica", "normal");
+    weather.forecast.forEach((day, idx) => {
+      if (y > H - 25) {
+         // Should ideally handle page break but usually this fits after components
+      }
+      const bg = idx % 2 === 0 ? C.white : C.cream;
+      setFill(doc, bg);
+      doc.rect(M, y, CW, 7, "F");
+      setTxt(doc, C.charcoal);
+      
+      let rx = M + 2;
+      const dateStr = new Date(day.dt * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      doc.text(dateStr, rx, y + 4.5);
+      rx += cols[0].w;
+
+      const tempStr = `${day.temp_max?.toFixed(0) ?? "?"} / ${day.temp_min?.toFixed(0) ?? "?"}\u00B0C`;
+      doc.text(tempStr, rx, y + 4.5);
+      rx += cols[1].w;
+
+      doc.text(`${day.rainfall.toFixed(2)} mm`, rx, y + 4.5);
+      rx += cols[2].w;
+
+      doc.text(`${day.humidity.toFixed(0)}%`, rx, y + 4.5);
+      rx += cols[3].w;
+
+      doc.text(`${day.clouds.toFixed(0)}%`, rx, y + 4.5);
+      rx += cols[4].w;
+
+      doc.text(`${day.wind.toFixed(1)} m/s`, rx, y + 4.5);
+      rx += cols[5].w;
+
+      const desc = day.description || "Clear";
+      doc.text(desc.charAt(0).toUpperCase() + desc.slice(1), rx, y + 4.5);
+      
+      y += 7;
+    });
+
+    return y + 5;
+  }
+
   private drawSection(title: string, y: number): number {
     const { doc, M, CW } = this;
     rRect(doc, M, y, CW, 8, 3, C.forest);
@@ -756,6 +866,17 @@ export class ComprehensiveReportGenerator {
       y = this.drawMetricBar(name, value, M, y, CW);
     });
     y += 4;
+
+    // ── Weather Analysis ──────────────────────────────────────────────────
+    if (data.weatherData && data.weatherData.forecast) {
+      if (this.needsBreak(y, 80)) {
+        this.drawFooter(pageNum++, "Risk Assessment System");
+        doc.addPage();
+        this.drawPageHeader("Weather Analysis");
+        y = 20;
+      }
+      y = this.drawWeatherAnalysis(y, data.weatherData);
+    }
 
     // ── Recommendations ───────────────────────────────────────────────────
     if (this.needsBreak(y, 50)) {

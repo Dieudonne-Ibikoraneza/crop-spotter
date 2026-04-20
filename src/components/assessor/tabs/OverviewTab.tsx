@@ -144,27 +144,86 @@ export const OverviewTab = ({
         const floodRiskStr =
           avgDaily > 5 ? "High" : avgDaily > 3 ? "Moderate" : "Low";
 
-        const forecastPoints = extractAgroForecastRows(forecastPayload) as Array<{
-          main?: { temp_max?: number };
-        }>;
-        const maxForecastRaw =
-          forecastPoints.length > 0
-            ? Math.max(
-                ...forecastPoints
-                  .map((p) => p?.main?.temp_max)
-                  .filter((v): v is number => typeof v === "number"),
-              )
+        const rawPoints = extractAgroForecastRows(forecastPayload) as any[];
+
+        // --- 1. Extract Forecast Table (7 days) ---
+        const dailyMap: Record<string, any> = {};
+        rawPoints.forEach((p) => {
+          const date = new Date(p.dt * 1000).toISOString().split("T")[0];
+          if (!dailyMap[date]) {
+            dailyMap[date] = {
+              dt: p.dt,
+              temps: [],
+              humidity: [],
+              rainfall: 0,
+              clouds: [],
+              wind: [],
+              descriptions: [],
+            };
+          }
+          const d = dailyMap[date];
+          if (p.main) {
+            d.temps.push(agroTempToCelsius(p.main.temp));
+            if (p.main.temp_min) d.temps.push(agroTempToCelsius(p.main.temp_min));
+            if (p.main.temp_max) d.temps.push(agroTempToCelsius(p.main.temp_max));
+            d.humidity.push(p.main.humidity);
+          }
+          if (p.rain) {
+            d.rainfall += p.rain["3h"] || p.rain["1h"] || 0;
+          }
+          if (p.clouds) d.clouds.push(p.clouds.all);
+          if (p.wind) d.wind.push(p.wind.speed);
+          if (p.weather?.[0]) d.descriptions.push(p.weather[0].description);
+        });
+
+        const forecastSummaries = Object.values(dailyMap)
+          .sort((a, b) => a.dt - b.dt)
+          .slice(0, 7)
+          .map((d) => ({
+            dt: d.dt,
+            temp: d.temps.reduce((a: any, b: any) => a + b, 0) / d.temps.length,
+            temp_min: Math.min(...d.temps),
+            temp_max: Math.max(...d.temps),
+            humidity:
+              d.humidity.reduce((a: any, b: any) => a + b, 0) /
+              d.humidity.length,
+            rainfall: d.rainfall,
+            clouds:
+              d.clouds.reduce((a: any, b: any) => a + b, 0) / d.clouds.length,
+            wind: d.wind.reduce((a: any, b: any) => a + b, 0) / d.wind.length,
+            description: d.descriptions[0] || "Clear",
+          }));
+
+        // --- 2. Extract Current Weather ---
+        const first = rawPoints[0];
+        const currentWx = first
+          ? {
+              dt: first.dt,
+              temp: agroTempToCelsius(first.main?.temp),
+              humidity: first.main?.humidity,
+              rainfall: first.rain?.["3h"] || first.rain?.["1h"] || 0,
+              clouds: first.clouds?.all || 0,
+              wind: first.wind?.speed || 0,
+              description: first.weather?.[0]?.description || "Clear",
+            }
+          : undefined;
+
+        // --- 3. Compute Risk Strings ---
+        const maxForecastC =
+          forecastSummaries.length > 0
+            ? Math.max(...forecastSummaries.map((s) => s.temp_max))
             : NaN;
-        const maxForecastC = Number.isFinite(maxForecastRaw)
-          ? agroTempToCelsius(maxForecastRaw)
-          : NaN;
 
         const maxTempForStress = Number.isFinite(maxForecastC)
           ? Math.max(avgTemp, maxForecastC)
           : avgTemp;
 
         const heatStressStr =
-          maxTempForStress > 30 ? "High" : maxTempForStress > 25 ? "Moderate" : "Low";
+          maxTempForStress > 30
+            ? "High"
+            : maxTempForStress > 25
+              ? "Moderate"
+              : "Low";
 
         const wx: WeatherData = {
           temperature: avgTemp,
@@ -173,10 +232,13 @@ export const OverviewTab = ({
           droughtRisk: droughtRiskStr,
           floodRisk: floodRiskStr,
           heatStress: heatStressStr,
+          current: currentWx,
+          forecast: forecastSummaries,
         };
 
         if (!cancelled) setWeatherData(wx);
-      } catch {
+      } catch (err) {
+        console.error("Failed to load/process weather:", err);
         if (!cancelled) setWeatherData(null);
       } finally {
         if (!cancelled) setWxLoading(false);
@@ -581,21 +643,6 @@ export const OverviewTab = ({
                     </AlertDialogContent>
                   </AlertDialog>
                 </>
-              )}
-              {riskAssessment && (
-                <Button
-                  variant="outline"
-                  onClick={handleDownloadReport}
-                  disabled={isDownloadingReport}
-                  className="flex items-center gap-2"
-                >
-                  {isDownloadingReport ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Download className="h-4 w-4" />
-                  )}
-                  {isDownloadingReport ? "Generating..." : "Export assessment report"}
-                </Button>
               )}
             </div>
             {!readOnly && hasChanges && (

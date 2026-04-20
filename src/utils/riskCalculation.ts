@@ -58,6 +58,18 @@ function analysisLevels(data: DroneAnalysisData | undefined) {
   return data?.analysis?.levels ?? data?.weed_analysis?.levels;
 }
 
+export interface WeatherPoint {
+  dt: number;
+  temp: number;
+  temp_min?: number;
+  temp_max?: number;
+  humidity: number;
+  rainfall: number;
+  clouds: number;
+  wind: number;
+  description?: string;
+}
+
 export interface WeatherData {
   temperature?: number;
   humidity?: number;
@@ -65,6 +77,9 @@ export interface WeatherData {
   droughtRisk?: string;
   heatStress?: string;
   floodRisk?: string;
+  // Detailed reporting data
+  current?: WeatherPoint;
+  forecast?: WeatherPoint[];
 }
 
 // Growth stage risk mapping
