@@ -18,12 +18,14 @@ import {
   Trash2,
   ExternalLink,
   CheckCircle2,
+  Download,
 } from "lucide-react";
+import { generateDroneDataPDF } from "@/utils/dronePdfGenerator";
 import { formatReportTypeLabel } from "@/lib/crops";
 import { Claim, claimsService } from "@/lib/api/services/claims";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { useClaimPdfs } from "@/lib/api/hooks/useClaims";
+import { useAssessmentById, useClaimPdfs } from "@/lib/api/hooks/useClaims";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,11 +51,27 @@ const getMediaUrl = (url: string) => {
   return `${baseUrl}${url.startsWith("/") ? "" : "/"}${url}`;
 };
 
-export const LossEvidenceTab = ({ claim, isInsurer = false }: LossEvidenceTabProps) => {
+export const LossEvidenceTab = ({
+  claim,
+  isInsurer = false,
+}: LossEvidenceTabProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+
+  // Fetch assessment data for context if needed
+  const assessmentId =
+    typeof claim.assessmentReportId === "object"
+      ? claim.assessmentReportId._id
+      : claim.assessmentReportId;
+
+  const { data: assessmentData } = useAssessmentById(assessmentId);
+  const assessment =
+    assessmentData ||
+    (typeof claim.assessmentReportId === "object"
+      ? claim.assessmentReportId
+      : null);
 
   const isCompleted = [
     "SUBMITTED",
@@ -120,9 +138,32 @@ export const LossEvidenceTab = ({ claim, isInsurer = false }: LossEvidenceTabPro
     }
   };
 
+  const handleDownloadReport = async (pdf: any) => {
+    try {
+      await generateDroneDataPDF(pdf.droneAnalysisData, pdf.pdfType, {
+        summary: assessment?.reportText || assessment?.notes,
+        weather: assessment?.weatherImpactAnalysis,
+      });
+      toast({
+        title: "Report Downloaded",
+        description: `Detailed analysis for ${formatReportTypeLabel(
+          pdf.pdfType,
+        )} is ready.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Download Failed",
+        description: "Could not generate analysis PDF.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div className={`grid ${isInsurer ? "grid-cols-1" : "lg:grid-cols-2"} gap-6`}>
+      <div
+        className={`grid ${isInsurer ? "grid-cols-1" : "lg:grid-cols-2"} gap-6`}
+      >
         {/* Farmer Evidence */}
         <Card className={isInsurer ? "w-full" : ""}>
           <CardHeader>
@@ -136,7 +177,9 @@ export const LossEvidenceTab = ({ claim, isInsurer = false }: LossEvidenceTabPro
           </CardHeader>
           <CardContent>
             {claim.damagePhotos && claim.damagePhotos.length > 0 ? (
-              <div className={`grid ${isInsurer ? "grid-cols-2 md:grid-cols-4" : "grid-cols-2 md:grid-cols-3"} gap-3`}>
+              <div
+                className={`grid ${isInsurer ? "grid-cols-2 md:grid-cols-4" : "grid-cols-2 md:grid-cols-3"} gap-3`}
+              >
                 {claim.damagePhotos.map((url, i) => (
                   <div
                     key={i}
@@ -199,7 +242,9 @@ export const LossEvidenceTab = ({ claim, isInsurer = false }: LossEvidenceTabPro
                       )}
                     </div>
                     <p className="font-medium">
-                      {isUploading ? "Uploading..." : "Click to upload drone PDF"}
+                      {isUploading
+                        ? "Uploading..."
+                        : "Click to upload drone PDF"}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       Supports Plant Stress, Waterlogging, Stand Count, etc.
@@ -296,11 +341,24 @@ export const LossEvidenceTab = ({ claim, isInsurer = false }: LossEvidenceTabPro
                   </AlertDialogContent>
                 </AlertDialog>
               )}
+
+              {isInsurer && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 h-8"
+                  onClick={() => handleDownloadReport(pdf)}
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Download Analysis
+                </Button>
+              )}
             </CardHeader>
             <CardContent>
               <DroneAnalysisView
                 data={pdf.droneAnalysisData}
                 pdfType={pdf.pdfType}
+                assessment={assessment}
               />
             </CardContent>
           </Card>

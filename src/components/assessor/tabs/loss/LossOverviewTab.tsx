@@ -20,12 +20,15 @@ import {
   Plus,
   CloudLightning,
   Send,
+  Download,
+  Activity,
 } from "lucide-react";
 import {
   Claim,
   ClaimAssessment,
   claimsService,
 } from "@/lib/api/services/claims";
+import { ClaimReportGenerator } from "@/utils/claimReportGenerator";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAssessmentById } from "@/lib/api/hooks/useClaims";
@@ -74,7 +77,8 @@ export const LossOverviewTab = ({
   const [newObservation, setNewObservation] = useState("");
   const [reportText, setReportText] = useState("");
   const [weatherImpactAnalysis, setWeatherImpactAnalysis] = useState("");
-  const [notes, setNotes] = useState(""); // Keeping this for backward compatibility if needed, but mainly we use reportText
+  const [notes, setNotes] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     if (assessment) {
@@ -164,13 +168,53 @@ export const LossOverviewTab = ({
     reportText.trim().length > 0 &&
     (assessment?.droneAnalysisPdfs?.length || 0) > 0;
 
+  const handleExport = async () => {
+    if (!assessment) return;
+    setIsExporting(true);
+    try {
+      const generator = new ClaimReportGenerator();
+
+      // Ensure we use the latest state values in case the assessment object is stale
+      const currentData = {
+        ...assessment,
+        reportText: reportText || assessment.reportText || assessment.notes,
+        weatherImpactAnalysis:
+          weatherImpactAnalysis || assessment.weatherImpactAnalysis,
+        observations:
+          observations.length > 0 ? observations : assessment.observations,
+      };
+
+      await generator.generate(
+        claim,
+        currentData,
+        assessment.droneAnalysisPdfs || [],
+      );
+      toast({
+        title: "Report Exported",
+        description: "Your PDF assessment report is ready.",
+      });
+    } catch (error) {
+      console.error("Export failed:", error);
+      toast({
+        title: "Export Failed",
+        description: "Could not generate PDF report.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const renderParagraphs = (text: string) => {
     if (!text) return null;
     return text
       .split(/\n\s*\n/)
       .filter((p) => p.trim())
       .map((p, i) => (
-        <p key={i} className={`mb-4 leading-relaxed text-base ${isInsurer ? "text-white/80" : "text-slate-700"}`}>
+        <p
+          key={i}
+          className={`mb-4 leading-relaxed text-base ${isInsurer ? "text-white/80" : "text-slate-700"}`}
+        >
           {p.trim()}
         </p>
       ));
@@ -187,18 +231,39 @@ export const LossOverviewTab = ({
               Report Finalized & Verified
             </span>
           </div>
-          {claim.status === "SUBMITTED" && (
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-[10px] h-5 px-2">
-              Pending Approval
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExport}
+              disabled={isExporting}
+              className="h-7 px-3 text-[10px] font-bold uppercase tracking-wider gap-1.5 border-slate-200 hover:bg-slate-50 transition-colors"
+            >
+              {isExporting ? (
+                <Loader2 className="h-3 w-3 animate-spin text-primary" />
+              ) : (
+                <Download className="h-3 w-3 text-primary" />
+              )}
+              Export Report
+            </Button>
+            {claim.status === "SUBMITTED" && (
+              <Badge
+                variant="outline"
+                className="bg-green-50 text-green-700 border-green-200 text-[10px] h-5 px-2"
+              >
+                Pending Approval
+              </Badge>
+            )}
+          </div>
         </div>
 
         {/* Observations Section */}
         <section className="overflow-hidden rounded-xl shadow-sm">
           <div className="bg-slate-900 px-5 py-3 flex items-center gap-2.5">
             <FileText className="h-4 w-4 text-slate-400" />
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Field Observations</h3>
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+              Field Observations
+            </h3>
           </div>
           <div className="bg-slate-800 p-6">
             <div className="grid gap-3">
@@ -206,11 +271,15 @@ export const LossOverviewTab = ({
                 observations.map((obs, idx) => (
                   <div key={idx} className="flex items-start gap-4">
                     <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                    <p className="text-white/90 leading-relaxed text-sm md:text-base font-light">{obs}</p>
+                    <p className="text-white/90 leading-relaxed text-sm md:text-base font-light">
+                      {obs}
+                    </p>
                   </div>
                 ))
               ) : (
-                <p className="text-white/40 italic text-sm">No specific field observations recorded.</p>
+                <p className="text-white/40 italic text-sm">
+                  No specific field observations recorded.
+                </p>
               )}
             </div>
           </div>
@@ -220,7 +289,9 @@ export const LossOverviewTab = ({
         <section className="overflow-hidden rounded-xl shadow-sm">
           <div className="bg-slate-900 px-5 py-3 flex items-center gap-2.5">
             <CloudLightning className="h-4 w-4 text-slate-400" />
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Weather Impact Analysis</h3>
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+              Weather Impact Analysis
+            </h3>
           </div>
           <div className="bg-slate-800 p-6">
             {weatherImpactAnalysis ? (
@@ -228,7 +299,9 @@ export const LossOverviewTab = ({
                 {renderParagraphs(weatherImpactAnalysis)}
               </div>
             ) : (
-              <p className="text-white/80 italic text-sm">No weather impact analysis provided.</p>
+              <p className="text-white/80 italic text-sm">
+                No weather impact analysis provided.
+              </p>
             )}
           </div>
         </section>
@@ -237,7 +310,9 @@ export const LossOverviewTab = ({
         <section className="overflow-hidden rounded-xl shadow-sm">
           <div className="bg-slate-900 px-5 py-3 flex items-center gap-2.5">
             <FileText className="h-4 w-4 text-slate-400" />
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Assessment Executive Summary</h3>
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+              Assessment Executive Summary
+            </h3>
           </div>
           <div className="bg-slate-800 p-6 min-h-[150px]">
             {reportText ? (
@@ -245,7 +320,9 @@ export const LossOverviewTab = ({
                 {renderParagraphs(reportText)}
               </div>
             ) : (
-              <p className="text-white/80 italic text-sm">No formal summary has been provided for this assessment.</p>
+              <p className="text-white/80 italic text-sm">
+                No formal summary has been provided for this assessment.
+              </p>
             )}
           </div>
         </section>
@@ -331,7 +408,8 @@ export const LossOverviewTab = ({
                   <div className="absolute top-3 right-3 opacity-20">
                     <CloudLightning className="h-8 w-8 text-blue-400" />
                   </div>
-                  {weatherImpactAnalysis || "No weather impact analysis provided for this assessment."}
+                  {weatherImpactAnalysis ||
+                    "No weather impact analysis provided for this assessment."}
                 </div>
               ) : (
                 <Textarea
@@ -355,10 +433,11 @@ export const LossOverviewTab = ({
             <CardContent className="flex-1 space-y-4">
               {isInsurer ? (
                 <div className="relative p-8 rounded-lg bg-white border shadow-sm text-sm whitespace-pre-wrap min-h-[250px] text-slate-700 leading-8 font-sans">
-                   <div className="absolute top-4 right-4 opacity-10">
+                  <div className="absolute top-4 right-4 opacity-10">
                     <FileText className="h-12 w-12 text-slate-400" />
                   </div>
-                  {reportText || "A formal assessment summary has not been provided."}
+                  {reportText ||
+                    "A formal assessment summary has not been provided."}
                 </div>
               ) : (
                 <Textarea
@@ -386,7 +465,7 @@ export const LossOverviewTab = ({
                       )}
                       Save Progress
                     </Button>
- 
+
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button
@@ -424,7 +503,7 @@ export const LossOverviewTab = ({
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
- 
+
                     {!canSubmit && (
                       <p className="text-xs text-muted-foreground text-center">
                         Add observations, notes, and at least one drone report
@@ -432,18 +511,20 @@ export const LossOverviewTab = ({
                       </p>
                     )}
                   </>
-                ) : (isInsurer || isCompleted) && (
-                  <div className="flex flex-col items-center gap-2 p-6 bg-green-50/50 border border-green-200/50 rounded-xl shadow-sm">
-                    <CheckCircle2 className="h-10 w-10 text-green-600 mb-1" />
-                    <p className="text-sm font-bold text-green-900 uppercase tracking-widest">
-                      Official Assessment Report Finalized
-                    </p>
-                    {claim.status === "SUBMITTED" && (
-                      <p className="text-xs text-green-700">
-                        Pending Insurer Approval
+                ) : (
+                  (isInsurer || isCompleted) && (
+                    <div className="flex flex-col items-center gap-2 p-6 bg-green-50/50 border border-green-200/50 rounded-xl shadow-sm">
+                      <CheckCircle2 className="h-10 w-10 text-green-600 mb-1" />
+                      <p className="text-sm font-bold text-green-900 uppercase tracking-widest">
+                        Official Assessment Report Finalized
                       </p>
-                    )}
-                  </div>
+                      {claim.status === "SUBMITTED" && (
+                        <p className="text-xs text-green-700">
+                          Pending Insurer Approval
+                        </p>
+                      )}
+                    </div>
+                  )
                 )}
               </div>
             </CardContent>
