@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { Home, Scan, Satellite, FileWarning, Leaf, User, LogOut, ChevronLeft, ChevronRight, Menu } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Home, Scan, Satellite, FileWarning, Leaf, User, LogOut, ChevronLeft, ChevronRight, Menu, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
@@ -12,6 +13,14 @@ const AssessorLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
   const { user } = authService.getAuthStatus();
 
+  // Fetch full profile for the photo
+  const { data: profile } = useQuery({
+    queryKey: ["user-profile"],
+    queryFn: () => authService.getProfile(),
+  });
+  
+  const profilePhoto = profile?.assessorProfile?.profilePhotoUrl;
+
   const handleLogout = () => {
     authService.logout();
     navigate("/login", { replace: true });
@@ -22,6 +31,7 @@ const AssessorLayout = () => {
     { name: "Risk Assessment", href: "/assessor/risk-assessment", icon: Scan },
     { name: "Crop Monitoring", href: "/assessor/crop-monitoring", icon: Satellite },
     { name: "Loss Assessment", href: "/assessor/loss-assessment", icon: FileWarning },
+    { name: "Settings", href: "/assessor/settings", icon: Settings },
   ];
 
   const isActive = (href: string) => location.pathname === href;
@@ -93,8 +103,12 @@ const AssessorLayout = () => {
         <div className={cn("p-4 border-t border-sidebar-border", collapsed && "p-2")}>
           {!collapsed && (
             <div className="flex items-center gap-3 mb-3 p-2 rounded-lg bg-muted/50">
-              <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0 border border-primary/10">
-                <User className="h-5 w-5 text-primary" />
+              <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0 border border-primary/10 overflow-hidden">
+                {profilePhoto ? (
+                  <img src={profilePhoto} alt="Profile" className="h-full w-full object-cover" />
+                ) : (
+                  <User className="h-5 w-5 text-primary" />
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-sidebar-foreground truncate">

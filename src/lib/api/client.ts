@@ -141,28 +141,69 @@ export const apiClient = {
     return fetchApi<T>(endpoint, { ...options, method: "DELETE" });
   },
 
-  // Form data upload (for files)
+  // Form data upload (for files) with progress tracking
   upload: <T>(
     endpoint: string,
     formData: FormData,
-    options?: RequestInit,
+    options: { onProgress?: (percent: number) => void } = {},
   ): Promise<T> => {
     const token = localStorage.getItem(AUTH_TOKEN_KEY);
 
-    console.log("DEBUG API upload: Starting upload to", endpoint);
-    console.log("DEBUG API upload: Token exists:", !!token);
-    console.log("DEBUG API upload: FormData has file:", formData.has("file"));
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", `${FULL_API_URL}${endpoint}`);
 
-    const headers: HeadersInit = {};
-    if (token) {
-      (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
-    }
+      if (token) {
+        xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+      }
 
-    return fetchApi<T>(endpoint, {
-      ...options,
-      method: "POST",
-      body: formData,
-      headers,
+      // Track upload progress
+      if (options.onProgress) {
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percentComplete = Math.round((event.loaded / event.total) * 100);
+            options.onProgress?.(percentComplete);
+          }
+        };
+      }
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const response = JSON.parse(xhr.responseText);
+            // Handle standard wrapper if present
+            if (response.data !== undefined && response.success !== undefined) {
+              resolve(response.data as T);
+            } else {
+              resolve(response as T);
+            }
+          } catch (e) {
+            resolve(xhr.responseText as unknown as T);
+          }
+        } else {
+          try {
+            const error = JSON.parse(xhr.responseText);
+            reject({
+              statusCode: xhr.status,
+              message: error.message || error.error || "Upload failed",
+              error: error.error || "Error",
+            });
+          } catch (e) {
+            reject({
+              statusCode: xhr.status,
+              message: "Upload failed",
+            });
+          }
+        }
+      };
+
+      xhr.onerror = () => {
+        reject({
+          message: "Network error occurred",
+        });
+      };
+
+      xhr.send(formData);
     });
   },
 };

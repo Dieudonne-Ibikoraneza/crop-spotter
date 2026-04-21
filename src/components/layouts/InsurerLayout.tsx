@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import {
   Home,
   ShieldCheck,
@@ -14,6 +15,7 @@ import {
   ChevronRight,
   Menu,
   Satellite,
+  Settings
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -25,6 +27,14 @@ const InsurerLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
   const { user } = authService.getAuthStatus();
 
+  // Fetch full profile for the photo
+  const { data: profile } = useQuery({
+    queryKey: ["user-profile"],
+    queryFn: () => authService.getProfile(),
+  });
+  
+  const insurerLogo = profile?.insurerProfile?.companyLogoUrl || profile?.insurerProfile?.profilePictureUrl;
+
   const navigation = [
     { name: "Dashboard", href: "/insurer/dashboard", icon: Home },
     { name: "Requests", href: "/insurer/requests", icon: Leaf },
@@ -34,6 +44,7 @@ const InsurerLayout = () => {
     { name: "Assessments", href: "/insurer/assessments", icon: ClipboardList },
     { name: "Assessors", href: "/insurer/assessors", icon: Users },
     { name: "Reports", href: "/insurer/reports", icon: BarChart3 },
+    { name: "Settings", href: "/insurer/settings", icon: Settings },
   ];
 
   const handleLogout = () => {
@@ -135,8 +146,12 @@ const InsurerLayout = () => {
         >
           {!collapsed && (
             <div className="flex items-center gap-3 mb-3 p-2 rounded-lg bg-muted/50">
-              <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0 border border-primary/10">
-                <User className="h-5 w-5 text-primary" />
+              <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0 border border-primary/10 overflow-hidden">
+                {insurerLogo ? (
+                  <img src={insurerLogo} alt="Logo" className="h-full w-full object-cover" />
+                ) : (
+                  <User className="h-5 w-5 text-primary" />
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-sidebar-foreground truncate">

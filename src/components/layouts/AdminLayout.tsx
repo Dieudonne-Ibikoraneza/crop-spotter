@@ -14,6 +14,7 @@ import {
   ClipboardList,
   Leaf,
   Map,
+  Settings
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -33,6 +34,7 @@ const AdminLayout = () => {
     { name: "Policies", href: "/admin/policies", icon: ClipboardList },
     { name: "Claims", href: "/admin/claims", icon: FileWarning },
     { name: "Crop monitoring", href: "/admin/crop-monitoring", icon: Leaf },
+    { name: "Settings", href: "/admin/settings", icon: Settings },
   ];
 
   const handleLogout = () => {

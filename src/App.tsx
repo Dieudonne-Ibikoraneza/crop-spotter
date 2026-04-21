@@ -43,6 +43,7 @@ import AdminClaims from "./pages/admin/AdminClaims";
 import AdminCropMonitoring from "./pages/admin/AdminCropMonitoring";
 import AdminCropMonitoringDetail from "./pages/admin/AdminCropMonitoringDetail";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
+import Settings from "./pages/Settings";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -93,6 +94,7 @@ const App = () => (
             />
             <Route path="field/:id" element={<FieldDetail />} />
             <Route path="field-processing" element={<FieldProcessing />} />
+            <Route path="settings" element={<Settings />} />
           </Route>
 
           {/* Farmer Portal */}
@@ -112,6 +114,7 @@ const App = () => (
             <Route path="claims" element={<FarmerClaims />} />
             <Route path="claims/:id" element={<FarmerClaimDetail />} />
             <Route path="health" element={<FarmerHealthReports />} />
+            <Route path="settings" element={<Settings />} />
           </Route>
 
           {/* Insurer Portal (mock UI) */}
@@ -140,6 +143,7 @@ const App = () => (
               path="crop-monitoring/:fieldId"
               element={<InsurerCropMonitoring />}
             />
+            <Route path="settings" element={<Settings />} />
           </Route>
 
           {/* Admin console (mock UI) */}
@@ -171,6 +175,7 @@ const App = () => (
               element={<AdminCropMonitoringDetail />}
             />
             <Route path="crop-monitoring" element={<AdminCropMonitoring />} />
+            <Route path="settings" element={<Settings />} />
             <Route
               path="pending-farms"
               element={<Navigate to="assessments" replace />}

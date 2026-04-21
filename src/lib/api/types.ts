@@ -81,6 +81,22 @@ export interface InsurerProfile {
   licenseNumber?: string;
   registrationDate?: string;
   companyLogoUrl?: string;
+  bio?: string;
+  profilePictureUrl?: string;
+  province?: string;
+  district?: string;
+  sector?: string;
+  cell?: string;
+  village?: string;
+  officialEmail?: string;
+  officialPhone?: string;
+  specializations?: string[];
+  socialMedia?: {
+    twitter?: string;
+    linkedin?: string;
+    facebook?: string;
+    instagram?: string;
+  };
   createdAt?: string;
   updatedAt?: string;
 }

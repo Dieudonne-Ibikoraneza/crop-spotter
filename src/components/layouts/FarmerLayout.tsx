@@ -10,7 +10,8 @@ import {
   LogOut, 
   ChevronLeft, 
   ChevronRight,
-  Menu
+  Menu,
+  Settings
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,7 @@ const FarmerLayout = () => {
     { name: "Claims", href: "/farmer/claims", icon: FileText },
     { name: "Insurance", href: "/farmer/insurance", icon: ShieldCheck },
     { name: "Health Reports", href: "/farmer/health", icon: Activity },
+    { name: "Settings", href: "/farmer/settings", icon: Settings },
   ];
 
   const handleLogout = () => {
