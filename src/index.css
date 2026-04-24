@@ -9,46 +9,46 @@ All colors MUST be HSL.
 @layer base {
   :root {
     /* Dark Enterprise Palette */
-    --background: 232 24% 12%;          /* #1A1A2E - Very dark gray/near black */
-    --foreground: 0 0% 98%;             /* #FAFAFA - White/Light gray for high contrast */
-    
-    --card: 235 16% 18%;                /* #27293D - Slightly lighter dark gray for cards */
+    --background: 232 24% 12%; /* #1A1A2E - Very dark gray/near black */
+    --foreground: 0 0% 98%; /* #FAFAFA - White/Light gray for high contrast */
+
+    --card: 235 16% 18%; /* #27293D - Slightly lighter dark gray for cards */
     --card-foreground: 0 0% 98%;
-    
+
     --popover: 235 16% 18%;
     --popover-foreground: 0 0% 98%;
-    
-    --primary: 187 85% 48%;             /* #0DCAF0 - Blue/Teal Accent (vibrant) */
+
+    --primary: 187 85% 48%; /* #0DCAF0 - Blue/Teal Accent (vibrant) */
     --primary-foreground: 232 24% 12%;
-    
+
     --secondary: 235 16% 22%;
     --secondary-foreground: 0 0% 98%;
-    
+
     --muted: 235 16% 25%;
     --muted-foreground: 0 0% 70%;
-    
-    --accent: 187 85% 48%;              /* Blue/Teal - for active states */
+
+    --accent: 187 85% 48%; /* Blue/Teal - for active states */
     --accent-foreground: 232 24% 12%;
-    
-    --destructive: 14 85% 58%;          /* #F06548 - Orange/Red for risks */
+
+    --destructive: 14 85% 58%; /* #F06548 - Orange/Red for risks */
     --destructive-foreground: 0 0% 98%;
-    
+
     --border: 235 16% 28%;
     --input: 235 16% 28%;
     --ring: 187 85% 48%;
-    
+
     --radius: 0.5rem;
-    
-    --chart-1: 187 85% 48%;             /* Blue/Teal for all chart data */
-    --chart-2: 187 85% 38%;             /* Darker shade for multi-line charts */
+
+    --chart-1: 187 85% 48%; /* Blue/Teal for all chart data */
+    --chart-2: 187 85% 38%; /* Darker shade for multi-line charts */
     --chart-3: 187 85% 58%;
     --chart-4: 187 85% 28%;
     --chart-5: 187 85% 68%;
-    
+
     --success: 142 76% 36%;
     --warning: 38 92% 50%;
     --info: 199 89% 48%;
-    
+
     /* Sidebar specific */
     --sidebar-background: 232 24% 12%;
     --sidebar-foreground: 0 0% 85%;
@@ -64,38 +64,38 @@ All colors MUST be HSL.
     /* Dark mode uses same dark enterprise palette */
     --background: 232 24% 12%;
     --foreground: 0 0% 98%;
-    
+
     --card: 235 16% 18%;
     --card-foreground: 0 0% 98%;
-    
+
     --popover: 235 16% 18%;
     --popover-foreground: 0 0% 98%;
-    
+
     --primary: 187 85% 48%;
     --primary-foreground: 232 24% 12%;
-    
+
     --secondary: 235 16% 22%;
     --secondary-foreground: 0 0% 98%;
-    
+
     --muted: 235 16% 25%;
     --muted-foreground: 0 0% 70%;
-    
+
     --accent: 187 85% 48%;
     --accent-foreground: 232 24% 12%;
-    
+
     --destructive: 14 85% 58%;
     --destructive-foreground: 0 0% 98%;
-    
+
     --border: 235 16% 28%;
     --input: 235 16% 28%;
     --ring: 187 85% 48%;
-    
+
     --chart-1: 187 85% 48%;
     --chart-2: 187 85% 38%;
     --chart-3: 187 85% 58%;
     --chart-4: 187 85% 28%;
     --chart-5: 187 85% 68%;
-    
+
     --sidebar-background: 232 24% 12%;
     --sidebar-foreground: 0 0% 85%;
     --sidebar-primary: 187 85% 48%;
@@ -114,7 +114,9 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings:
+      "rlig" 1,
+      "calt" 1;
   }
 
   html {
@@ -126,7 +128,7 @@ All colors MUST be HSL.
   .text-gradient {
     @apply bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent;
   }
-  
+
   .card-hover {
     @apply transition-all duration-300 hover:shadow-lg hover:shadow-primary/5;
   }

@@ -108,6 +108,26 @@ export function useAssignAssessorToFarm() {
   });
 }
 
+export function useRegisterUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      email: string;
+      phoneNumber: string;
+      nationalId: string;
+      role: string;
+    }) => usersService.register(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+      queryClient.invalidateQueries({ queryKey: adminKeys.statistics });
+      toast.success("User registered successfully. A welcome email has been sent to them.");
+    },
+    onError: (err: Error & { message?: string }) => {
+      toast.error(err?.message || "Could not register user");
+    },
+  });
+}
+
 export function useAdminUserDirectory(page: number, size: number) {
   return useQuery({
     queryKey: adminKeys.usersDirectory(page, size),
@@ -164,6 +184,52 @@ export function useDeactivateUser() {
     },
     onError: (err: Error & { message?: string }) => {
       toast.error(err?.message || "Could not deactivate user");
+    },
+  });
+}
+
+export function useDeleteUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) => adminService.permanentlyDeleteUser(userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+      queryClient.invalidateQueries({ queryKey: adminKeys.statistics });
+      toast.success("User permanently deleted.");
+    },
+    onError: (err: Error & { message?: string }) => {
+      toast.error(err?.message || "Could not delete user");
+    },
+  });
+}
+
+export function useRestoreUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) => adminService.restoreUser(userId),
+    onSuccess: (_, userId) => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+      queryClient.invalidateQueries({ queryKey: ["users", "admin", "detail", userId] });
+      toast.success("User account restored.");
+    },
+    onError: (err: Error & { message?: string }) => {
+      toast.error(err?.message || "Could not restore user");
+    },
+  });
+}
+
+export function useRequestDeactivation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => usersService.requestDeactivation(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-profile"] });
+      toast.success("Deactivation request submitted. Your account will be reviewed.");
+      // Optional: logout user after request if that's desired, 
+      // but usually we keep them logged in until admin approves or just show a pending state.
+    },
+    onError: (err: Error & { message?: string }) => {
+      toast.error(err?.message || "Could not submit deactivation request");
     },
   });
 }
