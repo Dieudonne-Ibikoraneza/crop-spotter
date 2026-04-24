@@ -17,8 +17,16 @@ import {
 } from "@/components/ui/form";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
-import { useRegisterFarm } from "@/lib/api/hooks/useFarmer";
+import { useRegisterFarm, farmerService } from "@/lib/api/hooks/useFarmer";
+import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { BACKEND_CROP_TYPES, formatCropTypeLabel, normalizeCropTypeInput } from "@/lib/crops";
 
@@ -30,6 +38,7 @@ function buildRegisterFarmSchema(minSelectable: Date) {
         required_error: "Choose a date",
         invalid_type_error: "Choose a date",
       }),
+      insurerId: z.string().optional(),
     })
     .refine((data) => !isBefore(startOfDay(data.sowingDate), startOfDay(minSelectable)), {
       message: "At least 14 days from today",
@@ -43,10 +52,11 @@ function buildRegisterFarmSchema(minSelectable: Date) {
 
 export type RegisterFarmFormProps = {
   onSuccess?: () => void;
+  initialInsurerId?: string;
   className?: string;
 };
 
-export function RegisterFarmForm({ onSuccess, className }: RegisterFarmFormProps) {
+export function RegisterFarmForm({ onSuccess, initialInsurerId, className }: RegisterFarmFormProps) {
   const { toast } = useToast();
   const registerFarm = useRegisterFarm();
   const [sowingCalendarOpen, setSowingCalendarOpen] = useState(false);
@@ -58,19 +68,32 @@ export function RegisterFarmForm({ onSuccess, className }: RegisterFarmFormProps
     resolver: zodResolver(schema),
     defaultValues: {
       cropType: "",
+      insurerId: initialInsurerId || "none",
     },
   });
+
+  const { data: insurersData, isLoading: isLoadingInsurers } = useQuery({
+    queryKey: ["insurers"],
+    queryFn: () => farmerService.getInsurers(),
+  });
+
+  const insurers = insurersData?.items || [];
 
   const onSubmit = (values: z.infer<typeof schema>) => {
     const cropType = normalizeCropTypeInput(values.cropType);
     if (!cropType) return;
     const sowingDate = format(values.sowingDate, "yyyy-MM-dd");
+    const finalInsurerId = initialInsurerId ?? values.preferredInsurerId;
     registerFarm.mutate(
-      { cropType, sowingDate },
+      { 
+        cropType, 
+        sowingDate, 
+        insurerId: finalInsurerId === "none" ? undefined : finalInsurerId 
+      },
       {
         onSuccess: () => {
           toast({ title: "Farm registered" });
-          form.reset({ cropType: "" });
+          form.reset({ cropType: "", insurerId: initialInsurerId || "none" });
           form.resetField("sowingDate");
           onSuccess?.();
         },
@@ -159,6 +182,34 @@ export function RegisterFarmForm({ onSuccess, className }: RegisterFarmFormProps
             </FormItem>
           )}
         />
+
+        {!initialInsurerId && (
+          <FormField
+            control={form.control}
+            name="insurerId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Preferred Insurer (Optional)</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder={isLoadingInsurers ? "Loading insurers..." : "Select an insurer"} />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="none">No preference</SelectItem>
+                    {insurers.map((insurer: any) => (
+                      <SelectItem key={insurer.id} value={insurer.id}>
+                        {insurer.insurerProfile?.companyName || `${insurer.firstName} ${insurer.lastName}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
 
         <Button type="submit" className="w-full" disabled={registerFarm.isPending}>
           {registerFarm.isPending ? (

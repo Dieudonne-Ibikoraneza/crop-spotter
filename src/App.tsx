@@ -16,12 +16,16 @@ import FieldProcessing from "./pages/assessor/FieldProcessing";
 import FarmerLayout from "./components/layouts/FarmerLayout";
 import FarmerDashboard from "./pages/farmer/Dashboard";
 import FarmerFarms from "./pages/farmer/Farms";
+import RegisterFarm from "./pages/farmer/RegisterFarm";
 import FarmerFarmDetail from "./pages/farmer/FarmDetail";
 import FarmerClaims from "./pages/farmer/Claims";
 import FarmerClaimDetail from "./pages/farmer/ClaimDetail";
 import FarmerInsurance from "./pages/farmer/Insurance";
 import FarmerPolicyDetail from "./pages/farmer/PolicyDetail";
 import FarmerHealthReports from "./pages/farmer/HealthReports";
+import InsurerMarketplace from "./pages/farmer/Insurers";
+import InsurerProfile from "./pages/farmer/InsurerProfile";
+import AssessorProfileView from "./pages/farmer/AssessorProfileView";
 import InsurerLayout from "./components/layouts/InsurerLayout";
 import InsurerDashboard from "./pages/insurer/Dashboard";
 import InsurerClaims from "./pages/insurer/Claims";
@@ -44,6 +48,7 @@ import AdminCropMonitoring from "./pages/admin/AdminCropMonitoring";
 import AdminCropMonitoringDetail from "./pages/admin/AdminCropMonitoringDetail";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import Settings from "./pages/Settings";
+import Onboarding from "./pages/Onboarding";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -65,6 +70,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/onboarding" element={<Onboarding />} />
 
           {/* Assessor Portal */}
           <Route path="/assessor" element={<AssessorLayout />}>
@@ -107,6 +113,7 @@ const App = () => (
             }
           >
             <Route path="dashboard" element={<FarmerDashboard />} />
+            <Route path="register-farm" element={<RegisterFarm />} />
             <Route path="farms/:id" element={<FarmerFarmDetail />} />
             <Route path="farms" element={<FarmerFarms />} />
             <Route path="insurance" element={<FarmerInsurance />} />
@@ -114,6 +121,9 @@ const App = () => (
             <Route path="claims" element={<FarmerClaims />} />
             <Route path="claims/:id" element={<FarmerClaimDetail />} />
             <Route path="health" element={<FarmerHealthReports />} />
+            <Route path="insurers" element={<InsurerMarketplace />} />
+            <Route path="insurers/:id" element={<InsurerProfile />} />
+            <Route path="assessors/:id" element={<AssessorProfileView />} />
             <Route path="settings" element={<Settings />} />
           </Route>
 
