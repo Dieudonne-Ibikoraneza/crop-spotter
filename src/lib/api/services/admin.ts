@@ -9,6 +9,8 @@ export interface PendingFarmRow {
   sowingDate?: string;
   createdAt: string;
   updatedAt?: string;
+  insurerId?: string;
+  insurerName?: string;
   farmer: {
     id: string;
     email?: string;
@@ -120,5 +122,13 @@ export const adminService = {
       body.insurerId = payload.insurerId.trim();
     }
     return apiClient.post<Assessment>("/assessments/assign", body);
+  },
+
+  permanentlyDeleteUser: async (id: string): Promise<void> => {
+    return apiClient.delete<void>(`/admin/users/${id}`);
+  },
+
+  restoreUser: async (id: string): Promise<void> => {
+    return apiClient.patch<void>(`/admin/users/${id}/restore`, {});
   },
 };

@@ -10,6 +10,7 @@ import {
   ExternalLink,
   ClipboardList,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -138,7 +139,7 @@ const AdminAssessments = () => {
   const openAssign = (farm: PendingFarmRow) => {
     setSelectedPending(farm);
     setAssessorId("");
-    setInsurerId("none");
+    setInsurerId(farm.insurerId || "none");
     setAssignOpen(true);
   };
 
@@ -237,9 +238,8 @@ const AdminAssessments = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Farm</TableHead>
+                    <TableHead>Field ID</TableHead>
                     <TableHead>Farmer</TableHead>
-                    <TableHead className="hidden md:table-cell">Location</TableHead>
                     <TableHead className="hidden sm:table-cell">Crop</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -250,24 +250,17 @@ const AdminAssessments = () => {
                       <TableCell>
                         <button
                           type="button"
-                          className="text-left font-medium hover:text-primary hover:underline"
+                          className="text-left font-mono text-xs hover:text-primary hover:underline"
                           onClick={() => openFarmModal(farm)}
                         >
-                          {farm.name?.trim() || "Unnamed field"}
+                          {farm.id}
                         </button>
-                        <div className="text-xs text-muted-foreground font-mono">{farm.id}</div>
                       </TableCell>
                       <TableCell>
                         <div>{farmerLabel(farm.farmer)}</div>
                         <div className="text-xs text-muted-foreground truncate max-w-[200px]">
                           {farm.farmer.email || farm.farmer.phoneNumber || "—"}
                         </div>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
-                        <span className="inline-flex items-center gap-1">
-                          <MapPin className="h-3.5 w-3.5 shrink-0" />
-                          {locationHint(farm.farmer)}
-                        </span>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">{farm.cropType || "—"}</TableCell>
                       <TableCell className="text-right space-x-2">
@@ -280,7 +273,7 @@ const AdminAssessments = () => {
                           <Eye className="h-4 w-4" />
                           View
                         </Button>
-                        <Button size="sm" className="gap-1" onClick={() => openAssign(farm)}>
+                        <Button size="sm" className="gap-1 shadow-lg shadow-primary/10" onClick={() => openAssign(farm)}>
                           <UserPlus className="h-4 w-4" />
                           Assign
                         </Button>
@@ -397,24 +390,39 @@ const AdminAssessments = () => {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Insurer (optional)</Label>
+              <div className="flex items-center justify-between">
+                <Label>Insurer</Label>
+                {selectedPending?.insurerId && (
+                  <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-none text-[10px] uppercase font-bold">
+                    Farmer's Choice
+                  </Badge>
+                )}
+              </div>
               <Select
                 value={insurerId}
                 onValueChange={setInsurerId}
-                disabled={insurersLoading || assignMutation.isPending}
+                disabled={insurersLoading || assignMutation.isPending || !!selectedPending?.insurerId}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder={insurersLoading ? "Loading…" : "None"} />
+                <SelectTrigger className={cn(insurerId === "none" && "border-destructive/50")}>
+                  <SelectValue placeholder={insurersLoading ? "Loading…" : "Select insurer"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
+                  {!selectedPending?.insurerId && (
+                    <SelectItem value="none">Select an insurer...</SelectItem>
+                  )}
                   {(insurers ?? []).map((i) => (
                     <SelectItem key={i.id} value={i.id}>
-                      {[i.firstName, i.lastName].filter(Boolean).join(" ") || i.email}
+                      {i.insurerProfile?.companyName || [i.firstName, i.lastName].filter(Boolean).join(" ") || i.email}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {insurerId === "none" && (
+                <p className="text-[10px] text-destructive font-bold flex items-center gap-1">
+                  <span className="h-1 w-1 rounded-full bg-destructive" />
+                  Selecting an insurer is mandatory
+                </p>
+              )}
             </div>
           </div>
           <DialogFooter>
@@ -423,7 +431,7 @@ const AdminAssessments = () => {
             </Button>
             <Button
               onClick={handleAssign}
-              disabled={!assessorId || assignMutation.isPending}
+              disabled={!assessorId || insurerId === "none" || assignMutation.isPending}
               className="gap-2"
             >
               {assignMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
