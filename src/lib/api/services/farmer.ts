@@ -112,9 +112,24 @@ export const farmerService = {
   },
 
   /**
+   * Get all available insurers
+   */
+  getInsurers: async (): Promise<PaginatedResponse<any>> => {
+    return apiClient.get<PaginatedResponse<any>>("/users/insurers");
+  },
+
+  getInsurerPublicProfile: async (id: string): Promise<any> => {
+    return apiClient.get<any>(`/users/insurers/${id}/public`);
+  },
+
+  getAssessorProfile: async (id: string): Promise<any> => {
+    return apiClient.get<any>(`/users/assessors/${id}/profile`);
+  },
+
+  /**
    * Simple farm registration (crop + sowing date). Geometry added later by assessor (KML).
    */
-  registerFarm: async (body: { cropType: string; sowingDate: string }): Promise<Farm> => {
+  registerFarm: async (body: { cropType: string; sowingDate: string; insurerId?: string }): Promise<Farm> => {
     return apiClient.post<Farm>("/farms/register", body);
   },
 

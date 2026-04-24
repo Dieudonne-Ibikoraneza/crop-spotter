@@ -5,7 +5,7 @@ import { LoginRequest, LoginResponse, UserProfile } from "../types";
 const AUTH_ENDPOINTS = {
   login: "/auth/login",
   profile: "/users/profile",
-  changePassword: "/auth/change-password",
+  changePassword: "/auth/password",
 } as const;
 
 /**
@@ -46,6 +46,13 @@ export const authService = {
    */
   updateProfile: async (data: Partial<UserProfile>): Promise<UserProfile> => {
     return apiClient.put<UserProfile>(AUTH_ENDPOINTS.profile, data);
+  },
+
+  /**
+   * Change user password
+   */
+  changePassword: async (data: any): Promise<{ message: string }> => {
+    return apiClient.put<{ message: string }>(AUTH_ENDPOINTS.changePassword, data);
   },
 
   /**
