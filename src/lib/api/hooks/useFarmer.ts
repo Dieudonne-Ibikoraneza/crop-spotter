@@ -162,7 +162,7 @@ export function useFarmerAlerts() {
 export function useRegisterFarm() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: { cropType: string; sowingDate: string }) => farmerService.registerFarm(body),
+    mutationFn: (body: { cropType: string; sowingDate: string; insurerId?: string }) => farmerService.registerFarm(body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: farmerKeys.farms });
       queryClient.invalidateQueries({ queryKey: farmerKeys.stats });

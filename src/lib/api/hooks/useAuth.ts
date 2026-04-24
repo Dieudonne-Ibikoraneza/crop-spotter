@@ -30,8 +30,8 @@ export function useLogin(options?: UseLoginOptions) {
       // Call success callback if provided
       options?.onSuccess?.(data);
       
-      // Redirect based on role
-      const dashboardPath = getDashboardPath(data.role);
+      // Redirect based on role and onboarding status
+      const dashboardPath = getDashboardPath(data.role, data.firstLoginRequired);
       navigate(dashboardPath);
     },
     onError: (error: Error) => {
@@ -110,7 +110,11 @@ export function useUpdateProfile() {
 /**
  * Helper function to get dashboard path based on user role
  */
-function getDashboardPath(role: string): string {
+function getDashboardPath(role: string, firstLoginRequired?: boolean): string {
+  if (role === 'INSURER' && firstLoginRequired) {
+    return '/onboarding';
+  }
+
   switch (role) {
     case 'ADMIN':
       return '/admin/dashboard';
