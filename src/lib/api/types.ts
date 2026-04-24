@@ -164,6 +164,10 @@ export interface Farm {
   boundary?: FarmBoundary;
   status: string;
   eosdaFieldId?: string;
+  preferredInsurerId?: string;
+  preferredInsurerName?: string;
+  insurerId?: string;
+  insurerName?: string;
   createdAt: string;
   updatedAt: string;
 }

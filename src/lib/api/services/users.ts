@@ -35,6 +35,7 @@ function mapUserDoc(u: Record<string, unknown>): UserProfile {
     email?: string;
     phoneNumber?: string;
     role?: string;
+    status?: string;
     active?: boolean;
     nationalId?: string;
     province?: string;
@@ -53,6 +54,7 @@ function mapUserDoc(u: Record<string, unknown>): UserProfile {
     email: raw.email ?? "",
     phoneNumber: raw.phoneNumber ?? "",
     role: raw.role ?? "",
+    status: raw.status,
     active: raw.active ?? true,
     nationalId: raw.nationalId,
     province: raw.province,
@@ -119,5 +121,19 @@ export const usersService = {
 
   deactivateUser: async (id: string): Promise<{ message: string }> => {
     return apiClient.put<{ message: string }>(`/users/${id}/deactivate`, {});
+  },
+
+  register: async (data: {
+    email: string;
+    phoneNumber: string;
+    nationalId: string;
+    role: string;
+  }): Promise<UserProfile> => {
+    const response = await apiClient.post<Record<string, unknown>>("/users", data);
+    return mapUserDoc(response);
+  },
+
+  requestDeactivation: async (): Promise<{ message: string }> => {
+    return apiClient.post<{ message: string }>("/users/profile/request-deactivation", {});
   },
 };
