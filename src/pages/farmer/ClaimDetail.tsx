@@ -248,7 +248,12 @@ const FarmerClaimDetail = () => {
               <div className="flex items-center justify-between gap-3">
                 <span className="text-muted-foreground">Assessor</span>
                 <span className="font-medium text-right">
-                  {fullName(claim.assessorId) || "—"}
+                  <Link 
+                    to={`/farmer/assessors/${refId(claim.assessorId)}`}
+                    className="hover:text-primary hover:underline transition-colors"
+                  >
+                    {fullName(claim.assessorId) || "—"}
+                  </Link>
                 </span>
               </div>
             )}

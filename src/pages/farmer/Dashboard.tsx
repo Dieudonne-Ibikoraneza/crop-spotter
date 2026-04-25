@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { RegisterFarmDialog } from "@/components/farmer/register-farm-dialog";
 import { 
   Sprout, 
   ShieldCheck, 
@@ -24,7 +23,6 @@ import { format } from "date-fns";
 import type { MonitoringRecord, WeatherForecastDataPoint } from "@/lib/api/types";
 
 const FarmerDashboard = () => {
-  const [registerFarmOpen, setRegisterFarmOpen] = useState(false);
   const { data: stats, isLoading: statsLoading } = useFarmerDashboardStats();
   const { data: farmsData, isLoading: farmsLoading } = useFarmerFarms();
   const { data: alerts, isLoading: alertsLoading } = useFarmerAlerts();
@@ -56,17 +54,17 @@ const FarmerDashboard = () => {
                 </Link>
             </Button>
             <Button
-              type="button"
+              asChild
               className="shadow-lg shadow-primary/20"
-              onClick={() => setRegisterFarmOpen(true)}
             >
-              <Sprout className="mr-2 h-4 w-4" />
-              Register New Farm
+              <Link to="/farmer/register-farm">
+                <Sprout className="mr-2 h-4 w-4" />
+                Register New Farm
+              </Link>
             </Button>
         </div>
       </div>
 
-      <RegisterFarmDialog open={registerFarmOpen} onOpenChange={setRegisterFarmOpen} />
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
