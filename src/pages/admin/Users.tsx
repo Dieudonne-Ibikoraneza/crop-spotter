@@ -46,9 +46,13 @@ import {
   useAdminUserDirectory,
   useUserDetail,
   useDeactivateUser,
+  useDeleteUser,
+  useRestoreUser,
 } from "@/lib/api/hooks/useAdmin";
 import type { UserProfile } from "@/lib/api/services/users";
 import { authService } from "@/lib/api/services/auth";
+import { UserPlus } from "lucide-react";
+import CreateUserModal from "@/components/admin/CreateUserModal";
 
 const roleVariant = (role: string) => {
   switch (role) {
@@ -67,10 +71,15 @@ const AdminUsers = () => {
   const [q, setQ] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const { data, isLoading, error, refetch, isFetching } = useAdminUserDirectory(0, 100);
   const { data: detail, isLoading: detailLoading } = useUserDetail(selectedId);
   const deactivate = useDeactivateUser();
+  const hardDelete = useDeleteUser();
+  const restore = useRestoreUser();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmRestore, setConfirmRestore] = useState(false);
 
   const currentUserId = authService.getAuthStatus().user?.userId;
   const isTargetAdmin = detail?.role === "ADMIN";
@@ -111,14 +120,24 @@ const AdminUsers = () => {
             {data != null && ` ${data.totalItems} total.`}
           </p>
         </div>
-        <button
-          type="button"
-          className="text-sm text-primary hover:underline disabled:opacity-50"
-          onClick={() => refetch()}
-          disabled={isFetching}
-        >
-          {isFetching ? "Refreshing…" : "Refresh"}
-        </button>
+        <div className="flex items-center gap-4">
+          <Button 
+            size="sm" 
+            className="flex items-center gap-2"
+            onClick={() => setShowCreateModal(true)}
+          >
+            <UserPlus className="h-4 w-4" />
+            Create User
+          </Button>
+          <button
+            type="button"
+            className="text-sm text-primary hover:underline disabled:opacity-50"
+            onClick={() => refetch()}
+            disabled={isFetching}
+          >
+            {isFetching ? "Refreshing…" : "Refresh"}
+          </button>
+        </div>
       </div>
 
       <Card>
@@ -174,9 +193,15 @@ const AdminUsers = () => {
                       <Badge variant={roleVariant(u.role)}>{u.role}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={u.active ? "secondary" : "outline"}>
-                        {u.active ? "Active" : "Inactive"}
-                      </Badge>
+                      {u.status === "DEACTIVATION_REQUESTED" ? (
+                        <Badge variant="destructive" className="animate-pulse">
+                          Deactivation Required
+                        </Badge>
+                      ) : (
+                        <Badge variant={u.active ? "secondary" : "outline"}>
+                          {u.active ? "Active" : "Inactive"}
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">
                       {u.createdAt ? format(new Date(u.createdAt), "PP") : "—"}
@@ -217,9 +242,15 @@ const AdminUsers = () => {
               </div>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm text-muted-foreground">Status</span>
-                <Badge variant={detail.active ? "secondary" : "outline"}>
-                  {detail.active ? "Active" : "Inactive"}
-                </Badge>
+                {detail.status === "DEACTIVATION_REQUESTED" ? (
+                  <Badge variant="destructive" className="animate-pulse">
+                    Deactivation Requested
+                  </Badge>
+                ) : (
+                  <Badge variant={detail.active ? "secondary" : "outline"}>
+                    {detail.active ? "Active" : "Inactive"}
+                  </Badge>
+                )}
               </div>
 
               <Separator />
@@ -292,29 +323,79 @@ const AdminUsers = () => {
 
               <div className="space-y-3">
                 <p className="text-xs font-semibold text-muted-foreground uppercase">Actions</p>
-                <Button
-                  variant="destructive"
-                  className="w-full"
-                  disabled={
-                    !detail.active ||
-                    isTargetAdmin ||
-                    detail.id === currentUserId ||
-                    deactivate.isPending
-                  }
-                  onClick={() => setConfirmDeactivate(true)}
-                >
-                  {deactivate.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : null}
-                  Deactivate user
-                </Button>
+                
+                {detail.status === "DEACTIVATION_REQUESTED" ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button
+                      variant="outline"
+                      className="border-primary text-primary hover:bg-primary/10"
+                      onClick={() => setConfirmRestore(true)}
+                      disabled={restore.isPending}
+                    >
+                      {restore.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                      Reject & Restore
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <Button
+                      variant="destructive"
+                      className="w-full"
+                      disabled={
+                        !detail.active ||
+                        isTargetAdmin ||
+                        detail.id === currentUserId ||
+                        deactivate.isPending
+                      }
+                      onClick={() => setConfirmDeactivate(true)}
+                    >
+                      {deactivate.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : null}
+                      Deactivate user
+                    </Button>
+                    
+                    {!detail.active && !isTargetAdmin && detail.id !== currentUserId && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full mt-2"
+                        onClick={() => setConfirmRestore(true)}
+                        disabled={restore.isPending}
+                      >
+                        Restore account
+                      </Button>
+                    )}
+                  </>
+                )}
+
+                {!isTargetAdmin && detail.id !== currentUserId && (
+                  <div className="mt-8 pt-6 border-t border-destructive/20 space-y-4">
+                    <div className="flex items-center gap-2 text-destructive">
+                      <Shield className="h-4 w-4" />
+                      <h4 className="text-xs font-bold uppercase tracking-wider">Danger Zone</h4>
+                    </div>
+                    <div className="p-4 rounded-lg bg-destructive/5 border border-destructive/10 space-y-3">
+                      <p className="text-xs text-muted-foreground">
+                        Permanently removes this user's account and all associated data. This action cannot be undone.
+                      </p>
+                      <Button
+                        variant="destructive"
+                        className="w-full shadow-lg shadow-destructive/20"
+                        onClick={() => setConfirmDelete(true)}
+                        disabled={hardDelete.isPending}
+                      >
+                        {hardDelete.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                        Permanent Delete
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 {(isTargetAdmin || detail.id === currentUserId) && (
                   <p className="text-xs text-muted-foreground">
-                    Admin accounts and your own account cannot be deactivated here.
+                    Admin accounts and your own account cannot be managed here.
                   </p>
-                )}
-                {!detail.active && (
-                  <p className="text-xs text-muted-foreground">User is already inactive.</p>
                 )}
               </div>
             </div>
@@ -327,8 +408,7 @@ const AdminUsers = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Deactivate this user?</AlertDialogTitle>
             <AlertDialogDescription>
-              They will no longer be able to sign in. This matches{" "}
-              <code className="text-xs">PUT /users/:id/deactivate</code>.
+              They will no longer be able to sign in. The account will remain in the database until permanently deleted by an admin.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -342,6 +422,70 @@ const AdminUsers = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={confirmRestore} onOpenChange={setConfirmRestore}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Restore this user account?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will set the account status back to Active and allow the user to sign in again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (detail?.id) {
+                  restore.mutate(detail.id, {
+                    onSuccess: () => {
+                      setConfirmRestore(false);
+                      setSelectedId(null);
+                      refetch();
+                    }
+                  });
+                }
+              }}
+            >
+              Restore Account
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive">PERMANENTLY DELETE USER?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action is <strong className="text-destructive font-bold">IRREVERSIBLE</strong>. 
+              All user data, profiles, and uploaded files will be permanently erased from the system.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (detail?.id) {
+                  hardDelete.mutate(detail.id, {
+                    onSuccess: () => {
+                      setConfirmDelete(false);
+                      setSelectedId(null);
+                      refetch();
+                    }
+                  });
+                }
+              }}
+            >
+              Permanently Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <CreateUserModal 
+        open={showCreateModal} 
+        onOpenChange={setShowCreateModal} 
+      />
     </div>
   );
 };

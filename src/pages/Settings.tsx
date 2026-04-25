@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
   User, 
@@ -19,10 +19,23 @@ import {
   Loader2,
   Trash2,
   Pencil,
-  Plus
+  Plus,
+  AlertTriangle,
+  UserX,
+  Lock
 } from "lucide-react";
-import { authService } from "@/lib/api/services/auth";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogHeader, 
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter
+} from "@/components/ui/dialog";
 import { photosService } from "@/lib/api/services/photos";
+import { authService } from "@/lib/api/services/auth";
+import { useRequestDeactivation } from "@/lib/api/hooks/useAdmin";
 import ImageCropper from "@/components/ui/image-cropper";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -41,12 +54,30 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { UserWithProfile } from "@/lib/api/types";
 
 const Settings = () => {
   const queryClient = useQueryClient();
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
+  const requestDeactivation = useRequestDeactivation();
+  const [confirmDeactivate, setConfirmDeactivate] = useState(false);
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: ""
+  });
   
   // Cropper state
   const [cropperData, setCropperData] = useState<{
@@ -78,6 +109,9 @@ const Settings = () => {
         phoneNumber: profile.phoneNumber || "",
         // Role specific fields
         ...roleProfile,
+        companyName: (roleProfile as any)?.companyName || "",
+        licenseNumber: (roleProfile as any)?.licenseNumber || "",
+        website: (roleProfile as any)?.website || "",
         // Social media nested object
         ...(profile.role === "INSURER" ? {
           socialMedia: (roleProfile as any)?.socialMedia || {
@@ -91,6 +125,29 @@ const Settings = () => {
     }
   }, [profile]);
 
+  const initialMappedData = useMemo(() => {
+    if (!profile) return {};
+    const roleProfile = profile.role === "INSURER" ? profile.insurerProfile : 
+                       profile.role === "ASSESSOR" ? profile.assessorProfile : 
+                       profile.role === "FARMER" ? profile.farmerProfile : {};
+    
+    return {
+      email: profile.email || "",
+      phoneNumber: profile.phoneNumber || "",
+      ...roleProfile,
+      ...(profile.role === "INSURER" ? {
+        socialMedia: (roleProfile as any)?.socialMedia || {
+          twitter: "",
+          linkedin: "",
+          facebook: "",
+          instagram: ""
+        }
+      } : {})
+    };
+  }, [profile]);
+
+  const hasChanges = JSON.stringify(formData) !== JSON.stringify(initialMappedData);
+
   // Update profile mutation
   const updateProfileMutation = useMutation({
     mutationFn: (data: any) => authService.updateProfile(data),
@@ -102,6 +159,31 @@ const Settings = () => {
       toast.error(error.message || "Failed to update profile");
     }
   });
+  
+  // Password update mutation
+  const updatePasswordMutation = useMutation({
+    mutationFn: (data: any) => authService.changePassword(data),
+    onSuccess: () => {
+      toast.success("Password updated successfully");
+      setShowPasswordDialog(false);
+      setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to update password");
+    }
+  });
+
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error("New passwords do not match");
+      return;
+    }
+    updatePasswordMutation.mutate({
+      currentPassword: passwordData.currentPassword,
+      newPassword: passwordData.newPassword
+    });
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -121,6 +203,7 @@ const Settings = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!hasChanges) return;
     updateProfileMutation.mutate(formData);
   };
 
@@ -150,14 +233,14 @@ const Settings = () => {
     const type = cropperData.type;
     setCropperData(null);
     setIsUploading(true);
-    setUploadProgress(0);
+    setUploadProgress((prev) => ({ ...prev, [type]: 0 }));
 
     try {
       const response = await photosService.uploadPhoto(
         croppedBlob, 
         type, 
         profile.id,
-        (progress) => setUploadProgress(progress)
+        (progress) => setUploadProgress((prev) => ({ ...prev, [type]: progress }))
       );
       
       // Update the local form data preview
@@ -182,7 +265,7 @@ const Settings = () => {
       toast.error(error.message || "Failed to upload photo");
     } finally {
       setIsUploading(false);
-      setUploadProgress(0);
+      setUploadProgress((prev) => ({ ...prev, [type]: 0 }));
     }
   };
 
@@ -281,10 +364,10 @@ const Settings = () => {
                         </div>
 
                         {/* Progress Bar Overlay */}
-                        {isUploading && cropperData?.type === "LOGO" && (
+                        {isUploading && (uploadProgress["LOGO"] > 0) && (
                           <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center p-4">
                             <Loader2 className="h-6 w-6 text-white animate-spin mb-2" />
-                            <Progress value={uploadProgress} className="h-1 w-full" />
+                            <Progress value={uploadProgress["LOGO"]} className="h-1 w-full bg-white/20" />
                           </div>
                         )}
                       </div>
@@ -349,10 +432,10 @@ const Settings = () => {
                         </div>
 
                         {/* Progress Bar Overlay */}
-                        {isUploading && (uploadProgress > 0) && (
+                        {isUploading && (uploadProgress["PROFILE"] > 0) && (
                           <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center p-4">
                             <Loader2 className="h-6 w-6 text-white animate-spin mb-2" />
-                            <Progress value={uploadProgress} className="h-1 w-full bg-white/20" />
+                            <Progress value={uploadProgress["PROFILE"]} className="h-1 w-full bg-white/20" />
                           </div>
                         )}
                       </div>
@@ -406,17 +489,21 @@ const Settings = () => {
                 </CardHeader>
                 <CardContent className="grid gap-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2 text-muted-foreground">
+                    <div className="space-y-2">
                       <Label>Full Name</Label>
-                      <p className="p-2 bg-muted/50 rounded-md text-foreground font-medium">
-                        {profile?.firstName} {profile?.lastName}
-                      </p>
+                      <Input 
+                        value={`${profile?.firstName || ""} ${profile?.lastName || ""}`} 
+                        disabled 
+                        className="bg-muted/30 border-dashed cursor-not-allowed opacity-80" 
+                      />
                     </div>
-                    <div className="space-y-2 text-muted-foreground">
+                    <div className="space-y-2">
                       <Label>National ID</Label>
-                      <p className="p-2 bg-muted/50 rounded-md text-foreground font-medium">
-                        {profile?.nationalId || "Not provided"}
-                      </p>
+                      <Input 
+                        value={profile?.nationalId || "Not provided"} 
+                        disabled 
+                        className="bg-muted/30 border-dashed cursor-not-allowed opacity-80" 
+                      />
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -430,6 +517,7 @@ const Settings = () => {
                           value={formData.email} 
                           onChange={handleInputChange}
                           className="pl-9" 
+                          placeholder="your.email@example.com"
                         />
                       </div>
                     </div>
@@ -443,6 +531,7 @@ const Settings = () => {
                           value={formData.phoneNumber} 
                           onChange={handleInputChange}
                           className="pl-9" 
+                          placeholder="+250..."
                         />
                       </div>
                     </div>
@@ -472,6 +561,38 @@ const Settings = () => {
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
+                          <Label htmlFor="companyName">Company Name</Label>
+                          <Input 
+                            id="companyName" 
+                            name="companyName"
+                            value={formData.companyName || ""} 
+                            onChange={handleInputChange}
+                            placeholder="e.g. Starhawk Insurance Group"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="licenseNumber">Insurance License Number</Label>
+                          <Input 
+                            id="licenseNumber" 
+                            name="licenseNumber"
+                            value={formData.licenseNumber || ""} 
+                            onChange={handleInputChange}
+                            placeholder="LIC-12345678"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="website">Company Website</Label>
+                          <Input 
+                            id="website" 
+                            name="website"
+                            value={formData.website || ""} 
+                            onChange={handleInputChange}
+                            placeholder="https://www.company.com"
+                          />
+                        </div>
+                        <div className="space-y-2">
                           <Label htmlFor="officialEmail">Official Business Email</Label>
                           <Input 
                             id="officialEmail" 
@@ -481,6 +602,8 @@ const Settings = () => {
                             placeholder="contact@company.com"
                           />
                         </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="officialPhone">Official Business Phone</Label>
                           <Input 
@@ -504,15 +627,15 @@ const Settings = () => {
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="province">Province</Label>
-                          <Input id="province" name="province" value={formData.province || ""} onChange={handleInputChange} />
+                          <Input id="province" name="province" value={formData.province || ""} onChange={handleInputChange} placeholder="Not provided" />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="district">District</Label>
-                          <Input id="district" name="district" value={formData.district || ""} onChange={handleInputChange} />
+                          <Input id="district" name="district" value={formData.district || ""} onChange={handleInputChange} placeholder="Not provided" />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="sector">Sector</Label>
-                          <Input id="sector" name="sector" value={formData.sector || ""} onChange={handleInputChange} />
+                          <Input id="sector" name="sector" value={formData.sector || ""} onChange={handleInputChange} placeholder="Not provided" />
                         </div>
                       </div>
 
@@ -563,15 +686,15 @@ const Settings = () => {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
                       <div className="space-y-2">
                         <Label htmlFor="province">Province</Label>
-                        <Input id="province" name="province" value={formData.province || ""} onChange={handleInputChange} />
+                        <Input id="province" name="province" value={formData.province || ""} onChange={handleInputChange} placeholder="Not provided" />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="district">District</Label>
-                        <Input id="district" name="district" value={formData.district || ""} onChange={handleInputChange} />
+                        <Input id="district" name="district" value={formData.district || ""} onChange={handleInputChange} placeholder="Not provided" />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="sector">Sector</Label>
-                        <Input id="sector" name="sector" value={formData.sector || ""} onChange={handleInputChange} />
+                        <Input id="sector" name="sector" value={formData.sector || ""} onChange={handleInputChange} placeholder="Not provided" />
                       </div>
                     </div>
                   </CardContent>
@@ -579,7 +702,11 @@ const Settings = () => {
               )}
 
               <div className="flex justify-end gap-4 mt-4">
-                <Button type="submit" disabled={updateProfileMutation.isPending} className="w-full md:w-auto">
+                <Button 
+                  type="submit" 
+                  disabled={updateProfileMutation.isPending || !hasChanges} 
+                  className="w-full md:w-auto"
+                >
                   {updateProfileMutation.isPending ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   ) : (
@@ -602,9 +729,77 @@ const Settings = () => {
               <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/10">
                 <div className="space-y-1">
                   <p className="font-medium">Password</p>
-                  <p className="text-sm text-muted-foreground">Last updated 3 months ago</p>
+                  <p className="text-sm text-muted-foreground">Manage your account security credentials.</p>
                 </div>
-                <Button variant="outline">Update Password</Button>
+                <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline">Update Password</Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle>Update Password</DialogTitle>
+                      <DialogDescription>
+                        Enter your current password and a new secure password.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handlePasswordSubmit}>
+                      <div className="grid gap-4 py-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="currentPassword">Current Password</Label>
+                          <div className="relative">
+                            <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              id="currentPassword"
+                              type="password"
+                              className="pl-9"
+                              value={passwordData.currentPassword}
+                              onChange={(e) => setPasswordData({...passwordData, currentPassword: e.target.value})}
+                              required
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="newPassword">New Password</Label>
+                          <div className="relative">
+                            <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              id="newPassword"
+                              type="password"
+                              className="pl-9"
+                              value={passwordData.newPassword}
+                              onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
+                              required
+                              minLength={8}
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                          <div className="relative">
+                            <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              id="confirmPassword"
+                              type="password"
+                              className="pl-9"
+                              value={passwordData.confirmPassword}
+                              onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
+                              required
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button type="button" variant="ghost" onClick={() => setShowPasswordDialog(false)}>
+                          Cancel
+                        </Button>
+                        <Button type="submit" disabled={updatePasswordMutation.isPending}>
+                          {updatePasswordMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          Update Password
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </DialogContent>
+                </Dialog>
               </div>
 
               <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/10">
@@ -618,12 +813,75 @@ const Settings = () => {
               <Separator />
 
               <div className="p-4 border border-destructive/20 rounded-lg bg-destructive/5">
-                <h4 className="font-semibold text-destructive mb-1">Deactivate Account</h4>
+                <h4 className="font-semibold text-destructive mb-1 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  Deactivate Account
+                </h4>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Temporary disable your account. This action can be undone by contacting support.
+                  Request account deactivation. This will immediately lock your account and notify system administrators for permanent deletion.
                 </p>
-                <Button variant="destructive" size="sm">Deactivate Account</Button>
+                
+                {profile?.status === "DEACTIVATION_REQUESTED" ? (
+                  <Badge variant="destructive" className="h-9 px-4 py-2 text-sm animate-pulse flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Deactivation Pending Approval
+                  </Badge>
+                ) : (
+                  <Button 
+                    variant="destructive" 
+                    size="sm"
+                    onClick={() => setConfirmDeactivate(true)}
+                    disabled={requestDeactivation.isPending}
+                  >
+                    {requestDeactivation.isPending ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <UserX className="mr-2 h-4 w-4" />
+                    )}
+                    Deactivate My Account
+                  </Button>
+                )}
               </div>
+
+              <AlertDialog open={confirmDeactivate} onOpenChange={setConfirmDeactivate}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="text-destructive flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5" />
+                      Are you absolutely sure?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription className="space-y-3">
+                      <p>
+                        This action will submit your account for <strong className="font-bold text-foreground">permanent deletion</strong>. 
+                        System administrators will review and authorize the final erasure of all your data.
+                      </p>
+                      <p className="font-semibold bg-muted p-3 rounded-md text-foreground">
+                        Once submitted, you will be unable to log back in unless an administrator restores your access.
+                      </p>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Keep my account</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      onClick={() => {
+                        requestDeactivation.mutate(undefined, {
+                          onSuccess: () => {
+                            setConfirmDeactivate(false);
+                            toast.success("Request submitted. Logging you out...");
+                            setTimeout(() => {
+                              authService.logout();
+                              window.location.href = "/login";
+                            }, 2000);
+                          }
+                        });
+                      }}
+                    >
+                      Yes, request deactivation
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </CardContent>
           </Card>
         </TabsContent>
