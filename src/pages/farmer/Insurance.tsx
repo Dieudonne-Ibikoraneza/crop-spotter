@@ -162,12 +162,20 @@ const FarmerInsurance = () => {
             Policies and requests. New policies stay pending until you accept them in the portal.
           </p>
         </div>
-        <Button asChild variant="outline" className="gap-2">
-          <Link to="/farmer/claims">
-            <FileText className="h-4 w-4" />
-            Pending Claims ({clmLoading ? "…" : pendingClaims.length})
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button asChild variant="outline" className="gap-2">
+            <Link to="/farmer/insurers">
+              <ShieldCheck className="h-4 w-4" />
+              Browse Insurers
+            </Link>
+          </Button>
+          <Button asChild variant="outline" className="gap-2">
+            <Link to="/farmer/claims">
+              <FileText className="h-4 w-4" />
+              Pending Claims ({clmLoading ? "…" : pendingClaims.length})
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {policyGroups.pending.length > 0 && (

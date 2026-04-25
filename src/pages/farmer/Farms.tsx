@@ -4,10 +4,8 @@ import { Leaf, MapPin, Plus, Sprout } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useFarmerFarms } from "@/lib/api/hooks/useFarmer";
-import { RegisterFarmDialog } from "@/components/farmer/register-farm-dialog";
 
 const FarmerFarms = () => {
-  const [registerOpen, setRegisterOpen] = useState(false);
   const { data, isLoading, error } = useFarmerFarms();
   const farms = data?.items ?? [];
 
@@ -35,23 +33,25 @@ const FarmerFarms = () => {
           <p className="text-muted-foreground mt-1">Land parcels linked to your account.</p>
         </div>
         <Button
-          type="button"
+          asChild
           className="shadow-lg shadow-primary/15 w-fit"
-          onClick={() => setRegisterOpen(true)}
         >
-          <Plus className="h-4 w-4 mr-2" />
-          Register new farm
+          <Link to="/farmer/register-farm">
+            <Plus className="h-4 w-4 mr-2" />
+            Register new farm
+          </Link>
         </Button>
       </div>
-      <RegisterFarmDialog open={registerOpen} onOpenChange={setRegisterOpen} />
 
       {farms.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border/80 bg-muted/20 p-16 text-center">
           <Leaf className="h-14 w-14 mx-auto text-muted-foreground/30 mb-4" />
           <p className="text-muted-foreground mb-6">You have not registered any farms yet.</p>
-          <Button type="button" onClick={() => setRegisterOpen(true)}>
-            <Sprout className="h-4 w-4 mr-2" />
-            Register your first farm
+          <Button asChild>
+            <Link to="/farmer/register-farm">
+              <Sprout className="h-4 w-4 mr-2" />
+              Register your first farm
+            </Link>
           </Button>
         </div>
       ) : (
